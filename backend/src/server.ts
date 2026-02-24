@@ -2,10 +2,12 @@ import app from './app';
 import { connectDB } from './config/database';
 import { env } from './config/env';
 
+const PORT = process.env.PORT || 8080;
+
 const start = async (): Promise<void> => {
   await connectDB();
-  app.listen(env.PORT, () => {
-    console.log(`Server running on port ${env.PORT} (${env.NODE_ENV})`);
+  app.listen(PORT, () => {
+    console.log(`Server running on port ${PORT}`);
   });
 };
 
