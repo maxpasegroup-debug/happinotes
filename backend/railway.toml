@@ -1,0 +1,8 @@
+# Railway config: build compiles TypeScript, start runs the compiled app.
+# Ensures dist/ is regenerated on every deploy (no stale dist).
+
+[build]
+buildCommand = "npm run build"
+
+[deploy]
+startCommand = "npm start"
