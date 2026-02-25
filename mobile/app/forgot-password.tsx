@@ -25,8 +25,6 @@ export default function ForgotPassword() {
     const randomOtp = Math.floor(100000 + Math.random() * 900000).toString();
     setGeneratedOtp(randomOtp);
 
-    console.log("Generated OTP:", randomOtp); // TEMP for testing
-
     Alert.alert("OTP Sent", "Check console for OTP (Testing Mode)");
 
     setStep("otp");

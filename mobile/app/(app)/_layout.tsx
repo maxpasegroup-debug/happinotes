@@ -1,17 +1,35 @@
 import { Ionicons } from "@expo/vector-icons";
 import { Tabs } from "expo-router";
 import { useEffect, useState } from "react";
-import { getUserRole } from "../../store";
+import { getMe } from "../../services/api";
+import type { ApiUser } from "../../services/api";
+import { getToken } from "../../services/authStorage";
 
 export default function AppLayout() {
-  const [role, setRole] = useState<"user" | "admin">("user");
+  const [user, setUser] = useState<ApiUser | null>(null);
 
   useEffect(() => {
-    const loadRole = async () => {
-      const userRole = await getUserRole();
-      setRole(userRole);
+    let cancelled = false;
+
+    async function loadUser() {
+      const token = await getToken();
+      if (!token) return;
+      try {
+        const response = await getMe(token);
+        if (!cancelled) {
+          setUser(response.user);
+        }
+      } catch {
+        if (!cancelled) {
+          setUser(null);
+        }
+      }
+    }
+
+    loadUser();
+    return () => {
+      cancelled = true;
     };
-    loadRole();
   }, []);
 
   return (
@@ -55,7 +73,7 @@ export default function AppLayout() {
         name="admin"
         options={{
           title: "Admin",
-          href: role === "admin" ? undefined : null,
+          href: user?.role === "admin" ? undefined : null,
           tabBarIcon: ({ color, size }) => (
             <Ionicons
               name="shield-checkmark-outline"

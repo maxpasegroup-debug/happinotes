@@ -1,5 +1,5 @@
-import { useFocusEffect, useRouter } from "expo-router";
-import React, { useCallback, useState } from "react";
+import { useRouter } from "expo-router";
+import React, { useState } from "react";
 import {
   Alert,
   ScrollView,
@@ -8,31 +8,13 @@ import {
   TouchableOpacity,
   View,
 } from "react-native";
-import {
-  getCurrentUser,
-  getSubscription,
-  logoutUser,
-} from "../../store";
+import { deleteToken } from "../../services/authStorage";
 
 export default function Profile() {
   const router = useRouter();
   const [subscription, setSubscription] =
     useState<"free" | "premium">("free");
   const [email, setEmail] = useState("");
-
-  useFocusEffect(
-    useCallback(() => {
-      const loadData = async () => {
-        const sub = await getSubscription();
-        const user = await getCurrentUser();
-
-        setSubscription(sub);
-        setEmail(user?.email || "");
-      };
-
-      loadData();
-    }, [])
-  );
 
   const handleLogout = async () => {
     Alert.alert("Logout", "Are you sure you want to logout?", [
@@ -41,7 +23,7 @@ export default function Profile() {
         text: "Logout",
         style: "destructive",
         onPress: async () => {
-          await logoutUser();
+          await deleteToken();
           router.replace("/");
         },
       },

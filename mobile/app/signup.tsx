@@ -1,13 +1,15 @@
 import { useRouter } from "expo-router";
 import React, { useState } from "react";
 import {
-    Alert,
-    StyleSheet,
-    Text,
-    TextInput,
-    TouchableOpacity,
-    View,
+  Alert,
+  StyleSheet,
+  Text,
+  TextInput,
+  TouchableOpacity,
+  View,
 } from "react-native";
+import { signup } from "../services/api";
+import { saveToken } from "../services/authStorage";
 
 export default function Signup() {
   const router = useRouter();
@@ -17,20 +19,34 @@ export default function Signup() {
   const [password, setPassword] = useState("");
   const [confirmPassword, setConfirmPassword] = useState("");
 
-  const handleSignup = () => {
-    if (!name || !email || !password || !confirmPassword) {
+  const handleSignup = async () => {
+    const trimmedName = name.trim();
+    const trimmedEmail = email.trim();
+    const trimmedPassword = password.trim();
+
+    if (!trimmedName || !trimmedEmail || !trimmedPassword || !confirmPassword.trim()) {
       Alert.alert("Error", "Please fill all fields");
       return;
     }
 
-    if (password !== confirmPassword) {
+    if (trimmedPassword.length < 6) {
+      Alert.alert("Error", "Password must be at least 6 characters");
+      return;
+    }
+
+    if (trimmedPassword !== confirmPassword.trim()) {
       Alert.alert("Error", "Passwords do not match");
       return;
     }
 
-    Alert.alert("Success", "Account created successfully");
-
-    router.replace("/library");
+    try {
+      const response = await signup(trimmedName, trimmedEmail, trimmedPassword);
+      await saveToken(response.token);
+      router.replace("/(app)/library");
+    } catch (err) {
+      const message = err instanceof Error ? err.message : "Signup failed";
+      Alert.alert("Signup Failed", message);
+    }
   };
 
   return (

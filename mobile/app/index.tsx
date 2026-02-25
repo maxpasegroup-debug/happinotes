@@ -1,6 +1,7 @@
 import { useRouter } from "expo-router";
 import React, { useState } from "react";
 import {
+  Alert,
   Image,
   KeyboardAvoidingView,
   Platform,
@@ -10,7 +11,8 @@ import {
   TouchableOpacity,
   View,
 } from "react-native";
-import { setCurrentUser } from "../store";
+import { login } from "../services/api";
+import { saveToken } from "../services/authStorage";
 
 export default function Login() {
   const router = useRouter();
@@ -20,13 +22,22 @@ export default function Login() {
   const [showPassword, setShowPassword] = useState(false);
 
   const handleLogin = async () => {
-    if (!email) return;
+    const trimmedEmail = email.trim();
+    const trimmedPassword = password.trim();
 
-    // Save user + role
-    await setCurrentUser(email.toLowerCase());
+    if (!trimmedEmail || !trimmedPassword) {
+      Alert.alert("Error", "Please enter email and password");
+      return;
+    }
 
-    // ALWAYS go to main app tabs
-    router.replace("/(app)/library");
+    try {
+      const response = await login(trimmedEmail, trimmedPassword);
+      await saveToken(response.token);
+      router.replace("/(app)/library");
+    } catch (err) {
+      const message = err instanceof Error ? err.message : "Login failed";
+      Alert.alert("Login Failed", message);
+    }
   };
 
   return (

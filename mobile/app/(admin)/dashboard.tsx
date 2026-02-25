@@ -21,13 +21,6 @@ export default function AdminDashboard() {
       >
         <Text style={styles.cardText}>Manage Books</Text>
       </TouchableOpacity>
-
-      <TouchableOpacity
-        style={styles.card}
-        onPress={() => router.push("/(admin)/settings")}
-      >
-        <Text style={styles.cardText}>Admin Settings</Text>
-      </TouchableOpacity>
     </View>
   );
 }
