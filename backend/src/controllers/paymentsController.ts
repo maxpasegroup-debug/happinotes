@@ -1,3 +1,4 @@
+/// <reference path="../types/googleapis.d.ts" />
 import { Request, Response, NextFunction } from 'express';
 import { google } from 'googleapis';
 import { BadRequestError } from '../utils/errors';
@@ -17,28 +18,33 @@ export const verifyGoogleSubscription = async (
 ): Promise<void> => {
   try {
     if (!req.user) {
-      return next(new BadRequestError('Authentication required'));
+      next(new BadRequestError('Authentication required'));
+      return;
     }
 
     const { purchaseToken, productId } = req.body as { purchaseToken?: string; productId?: string };
     if (!purchaseToken || typeof purchaseToken !== 'string' || !productId || typeof productId !== 'string') {
-      return next(new BadRequestError('purchaseToken and productId are required'));
+      next(new BadRequestError('purchaseToken and productId are required'));
+      return;
     }
 
     const rawCredentials = process.env.GOOGLE_PLAY_SERVICE_ACCOUNT;
     if (!rawCredentials || typeof rawCredentials !== 'string') {
-      return next(new BadRequestError('Google Play service account not configured'));
+      next(new BadRequestError('Google Play service account not configured'));
+      return;
     }
 
     let credentials: { client_email: string; private_key: string };
     try {
       credentials = JSON.parse(rawCredentials) as { client_email: string; private_key: string };
     } catch {
-      return next(new BadRequestError('Invalid GOOGLE_PLAY_SERVICE_ACCOUNT JSON'));
+      next(new BadRequestError('Invalid GOOGLE_PLAY_SERVICE_ACCOUNT JSON'));
+      return;
     }
 
     if (!credentials.client_email || !credentials.private_key) {
-      return next(new BadRequestError('GOOGLE_PLAY_SERVICE_ACCOUNT must include client_email and private_key'));
+      next(new BadRequestError('GOOGLE_PLAY_SERVICE_ACCOUNT must include client_email and private_key'));
+      return;
     }
 
     const auth = new google.auth.JWT({
@@ -58,14 +64,16 @@ export const verifyGoogleSubscription = async (
       });
       subscription = response.data as SubscriptionPurchaseV3;
     } catch (err) {
-      return next(new BadRequestError('Invalid or expired purchase'));
+      next(new BadRequestError('Invalid or expired purchase'));
+      return;
     }
 
     const paymentState = subscription.paymentState;
     const expiryTimeMillis = subscription.expiryTimeMillis;
 
     if (paymentState === undefined || expiryTimeMillis === undefined) {
-      return next(new BadRequestError('Invalid subscription data'));
+      next(new BadRequestError('Invalid subscription data'));
+      return;
     }
 
     const isPaid = paymentState === 1 || paymentState === 2;
@@ -73,14 +81,15 @@ export const verifyGoogleSubscription = async (
     const isNotExpired = !Number.isNaN(expiryMs) && expiryMs > Date.now();
 
     if (!isPaid || !isNotExpired) {
-      return next(new BadRequestError('Subscription is not active or has expired'));
+      next(new BadRequestError('Subscription is not active or has expired'));
+      return;
     }
 
     req.user.subscriptionActive = true;
     req.user.subscriptionExpiry = new Date(expiryMs);
     await req.user.save();
 
-    res.json({
+    void res.json({
       success: true,
       user: {
         id: req.user._id,
@@ -91,7 +100,9 @@ export const verifyGoogleSubscription = async (
         subscriptionExpiry: req.user.subscriptionExpiry,
       },
     });
+    return;
   } catch (err) {
     next(err);
+    return;
   }
 };
