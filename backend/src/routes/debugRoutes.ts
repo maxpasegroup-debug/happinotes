@@ -22,16 +22,20 @@ router.get('/users', async (_req: Request, res: Response): Promise<void> => {
  * Temporary: returns whether admin user (ADMIN_EMAIL) exists. Does NOT return password.
  */
 router.get('/admin-status', async (_req: Request, res: Response): Promise<void> => {
+  console.log('ADMIN STATUS ROUTE HIT');
   if (!ADMIN_EMAIL) {
     res.json({ exists: false, email: null, role: null, message: 'ADMIN_EMAIL not set' });
     return;
   }
+  console.log('Before DB query');
   const admin = await User.findOne({ email: ADMIN_EMAIL }).select('email role').lean();
+  console.log('After DB query');
   if (!admin) {
     res.json({ exists: false, email: ADMIN_EMAIL, role: null });
     return;
   }
   res.json({ exists: true, email: admin.email, role: admin.role });
+  return;
 });
 
 /**
