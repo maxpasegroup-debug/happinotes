@@ -1,135 +1,129 @@
-import React, { useState } from "react";
+import { useRouter } from "expo-router";
+import React, { useMemo, useState } from "react";
 import {
-    Alert,
-    StyleSheet,
-    Text,
-    TextInput,
-    TouchableOpacity,
-    View,
+  Alert,
+  KeyboardAvoidingView,
+  Platform,
+  StyleSheet,
+  Text,
+  TextInput,
+  TouchableOpacity,
+  View,
 } from "react-native";
+import { LinearGradient } from "expo-linear-gradient";
+import { typography, spacing, radius } from "../constants/theme";
+import { useTheme } from "../context/ThemeContext";
+import { forgotPassword } from "../services/api";
 
 export default function ForgotPassword() {
-  const [step, setStep] = useState<"email" | "otp" | "reset">("email");
+  const router = useRouter();
+  const { colors } = useTheme();
   const [email, setEmail] = useState("");
-  const [otp, setOtp] = useState("");
-  const [generatedOtp, setGeneratedOtp] = useState("");
-  const [newPassword, setNewPassword] = useState("");
+  const [loading, setLoading] = useState(false);
 
-  // Placeholder function – later connect real email API
-  const sendOtp = async () => {
-    if (!email) {
+  const handleSendCode = async () => {
+    const trimmed = email.trim().toLowerCase();
+    if (!trimmed) {
       Alert.alert("Error", "Enter your email");
       return;
     }
-
-    const randomOtp = Math.floor(100000 + Math.random() * 900000).toString();
-    setGeneratedOtp(randomOtp);
-
-    Alert.alert("OTP Sent", "Check console for OTP (Testing Mode)");
-
-    setStep("otp");
-  };
-
-  const verifyOtp = () => {
-    if (otp === generatedOtp) {
-      setStep("reset");
-    } else {
-      Alert.alert("Error", "Invalid OTP");
+    setLoading(true);
+    try {
+      await forgotPassword(trimmed);
+      router.push({
+        pathname: "/verify-otp",
+        params: { email: trimmed },
+      });
+    } catch (err) {
+      const message = err instanceof Error ? err.message : "Something went wrong. Please try again.";
+      Alert.alert("Error", message);
+    } finally {
+      setLoading(false);
     }
   };
 
-  const resetPassword = () => {
-    if (!newPassword) {
-      Alert.alert("Error", "Enter new password");
-      return;
-    }
-
-    Alert.alert("Success", "Password reset successfully");
-    setStep("email");
-  };
+  const styles = useMemo(
+    () =>
+      StyleSheet.create({
+        container: {
+          flex: 1,
+          backgroundColor: colors.background,
+          justifyContent: "center",
+          padding: spacing.lg,
+        },
+        header: {
+          ...typography.h1,
+          color: colors.textPrimary,
+          textAlign: "center",
+          marginBottom: spacing.sm,
+        },
+        subtitle: {
+          ...typography.body,
+          color: colors.textSecondary,
+          textAlign: "center",
+          marginBottom: spacing.xl,
+        },
+        input: {
+          backgroundColor: colors.surface,
+          borderWidth: 1,
+          borderColor: colors.border,
+          padding: spacing.md,
+          borderRadius: radius.md,
+          marginBottom: spacing.lg,
+          color: colors.textPrimary,
+          fontSize: typography.body.fontSize,
+        },
+        button: {
+          padding: spacing.lg,
+          borderRadius: radius.lg,
+          alignItems: "center",
+        },
+        buttonText: {
+          color: "#FFFFFF",
+          fontWeight: "700",
+          fontSize: typography.body.fontSize,
+        },
+      }),
+    [colors]
+  );
 
   return (
-    <View style={styles.container}>
+    <KeyboardAvoidingView
+      style={styles.container}
+      behavior={Platform.OS === "ios" ? "padding" : "height"}
+    >
       <Text style={styles.header}>Forgot Password</Text>
+      <Text style={styles.subtitle}>
+        Enter your email and we'll send you a 6-digit code to reset your password.
+      </Text>
 
-      {step === "email" && (
-        <>
-          <TextInput
-            placeholder="Enter your email"
-            style={styles.input}
-            value={email}
-            onChangeText={setEmail}
-          />
+      <TextInput
+        placeholder="Email"
+        placeholderTextColor={colors.textSecondary}
+        style={styles.input}
+        value={email}
+        onChangeText={setEmail}
+        autoCapitalize="none"
+        autoCorrect={false}
+        keyboardType="email-address"
+        editable={!loading}
+      />
 
-          <TouchableOpacity style={styles.button} onPress={sendOtp}>
-            <Text style={styles.buttonText}>Send OTP</Text>
-          </TouchableOpacity>
-        </>
-      )}
-
-      {step === "otp" && (
-        <>
-          <TextInput
-            placeholder="Enter OTP"
-            style={styles.input}
-            value={otp}
-            onChangeText={setOtp}
-            keyboardType="numeric"
-          />
-
-          <TouchableOpacity style={styles.button} onPress={verifyOtp}>
-            <Text style={styles.buttonText}>Verify OTP</Text>
-          </TouchableOpacity>
-        </>
-      )}
-
-      {step === "reset" && (
-        <>
-          <TextInput
-            placeholder="Enter new password"
-            secureTextEntry
-            style={styles.input}
-            value={newPassword}
-            onChangeText={setNewPassword}
-          />
-
-          <TouchableOpacity style={styles.button} onPress={resetPassword}>
-            <Text style={styles.buttonText}>Reset Password</Text>
-          </TouchableOpacity>
-        </>
-      )}
-    </View>
+      <TouchableOpacity
+        onPress={handleSendCode}
+        disabled={loading}
+        activeOpacity={0.9}
+        style={{ opacity: loading ? 0.7 : 1 }}
+      >
+        <LinearGradient
+          colors={colors.primaryGradient}
+          style={styles.button}
+        >
+          <Text style={styles.buttonText}>
+            {loading ? "Sending…" : "Send code"}
+          </Text>
+        </LinearGradient>
+      </TouchableOpacity>
+    </KeyboardAvoidingView>
   );
 }
-
-const styles = StyleSheet.create({
-  container: {
-    flex: 1,
-    backgroundColor: "#FFFFFF",
-    justifyContent: "center",
-    padding: 24,
-  },
-  header: {
-    fontSize: 26,
-    fontWeight: "700",
-    marginBottom: 30,
-    textAlign: "center",
-  },
-  input: {
-    backgroundColor: "#F2F2F2",
-    padding: 16,
-    borderRadius: 14,
-    marginBottom: 16,
-  },
-  button: {
-    backgroundColor: "#FF6B4A",
-    padding: 18,
-    borderRadius: 16,
-    alignItems: "center",
-  },
-  buttonText: {
-    color: "#FFFFFF",
-    fontWeight: "700",
-    fontSize: 16,
-  },
-});

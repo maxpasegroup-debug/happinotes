@@ -136,6 +136,7 @@ export const forgotPassword = async (
     }
 
     const email = (req.body.email ?? '').toString().trim().toLowerCase();
+    console.log('[forgotPassword] Forgot password request for:', email);
     const user = await User.findOne({ email });
 
     if (!user) {
@@ -146,6 +147,7 @@ export const forgotPassword = async (
     }
 
     const otp = Math.floor(100000 + Math.random() * 900000).toString();
+    console.log('[forgotPassword] Generated OTP:', otp);
     const otpHash = await bcrypt.hash(otp, 10);
     const expiresAt = new Date(Date.now() + OTP_EXPIRY_MINUTES * 60 * 1000);
 

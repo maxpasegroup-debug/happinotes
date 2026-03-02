@@ -40,6 +40,7 @@ function buildOTPHtml(otp: string): string {
 }
 
 export async function sendOTPEmail(to: string, otp: string): Promise<void> {
+  console.log("[Email] Sending OTP email to:", to);
   try {
     const client = getClient();
     const response = await client.transactionalEmails.sendTransacEmail({
@@ -49,8 +50,9 @@ export async function sendOTPEmail(to: string, otp: string): Promise<void> {
       htmlContent: buildOTPHtml(otp),
     });
     const body = (response as { body?: { messageId?: string } })?.body;
-    console.log("[Email] OTP sent successfully to", to, body?.messageId ?? response);
+    console.log("[Email] Email sent successfully to", to, body?.messageId ?? response);
   } catch (err) {
+    console.error("[Email] Email sending failed:", err);
     const message = err instanceof Error ? err.message : String(err);
     const body = (err as { body?: unknown })?.body;
     console.error("[Email] Failed to send OTP to", to, body ?? message);

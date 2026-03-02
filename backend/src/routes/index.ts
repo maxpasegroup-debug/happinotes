@@ -5,9 +5,11 @@ import collectionRoutes from './collectionRoutes';
 import subscriptionRoutes from './subscriptionRoutes';
 import adminRoutes from './adminRoutes';
 import paymentsRoutes from './paymentsRoutes';
+import debugRoutes from './debugRoutes';
 
 const router = Router();
 
+router.use('/debug', debugRoutes);
 router.use('/auth', authRoutes);
 router.use('/books', booksRoutes);
 router.use('/collection', collectionRoutes);

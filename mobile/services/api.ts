@@ -1,5 +1,7 @@
 // Railway production backend; routes are mounted at root (no /api prefix)
+// Must be HTTPS. Do not use localhost or process.env without fallback.
 const BASE_URL = 'https://happinotes-production.up.railway.app';
+const REQUEST_TIMEOUT_MS = 10000;
 
 // ---------------------------------------------------------------------------
 // Types (align with backend responses)
@@ -76,10 +78,16 @@ async function request<T>(
     (headers as Record<string, string>)['Authorization'] = `Bearer ${token}`;
   }
 
+  const controller = new AbortController();
+  const timeoutId = setTimeout(() => controller.abort(), REQUEST_TIMEOUT_MS);
+
   const res = await fetch(`${BASE_URL}${path}`, {
     ...init,
     headers,
+    signal: controller.signal,
   });
+
+  clearTimeout(timeoutId);
 
   const data = await res.json().catch(() => ({}));
   const message = typeof data?.message === 'string' ? data.message : res.statusText;

@@ -7,11 +7,15 @@ import {
   Text,
   View,
 } from "react-native";
+import { LinearGradient } from "expo-linear-gradient";
+import { RADIANT_GRADIENT_DARK, RADIANT_GRADIENT_LIGHT } from "@/theme/gradients";
+import { useAppTheme } from "@/theme/theme";
 import { getBooks } from "../../services/api";
 import { getToken } from "../../services/authStorage";
 import type { ApiBook } from "../../services/api";
 
 export default function Library() {
+  const { isDark } = useAppTheme();
   const [books, setBooks] = useState<ApiBook[]>([]);
   const [loading, setLoading] = useState(true);
 
@@ -51,23 +55,62 @@ export default function Library() {
     );
   }
 
+  const heroGradientStyle = {
+    padding: 28,
+    borderRadius: 28,
+    overflow: "hidden" as const,
+    ...(isDark
+      ? {}
+      : {
+          shadowColor: "#F59E0B",
+          shadowOpacity: 0.25,
+          shadowRadius: 20,
+          shadowOffset: { width: 0, height: 8 },
+        }),
+  };
+
   return (
     <View style={styles.container}>
-      <Text style={styles.header}>Audio Library</Text>
       <FlatList
         data={books}
         keyExtractor={(item) => item._id}
-        renderItem={({ item }) => (
-          <View style={styles.card}>
-            <Text style={styles.title}>{item.title}</Text>
-            <Text style={styles.subtitle}>
-              {item.description || "No description"}
-            </Text>
-            <Text style={styles.badge}>
-              {item.audioUrl ? "Premium Available" : "Subscribe to Unlock"}
-            </Text>
+        ListHeaderComponent={
+          <View>
+            <View style={{ marginBottom: 24 }}>
+              <LinearGradient
+                colors={
+                  isDark ? [...RADIANT_GRADIENT_DARK] : [...RADIANT_GRADIENT_LIGHT]
+                }
+                start={{ x: 0, y: 0 }}
+                end={{ x: 1, y: 1 }}
+                style={heroGradientStyle}
+              >
+                <Text style={styles.welcomeTitle}>Welcome back</Text>
+                <Text style={styles.welcomeSubtitle}>
+                  Let's continue your journey.
+                </Text>
+              </LinearGradient>
+            </View>
+            <Text style={styles.header}>Audio Library</Text>
           </View>
-        )}
+        }
+        renderItem={({ item }) => {
+          const badgeText =
+            item.type === "free"
+              ? "Free"
+              : (item as ApiBook & { fullAudioUrl?: string }).fullAudioUrl
+                ? "Premium"
+                : "Subscribe to Unlock";
+          return (
+            <View style={styles.card}>
+              <Text style={styles.title}>{item.title}</Text>
+              <Text style={styles.subtitle}>
+                {item.description || "No description"}
+              </Text>
+              <Text style={styles.badge}>{badgeText}</Text>
+            </View>
+          );
+        }}
         contentContainerStyle={styles.listContent}
       />
     </View>
@@ -90,6 +133,16 @@ const styles = StyleSheet.create({
     fontSize: 26,
     fontWeight: "700",
     marginBottom: 20,
+  },
+  welcomeTitle: {
+    fontSize: 28,
+    fontWeight: "700",
+    color: "white",
+  },
+  welcomeSubtitle: {
+    marginTop: 8,
+    fontSize: 16,
+    color: "rgba(255,255,255,0.85)",
   },
   listContent: {
     paddingBottom: 20,

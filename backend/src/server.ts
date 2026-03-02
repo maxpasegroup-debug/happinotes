@@ -10,6 +10,14 @@ if (!process.env.PORT && process.env.NODE_ENV === 'production') {
 const PORT = Number(process.env.PORT);
 
 const start = async (): Promise<void> => {
+  console.log('ADMIN_EMAIL:', process.env.ADMIN_EMAIL ? 'SET' : 'MISSING');
+  console.log('BREVO_API_KEY:', process.env.BREVO_API_KEY ? 'SET' : 'MISSING');
+  console.log('EMAIL_USER:', process.env.EMAIL_USER ? 'SET' : 'MISSING');
+  console.log('EMAIL_PASS:', process.env.EMAIL_PASS ? 'SET' : 'MISSING');
+  if (!process.env.BREVO_API_KEY?.trim()) {
+    console.error('BREVO_API_KEY is MISSING - forgot-password OTP emails will fail');
+  }
+
   await connectDB();
   await ensureAdminUser();
   app.listen(PORT, () => {
