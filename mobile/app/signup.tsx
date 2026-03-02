@@ -1,3 +1,4 @@
+import { Ionicons } from "@expo/vector-icons";
 import { useRouter } from "expo-router";
 import React, { useState } from "react";
 import {
@@ -18,6 +19,8 @@ export default function Signup() {
   const [email, setEmail] = useState("");
   const [password, setPassword] = useState("");
   const [confirmPassword, setConfirmPassword] = useState("");
+  const [showPassword, setShowPassword] = useState(false);
+  const [showConfirmPassword, setShowConfirmPassword] = useState(false);
 
   const handleSignup = async () => {
     const trimmedName = name.trim();
@@ -67,21 +70,47 @@ export default function Signup() {
         onChangeText={setEmail}
       />
 
-      <TextInput
-        placeholder="Password"
-        secureTextEntry
-        style={styles.input}
-        value={password}
-        onChangeText={setPassword}
-      />
+      <View style={styles.passwordWrapper}>
+        <TextInput
+          placeholder="Password"
+          secureTextEntry={!showPassword}
+          style={styles.inputWithIcon}
+          value={password}
+          onChangeText={setPassword}
+        />
+        <TouchableOpacity
+          style={styles.eyeIcon}
+          onPress={() => setShowPassword((prev) => !prev)}
+          hitSlop={{ top: 12, bottom: 12, left: 12, right: 12 }}
+        >
+          <Ionicons
+            name={showPassword ? "eye-off-outline" : "eye-outline"}
+            size={22}
+            color="#666"
+          />
+        </TouchableOpacity>
+      </View>
 
-      <TextInput
-        placeholder="Confirm Password"
-        secureTextEntry
-        style={styles.input}
-        value={confirmPassword}
-        onChangeText={setConfirmPassword}
-      />
+      <View style={styles.passwordWrapper}>
+        <TextInput
+          placeholder="Confirm Password"
+          secureTextEntry={!showConfirmPassword}
+          style={styles.inputWithIcon}
+          value={confirmPassword}
+          onChangeText={setConfirmPassword}
+        />
+        <TouchableOpacity
+          style={styles.eyeIcon}
+          onPress={() => setShowConfirmPassword((prev) => !prev)}
+          hitSlop={{ top: 12, bottom: 12, left: 12, right: 12 }}
+        >
+          <Ionicons
+            name={showConfirmPassword ? "eye-off-outline" : "eye-outline"}
+            size={22}
+            color="#666"
+          />
+        </TouchableOpacity>
+      </View>
 
       <TouchableOpacity
         style={styles.button}
@@ -117,6 +146,23 @@ const styles = StyleSheet.create({
     padding: 16,
     borderRadius: 14,
     marginBottom: 16,
+  },
+  passwordWrapper: {
+    marginBottom: 16,
+    position: "relative",
+  },
+  inputWithIcon: {
+    backgroundColor: "#F2F2F2",
+    padding: 16,
+    paddingRight: 48,
+    borderRadius: 14,
+  },
+  eyeIcon: {
+    position: "absolute",
+    right: 14,
+    top: 0,
+    bottom: 0,
+    justifyContent: "center",
   },
   button: {
     backgroundColor: "#FF6B4A",
