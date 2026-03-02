@@ -1,5 +1,4 @@
 import bcrypt from 'bcryptjs';
-import { MongoServerError } from 'mongodb';
 import { User } from '../models';
 
 const ADMIN_DEFAULT_PASSWORD = '@Identity#2055';
@@ -39,8 +38,13 @@ export async function ensureAdminUser(): Promise<void> {
       role: 'admin',
     });
     console.log('[ensureAdmin] Admin user created');
-  } catch (err) {
-    if (err instanceof MongoServerError && err.code === 11000) {
+  } catch (err: unknown) {
+    const isDuplicateKey =
+      err !== null &&
+      typeof err === 'object' &&
+      'code' in err &&
+      (err as { code: number }).code === 11000;
+    if (isDuplicateKey) {
       console.log('[ensureAdmin] Duplicate key error (admin already exists)');
       return;
     }
