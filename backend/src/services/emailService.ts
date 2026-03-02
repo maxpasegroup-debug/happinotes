@@ -1,7 +1,7 @@
 import { BrevoClient } from "@getbrevo/brevo";
 
 const FROM_NAME = "Happinotes";
-const FROM_EMAIL = "no-reply@happinotes.app";
+const FROM_EMAIL = process.env.SENDER_EMAIL?.trim() || "hello@happinotes.in";
 const OTP_EXPIRY_MINUTES = 10;
 
 function getClient(): BrevoClient {
