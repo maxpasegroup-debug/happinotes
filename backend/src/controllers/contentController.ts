@@ -92,9 +92,14 @@ export const getContents = async (
   next: NextFunction
 ): Promise<void> => {
   try {
-    const contents = await Content.find({
+    const type = req.query.type as string | undefined;
+    const filter: Record<string, unknown> = {
       status: { $in: ['live', 'coming_soon'] },
-    })
+    };
+    if (type === 'lifebook' || type === 'note' || type === 'silence') {
+      filter.contentType = type;
+    }
+    const contents = await Content.find(filter)
       .sort({ createdAt: -1 })
       .lean();
     const canAccess = canAccessPremiumContent(req);

@@ -74,26 +74,40 @@ export default function AppLayout() {
         tabBarActiveTintColor: "#FF6B4A",
       }}
     >
+      {/* 1. Lifebooks */}
       <Tabs.Screen
         name="library"
         options={{
           title: "Lifebooks",
           tabBarIcon: ({ color, size }) => (
-            <Ionicons name="home-outline" size={size} color={color} />
+            <Ionicons name="book-outline" size={size} color={color} />
           ),
         }}
       />
 
+      {/* 2. Notes */}
       <Tabs.Screen
-        name="collections"
+        name="notes"
         options={{
-          title: "My Collection",
+          title: "Notes",
           tabBarIcon: ({ color, size }) => (
-            <Ionicons name="bookmark-outline" size={size} color={color} />
+            <Ionicons name="document-text-outline" size={size} color={color} />
           ),
         }}
       />
 
+      {/* 3. Silence */}
+      <Tabs.Screen
+        name="silence"
+        options={{
+          title: "Silence",
+          tabBarIcon: ({ color, size }) => (
+            <Ionicons name="moon-outline" size={size} color={color} />
+          ),
+        }}
+      />
+
+      {/* 4. Profile */}
       <Tabs.Screen
         name="profile"
         options={{
@@ -104,30 +118,37 @@ export default function AppLayout() {
         }}
       />
 
+      {/* Hidden from tab bar (still routable) */}
+      <Tabs.Screen
+        name="favourites"
+        options={{
+          href: null,
+        }}
+      />
+      <Tabs.Screen
+        name="content"
+        options={{
+          href: null,
+        }}
+      />
+      <Tabs.Screen
+        name="collections"
+        options={{
+          href: null,
+        }}
+      />
       <Tabs.Screen
         name="admin"
         options={{
-          title: "Admin",
-          href: user?.role === "admin" ? undefined : null,
-          tabBarIcon: ({ color, size }) => (
-            <Ionicons
-              name="shield-checkmark-outline"
-              size={size}
-              color={color}
-            />
-          ),
+          href: null,
         }}
       />
-
-      {/* 🔒 Hidden Screens (NOT TABS) */}
-
       <Tabs.Screen
         name="legal"
         options={{
           href: null,
         }}
       />
-
       <Tabs.Screen
         name="history"
         options={{

@@ -34,6 +34,46 @@ export interface ApiBook {
   updatedAt: string;
 }
 
+export interface ApiContent {
+  _id: string;
+  id?: string;
+  title: string;
+  description: string;
+  thumbnailUrl: string;
+  language: string;
+  type: 'free' | 'premium';
+  status: 'draft' | 'coming_soon' | 'live';
+  contentType: 'lifebook' | 'note' | 'silence';
+  [key: string]: unknown;
+}
+
+export interface LifebookSection {
+  title: string;
+  description?: string;
+  mediaUrl: string;
+  mediaType: 'audio' | 'video';
+}
+
+export interface LifebookLesson extends LifebookSection {
+  order: number;
+}
+
+export interface ContentDetail extends ApiContent {
+  intro?: LifebookSection;
+  lessons?: LifebookLesson[];
+  conclusion?: LifebookSection;
+}
+
+export interface ContentByIdResponse {
+  success: true;
+  content: ContentDetail;
+}
+
+export interface ContentsResponse {
+  success: true;
+  contents: ApiContent[];
+}
+
 export interface BooksResponse {
   success: true;
   books: ApiBook[];
@@ -128,11 +168,84 @@ export async function signup(
   });
 }
 
-export async function getBooks(token?: string | null): Promise<BooksResponse> {
-  return request<BooksResponse>('/books', {
+/** Public content API: Lifebooks — GET /contents?type=lifebook */
+export async function getBooks(token?: string | null): Promise<ContentsResponse> {
+  return request<ContentsResponse>('/contents?type=lifebook', {
     method: 'GET',
     token: token || undefined,
   });
+}
+
+/** Public content API: Notes — GET /contents?type=note */
+export async function getNotes(token?: string | null): Promise<ContentsResponse> {
+  return request<ContentsResponse>('/contents?type=note', {
+    method: 'GET',
+    token: token || undefined,
+  });
+}
+
+/** Public content API: Silence — GET /contents?type=silence */
+export async function getSilence(token?: string | null): Promise<ContentsResponse> {
+  return request<ContentsResponse>('/contents?type=silence', {
+    method: 'GET',
+    token: token || undefined,
+  });
+}
+
+/** GET /contents/:id — full content (lifebook intro/lessons/conclusion when allowed) */
+export async function getContentById(
+  id: string,
+  token?: string | null
+): Promise<ContentByIdResponse> {
+  return request<ContentByIdResponse>(`/contents/${encodeURIComponent(id)}`, {
+    method: 'GET',
+    token: token || undefined,
+  });
+}
+
+export interface AddToFavouritesResponse {
+  success: true;
+}
+
+export interface FavouritesResponse {
+  success: true;
+  favourites: ApiContent[];
+}
+
+/** GET /favourites — list user's favourites (auth required) */
+export async function getFavourites(token: string): Promise<FavouritesResponse> {
+  return request<FavouritesResponse>('/favourites', {
+    method: 'GET',
+    token,
+  });
+}
+
+/** POST /favourites/:contentId — add content to favourites (auth required) */
+export async function addToFavourites(
+  contentId: string,
+  token: string
+): Promise<AddToFavouritesResponse> {
+  return request<AddToFavouritesResponse>(
+    `/favourites/${encodeURIComponent(contentId)}`,
+    {
+      method: 'POST',
+      token,
+    }
+  );
+}
+
+/** DELETE /favourites/:contentId — remove from favourites (auth required) */
+export async function removeFromFavourites(
+  contentId: string,
+  token: string
+): Promise<{ success: true }> {
+  return request<{ success: true }>(
+    `/favourites/${encodeURIComponent(contentId)}`,
+    {
+      method: 'DELETE',
+      token,
+    }
+  );
 }
 
 export async function getMe(token: string): Promise<MeResponse> {

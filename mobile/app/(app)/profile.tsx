@@ -2,23 +2,38 @@ import { useRouter } from "expo-router";
 import React, { useCallback, useEffect, useState } from "react";
 import {
   Alert,
+  Linking,
+  Pressable,
   ScrollView,
   StyleSheet,
   Text,
-  TouchableOpacity,
   View,
 } from "react-native";
+import { Ionicons } from "@expo/vector-icons";
 import { getMe } from "../../services/api";
 import type { ApiUser } from "../../services/api";
-import { getToken } from "../../services/authStorage";
-import { deleteToken } from "../../services/authStorage";
+import { deleteToken, getToken } from "../../services/authStorage";
 import {
-  initConnection,
   addPurchaseUpdatedListener,
+  initConnection,
   requestSubscription,
   restorePurchases,
   PREMIUM_PRODUCT_ID,
 } from "../../services/billing";
+
+function formatExpiry(iso: string | null | undefined): string {
+  if (!iso) return "—";
+  try {
+    const d = new Date(iso);
+    return d.toLocaleDateString(undefined, {
+      year: "numeric",
+      month: "short",
+      day: "numeric",
+    });
+  } catch {
+    return iso;
+  }
+}
 
 export default function Profile() {
   const router = useRouter();
@@ -64,14 +79,35 @@ export default function Profile() {
       await requestSubscription(PREMIUM_PRODUCT_ID);
     } catch (err: unknown) {
       const message = err instanceof Error ? err.message : String(err);
-      if (message.includes("already") || message.includes("owned") || message.includes("E_ALREADY")) {
-        Alert.alert("Already purchased", "You already have an active subscription.");
-      } else if (message.includes("cancel") || message.includes("E_USER_CANCELLED") || message.includes("User cancelled")) {
+      if (
+        message.includes("already") ||
+        message.includes("owned") ||
+        message.includes("E_ALREADY")
+      ) {
+        Alert.alert(
+          "Already purchased",
+          "You already have an active subscription."
+        );
+      } else if (
+        message.includes("cancel") ||
+        message.includes("E_USER_CANCELLED") ||
+        message.includes("User cancelled")
+      ) {
         Alert.alert("Cancelled", "Purchase was cancelled.");
-      } else if (message.includes("network") || message.includes("E_NETWORK") || message.includes("Connection")) {
-        Alert.alert("Network error", "Please check your connection and try again.");
+      } else if (
+        message.includes("network") ||
+        message.includes("E_NETWORK") ||
+        message.includes("Connection")
+      ) {
+        Alert.alert(
+          "Network error",
+          "Please check your connection and try again."
+        );
       } else {
-        Alert.alert("Error", message || "Purchase failed. Please try again.");
+        Alert.alert(
+          "Error",
+          message || "Purchase failed. Please try again."
+        );
       }
     } finally {
       setSubscribing(false);
@@ -89,18 +125,27 @@ export default function Profile() {
     } catch (err: unknown) {
       const message = err instanceof Error ? err.message : String(err);
       if (message.includes("No purchases to restore")) {
-        Alert.alert("No purchases found", "There are no previous purchases to restore.");
-      } else if (message.includes("expired") || message.includes("Could not restore")) {
+        Alert.alert(
+          "No purchases found",
+          "There are no previous purchases to restore."
+        );
+      } else if (
+        message.includes("expired") ||
+        message.includes("Could not restore")
+      ) {
         Alert.alert("Restore failed", message);
       } else {
-        Alert.alert("Error", message || "Could not restore purchases. Please try again.");
+        Alert.alert(
+          "Error",
+          message || "Could not restore purchases. Please try again."
+        );
       }
     } finally {
       setRestoring(false);
     }
   };
 
-  const handleLogout = async () => {
+  const handleLogout = () => {
     Alert.alert("Logout", "Are you sure you want to logout?", [
       { text: "Cancel", style: "cancel" },
       {
@@ -114,151 +159,285 @@ export default function Profile() {
     ]);
   };
 
+  const openSupport = () => {
+    Linking.openURL("mailto:hello@happinotes.in");
+  };
+
   if (loading) {
     return (
-      <View style={[styles.container, styles.centered]}>
-        <Text style={styles.header}>Profile</Text>
-        <Text style={styles.subtitle}>Loading...</Text>
+      <View style={[styles.safeArea, styles.centered]}>
+        <Text style={styles.loadingText}>Loading...</Text>
       </View>
     );
   }
 
+  const email = user?.email ?? "";
+  const initial = email ? email[0].toUpperCase() : "?";
+  const isPremium = user?.subscriptionActive ?? false;
+
   return (
-    <ScrollView style={styles.container}>
-      <Text style={styles.header}>Profile</Text>
-
-      <View style={styles.card}>
-        <Text style={styles.email}>{user?.email ?? ""}</Text>
-        <Text style={styles.status}>
-          {user?.subscriptionActive ? "Premium Member" : "Free Member"}
-        </Text>
-      </View>
-
-      {user && !user.subscriptionActive && (
-        <>
-          <TouchableOpacity
-            style={[styles.subscribeButton, subscribing && styles.buttonDisabled]}
-            onPress={handleSubscribe}
-            disabled={subscribing}
-          >
-            <Text style={styles.subscribeButtonText}>
-              {subscribing ? "Please wait..." : "Subscribe ₹499 / month"}
-            </Text>
-          </TouchableOpacity>
-
-          <TouchableOpacity
-            style={[styles.restoreButton, restoring && styles.buttonDisabled]}
-            onPress={handleRestorePurchases}
-            disabled={restoring}
-          >
-            <Text style={styles.restoreButtonText}>
-              {restoring ? "Restoring…" : "Restore Purchases"}
-            </Text>
-          </TouchableOpacity>
-        </>
-      )}
-
-      <TouchableOpacity
-        style={styles.secondaryButton}
-        onPress={() => router.push("/legal")}
+    <View style={styles.safeArea}>
+      <ScrollView
+        style={styles.scroll}
+        contentContainerStyle={styles.scrollContent}
+        showsVerticalScrollIndicator={false}
       >
-        <Text style={styles.secondaryText}>Legal</Text>
-      </TouchableOpacity>
+        {/* Top section */}
+        <View style={styles.topSection}>
+          <View style={styles.avatar}>
+            <Text style={styles.avatarText}>{initial}</Text>
+          </View>
+          <Text style={styles.email}>{email || "No email"}</Text>
+          <View style={styles.badge}>
+            <Text style={styles.badgeText}>
+              {isPremium ? "Premium" : "Free"}
+            </Text>
+          </View>
+        </View>
 
-      <TouchableOpacity
-        style={styles.secondaryButton}
-        onPress={() => router.push("/history")}
-      >
-        <Text style={styles.secondaryText}>Subscription History</Text>
-      </TouchableOpacity>
+        {/* Favourites card */}
+        <Pressable
+          style={styles.card}
+          onPress={() => router.push("/favourites")}
+          android_ripple={{ color: "rgba(0,0,0,0.05)" }}
+        >
+          <View style={styles.cardRow}>
+            <Ionicons name="heart-outline" size={22} color="#374151" />
+            <Text style={styles.cardTitle}>Favourites</Text>
+            <Ionicons name="chevron-forward" size={20} color="#9CA3AF" />
+          </View>
+          <Text style={styles.cardSubtext}>View your saved content</Text>
+        </Pressable>
 
-      <TouchableOpacity style={styles.logoutButton} onPress={handleLogout}>
-        <Text style={styles.logoutText}>Logout</Text>
-      </TouchableOpacity>
-    </ScrollView>
+        {/* Subscription & Billing card */}
+        <View style={styles.card}>
+          <View style={styles.cardRow}>
+            <Ionicons name="card-outline" size={22} color="#374151" />
+            <Text style={styles.cardTitle}>Subscription & Billing</Text>
+          </View>
+          <Text style={styles.cardSubtext}>
+            {isPremium ? "Active" : "Not active"}
+          </Text>
+          {isPremium ? (
+            <Text style={styles.expiry}>
+              Expires {formatExpiry(user?.subscriptionExpiry ?? null)}
+            </Text>
+          ) : (
+            <View style={styles.subCardActions}>
+              <Pressable
+                style={[styles.primaryButton, subscribing && styles.buttonDisabled]}
+                onPress={handleSubscribe}
+                disabled={subscribing}
+              >
+                <Text style={styles.primaryButtonText}>
+                  {subscribing ? "Please wait…" : "Subscribe ₹499 / month"}
+                </Text>
+              </Pressable>
+              <Pressable
+                style={[
+                  styles.secondaryButton,
+                  restoring && styles.buttonDisabled,
+                ]}
+                onPress={handleRestorePurchases}
+                disabled={restoring}
+              >
+                <Text style={styles.secondaryButtonText}>
+                  {restoring ? "Restoring…" : "Restore Purchases"}
+                </Text>
+              </Pressable>
+            </View>
+          )}
+        </View>
+
+        {/* Support card */}
+        <Pressable
+          style={styles.card}
+          onPress={openSupport}
+          android_ripple={{ color: "rgba(0,0,0,0.05)" }}
+        >
+          <View style={styles.cardRow}>
+            <Ionicons name="mail-outline" size={22} color="#374151" />
+            <Text style={styles.cardTitle}>Support</Text>
+            <Ionicons name="chevron-forward" size={20} color="#9CA3AF" />
+          </View>
+          <Text style={styles.cardSubtext}>Contact Support</Text>
+        </Pressable>
+
+        {/* Legal card */}
+        <View style={styles.card}>
+          <Text style={styles.cardTitle}>Legal</Text>
+          <Pressable
+            style={styles.legalRow}
+            onPress={() => router.push("/legal")}
+            android_ripple={{ color: "rgba(0,0,0,0.05)" }}
+          >
+            <Text style={styles.legalLabel}>Privacy Policy</Text>
+            <Ionicons name="chevron-forward" size={20} color="#9CA3AF" />
+          </Pressable>
+          <Pressable
+            style={styles.legalRow}
+            onPress={() => router.push("/legal")}
+            android_ripple={{ color: "rgba(0,0,0,0.05)" }}
+          >
+            <Text style={styles.legalLabel}>Terms & Conditions</Text>
+            <Ionicons name="chevron-forward" size={20} color="#9CA3AF" />
+          </Pressable>
+        </View>
+
+        {/* Logout */}
+        <Pressable
+          style={styles.logoutButton}
+          onPress={handleLogout}
+          android_ripple={{ color: "rgba(0,0,0,0.05)" }}
+        >
+          <Text style={styles.logoutText}>Logout</Text>
+        </Pressable>
+
+        <View style={styles.bottomSpacer} />
+      </ScrollView>
+    </View>
   );
 }
 
 const styles = StyleSheet.create({
-  container: {
+  safeArea: {
     flex: 1,
-    backgroundColor: "#FFFFFF",
-    padding: 20,
+    backgroundColor: "#F5F5F5",
+  },
+  scroll: {
+    flex: 1,
+  },
+  scrollContent: {
+    padding: 24,
+    paddingBottom: 40,
   },
   centered: {
     justifyContent: "center",
+    alignItems: "center",
   },
-  header: {
-    fontSize: 26,
-    fontWeight: "700",
-    marginBottom: 20,
-  },
-  subtitle: {
+  loadingText: {
     fontSize: 16,
-    color: "#666",
+    color: "#6B7280",
   },
-  card: {
-    backgroundColor: "#F4F4F4",
-    padding: 20,
-    borderRadius: 16,
-    marginBottom: 30,
+  topSection: {
+    alignItems: "center",
+    marginBottom: 28,
+  },
+  avatar: {
+    width: 80,
+    height: 80,
+    borderRadius: 40,
+    backgroundColor: "#FF6B4A",
+    justifyContent: "center",
+    alignItems: "center",
+    marginBottom: 12,
+  },
+  avatarText: {
+    fontSize: 32,
+    fontWeight: "600",
+    color: "#FFFFFF",
   },
   email: {
     fontSize: 16,
+    color: "#374151",
     marginBottom: 8,
   },
-  status: {
+  badge: {
+    paddingHorizontal: 12,
+    paddingVertical: 6,
+    borderRadius: 20,
+    backgroundColor: "#E5E7EB",
+  },
+  badgeText: {
+    fontSize: 14,
     fontWeight: "600",
-    color: "#FF6B4A",
+    color: "#374151",
   },
-  subscribeButton: {
+  card: {
+    backgroundColor: "#FFFFFF",
+    borderRadius: 16,
+    padding: 18,
+    marginBottom: 16,
+    shadowColor: "#000",
+    shadowOffset: { width: 0, height: 1 },
+    shadowOpacity: 0.06,
+    shadowRadius: 4,
+    elevation: 2,
+  },
+  cardRow: {
+    flexDirection: "row",
+    alignItems: "center",
+    gap: 12,
+  },
+  cardTitle: {
+    flex: 1,
+    fontSize: 17,
+    fontWeight: "600",
+    color: "#1F2937",
+  },
+  cardSubtext: {
+    fontSize: 14,
+    color: "#6B7280",
+    marginTop: 6,
+    marginLeft: 34,
+  },
+  expiry: {
+    fontSize: 14,
+    color: "#6B7280",
+    marginTop: 8,
+  },
+  subCardActions: {
+    marginTop: 14,
+    gap: 10,
+  },
+  primaryButton: {
     backgroundColor: "#FF6B4A",
-    padding: 16,
+    paddingVertical: 14,
     borderRadius: 12,
     alignItems: "center",
-    marginBottom: 20,
   },
-  subscribeButtonText: {
-    color: "#FFFFFF",
-    fontWeight: "700",
+  primaryButtonText: {
     fontSize: 16,
+    fontWeight: "600",
+    color: "#FFFFFF",
   },
-  restoreButton: {
-    backgroundColor: "transparent",
-    padding: 16,
+  secondaryButton: {
+    paddingVertical: 14,
     borderRadius: 12,
     alignItems: "center",
-    marginBottom: 20,
-    borderWidth: 2,
+    borderWidth: 1.5,
     borderColor: "#FF6B4A",
   },
-  restoreButtonText: {
-    color: "#FF6B4A",
-    fontWeight: "600",
+  secondaryButtonText: {
     fontSize: 16,
+    fontWeight: "600",
+    color: "#FF6B4A",
   },
   buttonDisabled: {
     opacity: 0.6,
   },
-  secondaryButton: {
-    backgroundColor: "#F4F4F4",
-    padding: 16,
-    borderRadius: 12,
-    marginBottom: 15,
+  legalRow: {
+    flexDirection: "row",
+    alignItems: "center",
+    justifyContent: "space-between",
+    paddingVertical: 12,
+    marginTop: 4,
   },
-  secondaryText: {
-    fontWeight: "600",
+  legalLabel: {
+    fontSize: 15,
+    color: "#374151",
   },
   logoutButton: {
-    backgroundColor: "#FF3B30",
-    padding: 16,
-    borderRadius: 12,
+    marginTop: 24,
+    paddingVertical: 16,
     alignItems: "center",
-    marginTop: 20,
   },
   logoutText: {
-    color: "#FFFFFF",
-    fontWeight: "700",
     fontSize: 16,
+    fontWeight: "600",
+    color: "#DC2626",
+  },
+  bottomSpacer: {
+    height: 24,
   },
 });
