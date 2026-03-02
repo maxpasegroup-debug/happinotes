@@ -5,6 +5,7 @@ import {
   createBook,
   updateBook,
   deleteBook,
+  activateUserSubscription,
 } from '../controllers/adminController';
 import { authenticate, requireAdmin } from '../middleware';
 
@@ -19,11 +20,14 @@ const bookValidation = [
   body('description').optional().trim(),
   body('coverImage').optional().trim(),
   body('audioUrl').optional().trim(),
+  body('introAudioUrl').optional().trim(),
+  body('fullAudioUrl').optional().trim(),
   body('status').optional().isIn(['upcoming', 'live']).withMessage('Invalid status'),
   body('type').optional().isIn(['free', 'premium']).withMessage('Invalid type'),
 ];
 
 router.get('/users', getUsers);
+router.post('/users/:id/activate-subscription', activateUserSubscription);
 router.post('/books', bookValidation, createBook);
 router.put('/books/:id', bookValidation, updateBook);
 router.delete('/books/:id', deleteBook);

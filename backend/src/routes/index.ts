@@ -4,13 +4,17 @@ import booksRoutes from './booksRoutes';
 import collectionRoutes from './collectionRoutes';
 import subscriptionRoutes from './subscriptionRoutes';
 import adminRoutes from './adminRoutes';
+import paymentsRoutes from './paymentsRoutes';
+import devRoutes from './devRoutes';
 
 const router = Router();
 
+router.use('/api', devRoutes);
 router.use('/auth', authRoutes);
 router.use('/books', booksRoutes);
 router.use('/collection', collectionRoutes);
 router.use('/subscription', subscriptionRoutes);
 router.use('/admin', adminRoutes);
+router.use('/payments', paymentsRoutes);
 
 export default router;

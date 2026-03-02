@@ -7,7 +7,16 @@ import { errorHandler } from './middleware';
 const app = express();
 
 app.use(helmet());
-app.use(cors());
+app.use(
+  cors({
+    origin: [
+      'http://localhost:8081',
+      'https://happinotes-production.up.railway.app',
+    ],
+    methods: ['GET', 'POST', 'PUT', 'DELETE'],
+    credentials: true,
+  })
+);
 app.use(express.json());
 app.use(express.urlencoded({ extended: true }));
 

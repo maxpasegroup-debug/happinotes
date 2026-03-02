@@ -8,6 +8,8 @@ export interface IBook extends Document {
   description: string;
   coverImage: string;
   audioUrl: string;
+  introAudioUrl: string;
+  fullAudioUrl: string;
   status: BookStatus;
   type: BookType;
   createdAt: Date;
@@ -20,6 +22,8 @@ const bookSchema = new Schema<IBook>(
     description: { type: String, default: '', trim: true },
     coverImage: { type: String, default: '' },
     audioUrl: { type: String, default: '' },
+    introAudioUrl: { type: String, default: '' },
+    fullAudioUrl: { type: String, default: '' },
     status: { type: String, enum: ['upcoming', 'live'], default: 'live' },
     type: { type: String, enum: ['free', 'premium'], default: 'free' },
   },

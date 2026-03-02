@@ -8,6 +8,8 @@ const ALLOWED_BOOK_FIELDS = [
   'description',
   'coverImage',
   'audioUrl',
+  'introAudioUrl',
+  'fullAudioUrl',
   'status',
   'type',
 ] as const;
@@ -87,6 +89,34 @@ export const deleteBook = async (
     const book = await Book.findByIdAndDelete(req.params.id);
     if (!book) return next(new NotFoundError('Book not found'));
     res.json({ success: true, message: 'Book deleted' });
+  } catch (err) {
+    next(err);
+  }
+};
+
+const SUBSCRIPTION_DAYS = 30;
+
+export const activateUserSubscription = async (
+  req: Request,
+  res: Response,
+  next: NextFunction
+): Promise<void> => {
+  try {
+    const targetUser = await User.findById(req.params.id);
+    if (!targetUser) return next(new NotFoundError('User not found'));
+
+    const expiry = new Date();
+    expiry.setDate(expiry.getDate() + SUBSCRIPTION_DAYS);
+
+    targetUser.subscriptionActive = true;
+    targetUser.subscriptionExpiry = expiry;
+    await targetUser.save();
+
+    res.json({
+      success: true,
+      subscriptionActive: targetUser.subscriptionActive,
+      subscriptionExpiry: targetUser.subscriptionExpiry,
+    });
   } catch (err) {
     next(err);
   }
