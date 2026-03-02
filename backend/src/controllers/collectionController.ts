@@ -1,5 +1,5 @@
 import { Request, Response, NextFunction } from 'express';
-import { User, Book } from '../models';
+import { User, Content } from '../models';
 import { BadRequestError, ForbiddenError, NotFoundError } from '../utils/errors';
 
 export const getCollection = async (
@@ -28,7 +28,7 @@ export const addToCollection = async (
   try {
     if (!req.user) return next(new ForbiddenError('Authentication required'));
     const { bookId } = req.params;
-    const book = await Book.findById(bookId);
+    const book = await Content.findById(bookId);
     if (!book) return next(new NotFoundError('Book not found'));
     if (book.status !== 'live') return next(new BadRequestError('Book is not available'));
 

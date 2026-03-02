@@ -4,6 +4,7 @@ import {
   ActivityIndicator,
   Alert,
   FlatList,
+  SafeAreaView,
   StyleSheet,
   Text,
   View,
@@ -43,63 +44,72 @@ export default function Collections() {
 
   if (loading) {
     return (
-      <View style={[styles.container, styles.centered]}>
-        <ActivityIndicator size="large" />
-      </View>
+      <SafeAreaView style={styles.safeArea}>
+        <View style={[styles.container, styles.centered]}>
+          <ActivityIndicator size="large" />
+        </View>
+      </SafeAreaView>
     );
   }
 
   return (
-    <View style={styles.container}>
-      <Text style={styles.header}>My Collection</Text>
+    <SafeAreaView style={styles.safeArea}>
+      <View style={styles.container}>
+        <Text style={styles.header}>My Collection</Text>
 
-      {books.length === 0 ? (
-        <View style={styles.emptyContainer}>
-          <Text style={styles.emptyText}>
-            No books in your collection yet.
-          </Text>
-          <Text style={styles.emptySub}>
-            Add books from Library.
-          </Text>
-        </View>
-      ) : (
-        <FlatList
-          data={books}
-          keyExtractor={(item) => item._id}
-          renderItem={({ item }) => (
-            <View style={styles.card}>
-              <Text style={styles.cardTitle}>
-                {item.title}
-              </Text>
-              <Text style={styles.cardBadge}>
-                {item.type === "premium" ? "Premium" : "Free"}
-              </Text>
-            </View>
-          )}
-        />
-      )}
-    </View>
+        {books.length === 0 ? (
+          <View style={styles.emptyContainer}>
+            <Text style={styles.emptyText}>
+              No books in your collection yet.
+            </Text>
+            <Text style={styles.emptySub}>
+              Add books from Lifebooks.
+            </Text>
+          </View>
+        ) : (
+          <FlatList
+            data={books}
+            keyExtractor={(item) => item._id}
+            renderItem={({ item }) => (
+              <View style={styles.card}>
+                <Text style={styles.cardTitle}>{item.title}</Text>
+                <Text style={styles.cardBadge}>
+                  {item.type === "premium" ? "Premium" : "Free"}
+                </Text>
+              </View>
+            )}
+          />
+        )}
+      </View>
+    </SafeAreaView>
   );
 }
 
 const styles = StyleSheet.create({
+  safeArea: {
+    flex: 1,
+    backgroundColor: "#FFFFFF",
+  },
   container: {
     flex: 1,
     backgroundColor: "#FFFFFF",
-    padding: 20,
-    paddingTop: 50,
+    paddingHorizontal: 20,
   },
   centered: {
     justifyContent: "center",
     alignItems: "center",
   },
   header: {
-    fontSize: 26,
+    fontSize: 28,
     fontWeight: "700",
-    marginBottom: 20,
+    letterSpacing: 0.5,
+    marginTop: 8,
+    marginBottom: 16,
+    color: "#1F2937",
   },
   emptyContainer: {
-    marginTop: 60,
+    flex: 1,
+    justifyContent: "center",
     alignItems: "center",
   },
   emptyText: {

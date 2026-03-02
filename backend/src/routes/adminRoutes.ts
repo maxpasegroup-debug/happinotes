@@ -2,34 +2,83 @@ import { Router } from 'express';
 import { body } from 'express-validator';
 import {
   getUsers,
+  getAllBooks,
   createBook,
   updateBook,
   deleteBook,
+  updateBookStatus,
   activateUserSubscription,
+  deactivateUserSubscription,
+  deleteUser,
 } from '../controllers/adminController';
 import { authenticate, requireAdmin } from '../middleware';
 
 const router = Router();
 
 router.use(authenticate);
-
 router.use(requireAdmin);
 
-const bookValidation = [
+const createBookValidation = [
   body('title').trim().notEmpty().withMessage('Title is required'),
   body('description').optional().trim(),
-  body('coverImage').optional().trim(),
-  body('audioUrl').optional().trim(),
-  body('introAudioUrl').optional().trim(),
-  body('fullAudioUrl').optional().trim(),
-  body('status').optional().isIn(['upcoming', 'live']).withMessage('Invalid status'),
+  body('thumbnailUrl').trim().notEmpty().withMessage('thumbnailUrl is required'),
+  body('language').trim().notEmpty().withMessage('language is required'),
+  body('type').isIn(['free', 'premium']).withMessage('type must be free or premium'),
+  body('intro').isObject().withMessage('intro is required'),
+  body('intro.title').trim().notEmpty().withMessage('intro.title is required'),
+  body('intro.mediaUrl').trim().notEmpty().withMessage('intro.mediaUrl is required'),
+  body('intro.mediaType').isIn(['audio', 'video']).withMessage('intro.mediaType must be audio or video'),
+  body('intro.description').optional().trim(),
+  body('conclusion').isObject().withMessage('conclusion is required'),
+  body('conclusion.title').trim().notEmpty().withMessage('conclusion.title is required'),
+  body('conclusion.mediaUrl').trim().notEmpty().withMessage('conclusion.mediaUrl is required'),
+  body('conclusion.mediaType').isIn(['audio', 'video']).withMessage('conclusion.mediaType must be audio or video'),
+  body('conclusion.description').optional().trim(),
+  body('lessons').isArray().withMessage('lessons must be an array'),
+  body('lessons.*.title').optional().trim(),
+  body('lessons.*.mediaUrl').optional().trim(),
+  body('lessons.*.mediaType').optional().isIn(['audio', 'video']),
+  body('lessons.*.description').optional().trim(),
+  body('lessons.*.order').optional().isInt({ min: 0 }),
+];
+
+const updateBookValidation = [
+  body('title').optional().trim().notEmpty(),
+  body('description').optional().trim(),
+  body('thumbnailUrl').optional().trim(),
+  body('language').optional().trim(),
   body('type').optional().isIn(['free', 'premium']).withMessage('Invalid type'),
+  body('intro').optional().isObject(),
+  body('intro.title').optional().trim().notEmpty(),
+  body('intro.mediaUrl').optional().trim(),
+  body('intro.mediaType').optional().isIn(['audio', 'video']),
+  body('intro.description').optional().trim(),
+  body('conclusion').optional().isObject(),
+  body('conclusion.title').optional().trim().notEmpty(),
+  body('conclusion.mediaUrl').optional().trim(),
+  body('conclusion.mediaType').optional().isIn(['audio', 'video']),
+  body('conclusion.description').optional().trim(),
+  body('lessons').optional().isArray(),
+  body('lessons.*.title').optional().trim(),
+  body('lessons.*.mediaUrl').optional().trim(),
+  body('lessons.*.mediaType').optional().isIn(['audio', 'video']),
+  body('lessons.*.description').optional().trim(),
+  body('lessons.*.order').optional().isInt({ min: 0 }),
+];
+
+const updateStatusValidation = [
+  body('status').isIn(['draft', 'coming_soon', 'live']).withMessage('status must be draft, coming_soon, or live'),
 ];
 
 router.get('/users', getUsers);
-router.post('/users/:id/activate-subscription', activateUserSubscription);
-router.post('/books', bookValidation, createBook);
-router.put('/books/:id', bookValidation, updateBook);
+router.patch('/users/:id/activate', activateUserSubscription);
+router.patch('/users/:id/deactivate', deactivateUserSubscription);
+router.delete('/users/:id', deleteUser);
+
+router.get('/books', getAllBooks);
+router.post('/books', createBookValidation, createBook);
+router.put('/books/:id', updateBookValidation, updateBook);
 router.delete('/books/:id', deleteBook);
+router.patch('/books/:id/status', updateStatusValidation, updateBookStatus);
 
 export default router;

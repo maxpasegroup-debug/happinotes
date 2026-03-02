@@ -77,7 +77,7 @@ export default function AppLayout() {
       <Tabs.Screen
         name="library"
         options={{
-          title: "Library",
+          title: "Lifebooks",
           tabBarIcon: ({ color, size }) => (
             <Ionicons name="home-outline" size={size} color={color} />
           ),

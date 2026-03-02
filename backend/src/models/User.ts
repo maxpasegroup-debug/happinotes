@@ -10,6 +10,7 @@ export interface IUser extends Document {
   subscriptionActive: boolean;
   subscriptionExpiry: Date;
   bookCollection: mongoose.Types.ObjectId[];
+  favourites: { contentId: mongoose.Types.ObjectId; contentType: string }[];
   createdAt: Date;
   updatedAt: Date;
 }
@@ -22,7 +23,16 @@ const userSchema = new Schema<IUser>(
     role: { type: String, enum: ['admin', 'user'], default: 'user' },
     subscriptionActive: { type: Boolean, default: false },
     subscriptionExpiry: { type: Date, default: null },
-    bookCollection: [{ type: Schema.Types.ObjectId, ref: 'Book', default: [] }],
+    bookCollection: [{ type: Schema.Types.ObjectId, ref: 'Content', default: [] }],
+    favourites: {
+      type: [
+        {
+          contentId: { type: Schema.Types.ObjectId, ref: 'Content', required: true },
+          contentType: { type: String, required: true },
+        },
+      ],
+      default: [],
+    },
   },
   { timestamps: true }
 );
