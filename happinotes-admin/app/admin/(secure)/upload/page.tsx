@@ -44,9 +44,6 @@ export default function AdminUploadPage() {
     const token = window.localStorage.getItem("admin_token");
     if (!token) return setMessage("Admin token missing");
     if (!thumbnail) return setMessage("Thumbnail is required");
-    if (contentType === "lifebook" && (!introMedia || !conclusionMedia || lessons.some((l) => !l.file))) {
-      return setMessage("Lifebook requires intro, conclusion, and lesson media files");
-    }
     if (contentType !== "lifebook" && !media) return setMessage("Media file is required");
 
     const fd = new FormData();
@@ -60,27 +57,44 @@ export default function AdminUploadPage() {
     fd.append("thumbnail", thumbnail);
 
     if (contentType === "lifebook") {
-      fd.append(
-        "intro",
-        JSON.stringify({ title: introTitle || "Introduction", description: introDescription })
-      );
-      fd.append(
-        "conclusion",
-        JSON.stringify({ title: conclusionTitle || "Conclusion", description: conclusionDescription })
-      );
-      fd.append(
-        "lessons",
-        JSON.stringify(
-          lessons.map((l, index) => ({
-            title: l.title || `Lesson ${index + 1}`,
-            description: l.description || "",
-            order: index,
-          }))
-        )
-      );
-      fd.append("introMedia", introMedia as File);
-      fd.append("conclusionMedia", conclusionMedia as File);
-      lessons.forEach((l) => fd.append("lessonMedia", l.file as File));
+      const lessonsWithMedia = lessons
+        .map((l, index) => ({
+          title: l.title || `Lesson ${index + 1}`,
+          description: l.description || "",
+          order: index,
+          file: l.file,
+        }))
+        .filter((l) => Boolean(l.file));
+
+      if (introMedia) {
+        fd.append(
+          "intro",
+          JSON.stringify({ title: introTitle || "Introduction", description: introDescription })
+        );
+        fd.append("introMedia", introMedia);
+      }
+
+      if (lessonsWithMedia.length > 0) {
+        fd.append(
+          "lessons",
+          JSON.stringify(
+            lessonsWithMedia.map(({ title, description, order }) => ({
+              title,
+              description,
+              order,
+            }))
+          )
+        );
+        lessonsWithMedia.forEach((l) => fd.append("lessonMedia", l.file as File));
+      }
+
+      if (conclusionMedia) {
+        fd.append(
+          "conclusion",
+          JSON.stringify({ title: conclusionTitle || "Conclusion", description: conclusionDescription })
+        );
+        fd.append("conclusionMedia", conclusionMedia);
+      }
     } else {
       fd.append("media", media as File);
       if (contentType === "silence") fd.append("category", category || "General");

@@ -82,7 +82,7 @@ const contentSchema = new Schema<IContent>(
   { timestamps: true }
 );
 
-// Conditional validation: lifebook → intro + lessons + conclusion; note → mediaUrl + mediaType; silence (legacy mindspace) → mediaUrl + mediaType + category
+// Conditional validation: note → mediaUrl + mediaType; silence (legacy mindspace) → mediaUrl + mediaType + category
 contentSchema.pre('validate', function (next) {
   let kind = this.contentType as string;
   // Treat legacy 'mindspace' as 'silence'
@@ -90,16 +90,8 @@ contentSchema.pre('validate', function (next) {
     kind = 'silence';
     this.contentType = 'silence';
   }
-  if (kind === 'lifebook') {
-    if (this.intro == null || typeof this.intro !== 'object') {
-      return next(new Error('intro is required for contentType lifebook'));
-    }
-    if (!Array.isArray(this.lessons)) {
-      this.lessons = [];
-    }
-    if (this.conclusion == null || typeof this.conclusion !== 'object') {
-      return next(new Error('conclusion is required for contentType lifebook'));
-    }
+  if (kind === 'lifebook' && !Array.isArray(this.lessons)) {
+    this.lessons = [];
   }
   if (kind === 'note') {
     if (typeof this.mediaUrl !== 'string' || !this.mediaUrl.trim()) {

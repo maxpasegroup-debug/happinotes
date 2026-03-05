@@ -151,14 +151,7 @@ export const createContent = async (
     if (!thumbnailFile) {
       return next(new BadRequestError('thumbnail file is required'));
     }
-    if (contentType === 'lifebook') {
-      if (!introFile) {
-        return next(new BadRequestError('introMedia file is required'));
-      }
-      if (!conclusionFile) {
-        return next(new BadRequestError('conclusionMedia file is required'));
-      }
-    } else if (!mediaFile) {
+    if (contentType !== 'lifebook' && !mediaFile) {
       return next(new BadRequestError('media file is required for note/silence'));
     }
 
@@ -178,56 +171,59 @@ export const createContent = async (
           : body.lessons;
 
       const lessonsInput = Array.isArray(rawLessons) ? rawLessons : [];
-      if (lessonFiles.length !== lessonsInput.length) {
+      if (lessonFiles.length > lessonsInput.length) {
         return next(
-          new BadRequestError('lessonMedia count must match number of lessons')
+          new BadRequestError('lessonMedia count cannot exceed number of lessons')
         );
       }
 
-      const introUpload = await uploadToCloudinary(
-        introFile as UploadedFile,
-        'happinotes/intro'
-      );
-      const conclusionUpload = await uploadToCloudinary(
-        conclusionFile as UploadedFile,
-        'happinotes/conclusion'
-      );
-
-      const introMediaType = mediaTypeFromMime((introFile as UploadedFile).mimetype);
-      const conclusionMediaType = mediaTypeFromMime((conclusionFile as UploadedFile).mimetype);
-      if (!introMediaType || !conclusionMediaType) {
-        return next(
-          new BadRequestError('introMedia and conclusionMedia must be audio or video')
-        );
+      let intro: ILifebookSection | undefined;
+      if (introFile) {
+        const introMediaType = mediaTypeFromMime(introFile.mimetype);
+        if (!introMediaType) {
+          return next(new BadRequestError('introMedia must be audio or video'));
+        }
+        const introUpload = await uploadToCloudinary(introFile, 'happinotes/intro');
+        intro = normalizeSection({
+          ...(rawIntro || {}),
+          title:
+            typeof (rawIntro as Record<string, unknown> | undefined)?.title === 'string'
+              ? (rawIntro as Record<string, unknown>).title
+              : 'Introduction',
+          mediaUrl: introUpload.url,
+          mediaType: introMediaType,
+        }) || undefined;
       }
 
-      const intro = normalizeSection({
-        ...(rawIntro || {}),
-        mediaUrl: introUpload.url,
-        mediaType: introMediaType,
-      });
-      const conclusion = normalizeSection({
-        ...(rawConclusion || {}),
-        mediaUrl: conclusionUpload.url,
-        mediaType: conclusionMediaType,
-      });
-
-      if (!intro)
-        return next(
-          new BadRequestError('intro is required (title, mediaUrl, mediaType)')
+      let conclusion: ILifebookSection | undefined;
+      if (conclusionFile) {
+        const conclusionMediaType = mediaTypeFromMime(conclusionFile.mimetype);
+        if (!conclusionMediaType) {
+          return next(new BadRequestError('conclusionMedia must be audio or video'));
+        }
+        const conclusionUpload = await uploadToCloudinary(
+          conclusionFile,
+          'happinotes/conclusion'
         );
-      if (!conclusion)
-        return next(
-          new BadRequestError('conclusion is required (title, mediaUrl, mediaType)')
-        );
+        conclusion = normalizeSection({
+          ...(rawConclusion || {}),
+          title:
+            typeof (rawConclusion as Record<string, unknown> | undefined)?.title === 'string'
+              ? (rawConclusion as Record<string, unknown>).title
+              : 'Conclusion',
+          mediaUrl: conclusionUpload.url,
+          mediaType: conclusionMediaType,
+        }) || undefined;
+      }
 
-      const lessons = normalizeLessons(
+      const lessonsWithMedia = normalizeLessons(
         lessonsInput.map((lesson, index) => {
           const file = lessonFiles[index];
-          const mt = mediaTypeFromMime(file.mimetype);
-          if (!mt) {
-            throw new BadRequestError('lessonMedia files must be audio or video');
+          if (!file) {
+            return lesson as Record<string, unknown>;
           }
+          const mt = mediaTypeFromMime(file.mimetype);
+          if (!mt) throw new BadRequestError('lessonMedia files must be audio or video');
           return {
             ...(lesson as Record<string, unknown>),
             mediaUrl: undefined,
@@ -236,15 +232,14 @@ export const createContent = async (
         })
       );
 
-      for (let i = 0; i < lessons.length; i += 1) {
-        const uploaded = await uploadToCloudinary(
-          lessonFiles[i],
-          'happinotes/lessons'
-        );
-        lessons[i].mediaUrl = uploaded.url;
+      for (let i = 0; i < lessonsWithMedia.length; i += 1) {
+        const file = lessonFiles[i];
+        if (!file) continue;
+        const uploaded = await uploadToCloudinary(file, 'happinotes/lessons');
+        lessonsWithMedia[i].mediaUrl = uploaded.url;
       }
 
-      content = await Content.create({
+      const createPayload: Record<string, unknown> = {
         contentType: 'lifebook',
         title,
         description: description || '',
@@ -253,9 +248,13 @@ export const createContent = async (
         type,
         status: body.status === 'coming_soon' || body.status === 'live' ? body.status : 'draft',
         featured: body.featured === 'true' || body.featured === true,
-        intro,
-        lessons,
-        conclusion,
+      };
+      if (intro) createPayload.intro = intro;
+      if (lessonsWithMedia.length > 0) createPayload.lessons = lessonsWithMedia;
+      if (conclusion) createPayload.conclusion = conclusion;
+
+      content = await Content.create({
+        ...createPayload,
       });
     } else {
       const mediaType = mediaTypeFromMime((mediaFile as UploadedFile).mimetype);
@@ -360,11 +359,11 @@ export const updateContent = async (
         };
       }
       const intro = normalizeSection(introInput);
-      if (!intro)
-        return next(
-          new BadRequestError('intro must have title, mediaUrl, mediaType')
-        );
-      payload.intro = intro;
+      if (intro) {
+        payload.intro = intro;
+      } else {
+        delete payload.intro;
+      }
     }
 
     if (finalContentType === 'lifebook' && (payload.conclusion !== undefined || conclusionFile)) {
@@ -396,11 +395,11 @@ export const updateContent = async (
         };
       }
       const conclusion = normalizeSection(conclusionInput);
-      if (!conclusion)
-        return next(
-          new BadRequestError('conclusion must have title, mediaUrl, mediaType')
-        );
-      payload.conclusion = conclusion;
+      if (conclusion) {
+        payload.conclusion = conclusion;
+      } else {
+        delete payload.conclusion;
+      }
     }
 
     if (finalContentType === 'lifebook' && (payload.lessons !== undefined || lessonFiles.length > 0)) {
@@ -410,9 +409,9 @@ export const updateContent = async (
           : body.lessons;
       const lessonsInput = Array.isArray(rawLessons) ? rawLessons : [];
 
-      if (lessonFiles.length > 0 && lessonFiles.length !== lessonsInput.length) {
+      if (lessonFiles.length > 0 && lessonFiles.length > lessonsInput.length) {
         return next(
-          new BadRequestError('lessonMedia count must match number of lessons')
+          new BadRequestError('lessonMedia count cannot exceed number of lessons')
         );
       }
 
