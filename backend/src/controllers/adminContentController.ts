@@ -64,6 +64,15 @@ async function uploadToCloudinary(
   file: UploadedFile,
   folder: string
 ): Promise<{ url: string; resourceType: string }> {
+  if (
+    !process.env.CLOUDINARY_CLOUD_NAME ||
+    !process.env.CLOUDINARY_API_KEY ||
+    !process.env.CLOUDINARY_API_SECRET
+  ) {
+    throw new BadRequestError(
+      'Cloudinary is not configured. Set CLOUDINARY_CLOUD_NAME, CLOUDINARY_API_KEY, CLOUDINARY_API_SECRET.'
+    );
+  }
   return await new Promise((resolve, reject) => {
     const stream = cloudinary.uploader.upload_stream(
       {
@@ -72,7 +81,11 @@ async function uploadToCloudinary(
       },
       (error, result) => {
         if (error || !result) {
-          reject(error || new Error('Cloudinary upload failed'));
+          reject(
+            new BadRequestError(
+              `Cloudinary upload failed${error?.message ? `: ${error.message}` : ''}`
+            )
+          );
           return;
         }
         resolve({
