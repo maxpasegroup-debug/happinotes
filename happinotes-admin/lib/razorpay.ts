@@ -57,7 +57,13 @@ export async function startRazorpaySubscriptionFlow(params: {
     };
 
     return await new Promise((resolve) => {
-      const razorpay = new window.Razorpay({
+      const Razorpay = window.Razorpay;
+      if (!Razorpay) {
+        resolve({ ok: false, message: "Unable to load Razorpay." });
+        return;
+      }
+
+      const razorpay = new Razorpay({
         key,
         amount: orderData.amount,
         currency: orderData.currency || "INR",

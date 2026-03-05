@@ -8,13 +8,9 @@ import { BASE_URL } from "@/lib/content-api";
 import { AuthModal } from "@/components/auth-modal";
 import { clearUserSession, getStoredUser, getUserToken, setUserSession } from "@/lib/user-session";
 import { startRazorpaySubscriptionFlow } from "@/lib/razorpay";
+import type { WebUser } from "@/lib/user-session";
 
-type Me = {
-  name?: string;
-  email?: string;
-  role?: string;
-  subscriptionActive?: boolean;
-};
+type Me = WebUser;
 
 export default function ProfilePage() {
   const router = useRouter();
