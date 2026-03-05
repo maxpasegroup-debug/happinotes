@@ -1,0 +1,191 @@
+"use client";
+
+import { useMemo, useState } from "react";
+import { useRouter } from "next/navigation";
+import type { LifebookItem } from "@/lib/content-api";
+import { AuthModal } from "@/components/auth-modal";
+import { getStoredUser } from "@/lib/user-session";
+import { startRazorpaySubscriptionFlow } from "@/lib/razorpay";
+
+const FALLBACK_IMAGE =
+  "https://images.unsplash.com/photo-1512820790803-83ca734da794?q=80&w=1200&auto=format&fit=crop";
+
+export function DesktopDashboardClient({ initialLifebooks }: { initialLifebooks: LifebookItem[] }) {
+  const router = useRouter();
+  const [search, setSearch] = useState("");
+  const [authOpen, setAuthOpen] = useState(false);
+  const [subscribeOpen, setSubscribeOpen] = useState(false);
+  const [selected, setSelected] = useState<LifebookItem | null>(null);
+  const [subError, setSubError] = useState("");
+
+  const filtered = useMemo(() => {
+    return search.trim()
+      ? initialLifebooks.filter((item) =>
+          item.title.toLowerCase().includes(search.toLowerCase())
+        )
+      : initialLifebooks;
+  }, [initialLifebooks, search]);
+
+  async function tryPlay(item: LifebookItem) {
+    setSelected(item);
+    const user = getStoredUser();
+    if (!user) {
+      setAuthOpen(true);
+      return;
+    }
+    if (item.type === "premium" && !user.subscriptionActive) {
+      setSubscribeOpen(true);
+      return;
+    }
+    router.push(`/player/${item.id || item._id}`);
+  }
+
+  async function handleSubscribe() {
+    setSubError("");
+    const user = getStoredUser();
+    const token = typeof window !== "undefined" ? window.localStorage.getItem("user_token") : null;
+    if (!user || !token) {
+      setSubscribeOpen(false);
+      setAuthOpen(true);
+      return;
+    }
+    const result = await startRazorpaySubscriptionFlow({
+      token,
+      email: user.email,
+      name: user.name,
+    });
+    if (!result.ok) {
+      setSubError(result.message || "Unable to start payment.");
+      return;
+    }
+    setSubscribeOpen(false);
+  }
+
+  return (
+    <div className="min-h-screen bg-[#0b0f1a] text-white">
+      <header className="border-b border-white/10 bg-[#10172a]/90 backdrop-blur">
+        <div className="mx-auto flex max-w-7xl items-center justify-between px-8 py-5">
+          <div className="flex items-center gap-4">
+            <img src="/happinotes-logo.png" alt="Happinotes" className="h-12 w-auto object-contain" />
+            <div>
+              <p className="text-xl font-semibold">Happinotes Lifebooks</p>
+              <p className="text-sm text-[#b7c0d8]">Practical Books for Real Life</p>
+            </div>
+          </div>
+          <div className="w-full max-w-md rounded-xl border border-white/10 bg-[#1a2133] px-4 py-3">
+            <input
+              value={search}
+              onChange={(e) => setSearch(e.target.value)}
+              placeholder="Search lifebooks..."
+              className="w-full bg-transparent text-base text-white outline-none placeholder:text-[#8f99b3]"
+            />
+          </div>
+        </div>
+      </header>
+
+      <main className="mx-auto grid max-w-7xl grid-cols-12 gap-6 px-8 py-8">
+        <aside className="col-span-3 rounded-2xl border border-white/10 bg-[#141a2a] p-5">
+          <h2 className="text-lg font-semibold">Dashboard</h2>
+          <p className="mt-2 text-sm text-[#b7c0d8]">
+            Desktop experience for Happinotes. Mobile design remains unchanged.
+          </p>
+          <div className="mt-6 rounded-xl border border-white/10 bg-[#0f1422] p-4">
+            <p className="text-xs uppercase tracking-wide text-[#8f99b3]">Total Lifebooks</p>
+            <p className="mt-2 text-3xl font-semibold">{filtered.length}</p>
+          </div>
+        </aside>
+
+        <section className="col-span-9">
+          <div className="mb-4 flex items-center justify-between">
+            <h1 className="text-3xl font-semibold">Lifebooks</h1>
+          </div>
+          {filtered.length === 0 ? (
+            <div className="rounded-2xl border border-dashed border-white/20 bg-[#141a2a] p-10 text-center text-[#b7c0d8]">
+              No lifebooks yet. Uploads will appear automatically here.
+            </div>
+          ) : (
+            <div className="grid grid-cols-2 gap-4 xl:grid-cols-3 2xl:grid-cols-4">
+              {filtered.map((item) => {
+                const premium = item.type === "premium";
+                return (
+                  <article
+                    key={item._id}
+                    className="overflow-hidden rounded-2xl border border-white/10 bg-[#141a2a] shadow-[0_10px_24px_rgba(0,0,0,0.35)]"
+                  >
+                    <div className="relative h-44 w-full">
+                      <img
+                        src={item.thumbnailUrl || FALLBACK_IMAGE}
+                        alt={item.title}
+                        loading="lazy"
+                        className="h-full w-full object-cover"
+                      />
+                      {premium ? (
+                        <span className="absolute right-3 top-3 inline-flex h-8 w-8 items-center justify-center rounded-full bg-gradient-to-r from-[#f6c453] to-[#e6a92c] text-sm font-bold text-[#1f1400]">
+                          ★
+                        </span>
+                      ) : null}
+                    </div>
+                    <div className="p-4">
+                      <h3 className="line-clamp-2 text-base font-semibold">{item.title}</h3>
+                      <p className="mt-1 text-sm text-[#b7c0d8]">
+                        {premium ? "Premium" : "Free"} • {item.lessons?.length || 5} Lessons
+                      </p>
+                      <button
+                        type="button"
+                        onClick={() => tryPlay(item)}
+                        className="mt-4 inline-flex rounded-full bg-gradient-to-r from-[#f6c453] to-[#e6a92c] px-4 py-2 text-sm font-semibold text-[#211100]"
+                      >
+                        Listen
+                      </button>
+                    </div>
+                  </article>
+                );
+              })}
+            </div>
+          )}
+        </section>
+      </main>
+
+      <AuthModal
+        open={authOpen}
+        onClose={() => setAuthOpen(false)}
+        onSuccess={() => {
+          if (selected) {
+            const user = getStoredUser();
+            if (selected.type === "premium" && !user?.subscriptionActive) {
+              setSubscribeOpen(true);
+            } else {
+              router.push(`/player/${selected.id || selected._id}`);
+            }
+          }
+        }}
+      />
+
+      {subscribeOpen ? (
+        <div className="fixed inset-0 z-50 flex items-center justify-center bg-black/65 p-4">
+          <div className="w-full max-w-md rounded-2xl border border-white/10 bg-[#141a2a] p-5">
+            <h3 className="text-lg font-semibold text-white">Premium Lifebook</h3>
+            <p className="mt-2 text-sm text-[#b7c0d8]">Subscribe to unlock premium listening.</p>
+            {subError ? <p className="mt-2 text-sm text-rose-300">{subError}</p> : null}
+            <div className="mt-4 flex gap-2">
+              <button
+                type="button"
+                onClick={handleSubscribe}
+                className="rounded-full bg-gradient-to-r from-[#f6c453] to-[#e6a92c] px-4 py-2 text-sm font-semibold text-[#211100]"
+              >
+                Subscribe with Razorpay
+              </button>
+              <button
+                type="button"
+                onClick={() => setSubscribeOpen(false)}
+                className="rounded-full border border-white/20 px-4 py-2 text-sm text-white"
+              >
+                Later
+              </button>
+            </div>
+          </div>
+        </div>
+      ) : null}
+    </div>
+  );
+}

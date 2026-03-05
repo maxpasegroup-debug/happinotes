@@ -8,7 +8,8 @@ export interface IUser extends Document {
   password: string;
   role: UserRole;
   subscriptionActive: boolean;
-  subscriptionExpiry: Date;
+  subscriptionExpiry: Date | null;
+  razorpaySubscriptionId: string | null;
   bookCollection: mongoose.Types.ObjectId[];
   favourites: { contentId: mongoose.Types.ObjectId; contentType: string }[];
   blocked: boolean;
@@ -24,6 +25,7 @@ const userSchema = new Schema<IUser>(
     role: { type: String, enum: ['admin', 'user'], default: 'user' },
     subscriptionActive: { type: Boolean, default: false },
     subscriptionExpiry: { type: Date, default: null },
+    razorpaySubscriptionId: { type: String, default: null },
     bookCollection: [{ type: Schema.Types.ObjectId, ref: 'Content', default: [] }],
     favourites: {
       type: [

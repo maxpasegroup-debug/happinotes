@@ -65,6 +65,10 @@ Dependencies: `express`, `mongoose`, `bcryptjs`, `jsonwebtoken`, `helmet`, `cors
    - Set `MONGODB_URI` (e.g. local MongoDB or MongoDB Atlas)
    - Set `JWT_SECRET` (strong secret for production)
    - `ADMIN_EMAIL=admin@happinotes.in` is already in `.env.example`
+   - Set Cloudinary media credentials:
+     - `CLOUDINARY_CLOUD_NAME`
+     - `CLOUDINARY_API_KEY`
+     - `CLOUDINARY_API_SECRET`
 
 3. **MongoDB**
    - Run MongoDB locally, or use a cloud URI in `.env`
@@ -99,6 +103,13 @@ Dependencies: `express`, `mongoose`, `bcryptjs`, `jsonwebtoken`, `helmet`, `cors
      - `JWT_SECRET` = a long random secret (e.g. from `openssl rand -base64 32`)
      - `NODE_ENV` = `production`
     - `ADMIN_EMAIL` = `admin@happinotes.in` (optional if same as default)
+     - `CLOUDINARY_CLOUD_NAME` = your Cloudinary cloud name
+     - `CLOUDINARY_API_KEY` = your Cloudinary API key
+     - `CLOUDINARY_API_SECRET` = your Cloudinary API secret
+     - `RAZORPAY_KEY_ID` = your Razorpay key id
+     - `RAZORPAY_KEY_SECRET` = your Razorpay key secret
+     - `RAZORPAY_MONTHLY_PLAN_ID` = Razorpay plan id for monthly autopay (₹499)
+     - `RAZORPAY_WEBHOOK_SECRET` = webhook secret from Razorpay dashboard
    - Railway will auto-set `PORT`; your app already uses `process.env.PORT`.
 
 5. **Build and start**

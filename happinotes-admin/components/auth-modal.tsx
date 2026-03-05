@@ -30,6 +30,7 @@ export function AuthModal({
   const [name, setName] = useState("");
   const [email, setEmail] = useState("");
   const [password, setPassword] = useState("");
+  const [showPassword, setShowPassword] = useState(false);
   const [loading, setLoading] = useState(false);
   const [error, setError] = useState("");
 
@@ -40,11 +41,16 @@ export function AuthModal({
     setError("");
     setLoading(true);
     try {
+      const normalizedEmail = email.trim().toLowerCase();
       const endpoint = mode === "signup" ? "/auth/signup" : "/auth/login";
       const body =
         mode === "signup"
-          ? { name: name || email.split("@")[0] || "Happinotes User", email, password }
-          : { email, password };
+          ? {
+              name: name.trim() || normalizedEmail.split("@")[0] || "Happinotes User",
+              email: normalizedEmail,
+              password,
+            }
+          : { email: normalizedEmail, password };
 
       const res = await fetch(`${BASE_URL}${endpoint}`, {
         method: "POST",
@@ -60,7 +66,7 @@ export function AuthModal({
       onSuccess();
       onClose();
     } catch {
-      setError("Unable to continue.");
+      setError("Unable to continue. Please check internet/CORS settings.");
     } finally {
       setLoading(false);
     }
@@ -95,14 +101,24 @@ export function AuthModal({
             required
             className="w-full rounded-xl border border-white/15 bg-[#0f1422] px-3 py-2 text-sm text-white outline-none"
           />
-          <input
-            value={password}
-            onChange={(e) => setPassword(e.target.value)}
-            placeholder="Password"
-            type="password"
-            required
-            className="w-full rounded-xl border border-white/15 bg-[#0f1422] px-3 py-2 text-sm text-white outline-none"
-          />
+          <div className="flex items-center gap-2">
+            <input
+              value={password}
+              onChange={(e) => setPassword(e.target.value)}
+              placeholder="Password"
+              type={showPassword ? "text" : "password"}
+              required
+              className="w-full rounded-xl border border-white/15 bg-[#0f1422] px-3 py-2 text-sm text-white outline-none"
+            />
+            <button
+              type="button"
+              onClick={() => setShowPassword((prev) => !prev)}
+              aria-label={showPassword ? "Hide password" : "Show password"}
+              className="rounded-xl border border-white/20 px-3 py-2 text-xs font-semibold text-[#b7c0d8] hover:text-white"
+            >
+              {showPassword ? "Hide" : "Show"}
+            </button>
+          </div>
           {error ? <p className="text-sm text-rose-300">{error}</p> : null}
           <button
             disabled={loading}

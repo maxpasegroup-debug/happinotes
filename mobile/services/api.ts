@@ -170,7 +170,7 @@ export async function signup(
 
 /** Public content API: Lifebooks — GET /contents?type=lifebook */
 export async function getBooks(token?: string | null): Promise<ContentsResponse> {
-  return request<ContentsResponse>('/contents?type=lifebook', {
+  return request<ContentsResponse>('/contents?type=lifebook&status=live', {
     method: 'GET',
     token: token || undefined,
   });
@@ -178,7 +178,7 @@ export async function getBooks(token?: string | null): Promise<ContentsResponse>
 
 /** Public content API: Notes — GET /contents?type=note */
 export async function getNotes(token?: string | null): Promise<ContentsResponse> {
-  return request<ContentsResponse>('/contents?type=note', {
+  return request<ContentsResponse>('/contents?type=note&status=live', {
     method: 'GET',
     token: token || undefined,
   });
@@ -186,7 +186,7 @@ export async function getNotes(token?: string | null): Promise<ContentsResponse>
 
 /** Public content API: Silence — GET /contents?type=silence */
 export async function getSilence(token?: string | null): Promise<ContentsResponse> {
-  return request<ContentsResponse>('/contents?type=silence', {
+  return request<ContentsResponse>('/contents?type=silence&status=live', {
     method: 'GET',
     token: token || undefined,
   });

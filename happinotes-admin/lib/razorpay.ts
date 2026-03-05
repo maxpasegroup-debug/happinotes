@@ -34,7 +34,7 @@ export async function startRazorpaySubscriptionFlow(params: {
   }
 
   try {
-    const orderRes = await fetch(`${BASE_URL}/payments/razorpay/order`, {
+    const orderRes = await fetch(`${BASE_URL}/payments/razorpay/subscription`, {
       method: "POST",
       headers: {
         "Content-Type": "application/json",
@@ -46,14 +46,15 @@ export async function startRazorpaySubscriptionFlow(params: {
     if (!orderRes.ok) {
       return {
         ok: false,
-        message: "Razorpay backend order API is not configured yet.",
+        message: "Razorpay subscription API is not configured yet.",
       };
     }
 
     const orderData = (await orderRes.json()) as {
-      orderId: string;
+      subscriptionId: string;
       amount: number;
       currency: string;
+      key?: string;
     };
 
     return await new Promise((resolve) => {
@@ -69,7 +70,7 @@ export async function startRazorpaySubscriptionFlow(params: {
         currency: orderData.currency || "INR",
         name: "Happinotes",
         description: "Happinotes Premium Subscription",
-        order_id: orderData.orderId,
+        subscription_id: orderData.subscriptionId,
         prefill: {
           email: params.email,
           name: params.name,
