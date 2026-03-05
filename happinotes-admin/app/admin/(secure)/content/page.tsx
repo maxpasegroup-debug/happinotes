@@ -98,9 +98,21 @@ export default function AdminContentPage() {
                     <button onClick={() => act(`/admin/contents/${item._id}/${item.featured ? "unfeature" : "feature"}`, "PATCH")}>
                       {item.featured ? "Unfeature" : "Feature"}
                     </button>
-                    <button onClick={() => act(`/admin/contents/${item._id}/status`, "PATCH", { status: item.status === "live" ? "draft" : "live" })}>
-                      {item.status === "live" ? "Unpublish" : "Publish"}
-                    </button>
+                    {item.status !== "live" ? (
+                      <button onClick={() => act(`/admin/contents/${item._id}/status`, "PATCH", { status: "live" })}>
+                        Publish
+                      </button>
+                    ) : null}
+                    {item.status !== "coming_soon" ? (
+                      <button onClick={() => act(`/admin/contents/${item._id}/status`, "PATCH", { status: "coming_soon" })}>
+                        Coming Soon
+                      </button>
+                    ) : null}
+                    {item.status !== "draft" ? (
+                      <button onClick={() => act(`/admin/contents/${item._id}/status`, "PATCH", { status: "draft" })}>
+                        Unpublish
+                      </button>
+                    ) : null}
                   </div>
                 </td>
               </tr>
