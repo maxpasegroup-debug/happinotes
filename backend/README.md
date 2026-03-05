@@ -64,7 +64,7 @@ Dependencies: `express`, `mongoose`, `bcryptjs`, `jsonwebtoken`, `helmet`, `cors
    - Copy `.env.example` to `.env`
    - Set `MONGODB_URI` (e.g. local MongoDB or MongoDB Atlas)
    - Set `JWT_SECRET` (strong secret for production)
-   - `ADMIN_EMAIL=arundasmd@gmail.com` is already in `.env.example`
+   - `ADMIN_EMAIL=admin@happinotes.in` is already in `.env.example`
 
 3. **MongoDB**
    - Run MongoDB locally, or use a cloud URI in `.env`
@@ -98,7 +98,7 @@ Dependencies: `express`, `mongoose`, `bcryptjs`, `jsonwebtoken`, `helmet`, `cors
      - `MONGODB_URI` = the MongoDB connection URL from step 2
      - `JWT_SECRET` = a long random secret (e.g. from `openssl rand -base64 32`)
      - `NODE_ENV` = `production`
-     - `ADMIN_EMAIL` = `arundasmd@gmail.com` (optional if same as default)
+    - `ADMIN_EMAIL` = `admin@happinotes.in` (optional if same as default)
    - Railway will auto-set `PORT`; your app already uses `process.env.PORT`.
 
 5. **Build and start**

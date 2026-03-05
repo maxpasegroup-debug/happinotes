@@ -11,6 +11,7 @@ export interface IUser extends Document {
   subscriptionExpiry: Date;
   bookCollection: mongoose.Types.ObjectId[];
   favourites: { contentId: mongoose.Types.ObjectId; contentType: string }[];
+  blocked: boolean;
   createdAt: Date;
   updatedAt: Date;
 }
@@ -33,6 +34,7 @@ const userSchema = new Schema<IUser>(
       ],
       default: [],
     },
+    blocked: { type: Boolean, default: false },
   },
   { timestamps: true }
 );

@@ -47,6 +47,9 @@ export const authenticate = async (
     if (!user) {
       return next(new UnauthorizedError('User not found'));
     }
+    if (user.blocked) {
+      return next(new UnauthorizedError('Account is blocked'));
+    }
 
     await expireSubscriptionIfNeeded(user);
     req.user = user;
@@ -77,6 +80,9 @@ export const optionalAuthenticate = async (
     const user = await User.findById(decoded.id);
 
     if (user) {
+      if (user.blocked) {
+        return next();
+      }
       await expireSubscriptionIfNeeded(user);
       req.user = user;
     }

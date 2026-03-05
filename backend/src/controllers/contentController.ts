@@ -93,14 +93,20 @@ export const getContents = async (
 ): Promise<void> => {
   try {
     const type = req.query.type as string | undefined;
+    const statusQuery = req.query.status as string | undefined;
     const filter: Record<string, unknown> = {
       status: { $in: ['live', 'coming_soon'] },
     };
+    if (statusQuery === 'draft' || statusQuery === 'coming_soon' || statusQuery === 'live') {
+      filter.status = statusQuery;
+    }
     if (type === 'lifebook' || type === 'note' || type === 'silence') {
       filter.contentType = type;
+    } else if (type === 'happiness') {
+      filter.contentType = 'silence';
     }
     const contents = await Content.find(filter)
-      .sort({ createdAt: -1 })
+      .sort({ featured: -1, createdAt: -1 })
       .lean();
     const canAccess = canAccessPremiumContent(req);
     const shaped = contents.map((c) =>

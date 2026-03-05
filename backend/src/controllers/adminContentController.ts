@@ -6,20 +6,25 @@ import type { Multer } from 'multer';
 import { BadRequestError, NotFoundError } from '../utils/errors';
 import { cloudinary } from '../config/cloudinary';
 
-const LIFEBOOK_UPDATE_FIELDS = [
+const CONTENT_UPDATE_FIELDS = [
   'title',
   'description',
   'thumbnailUrl',
   'language',
   'type',
+  'contentType',
+  'featured',
+  'category',
   'intro',
   'lessons',
   'conclusion',
+  'mediaUrl',
+  'mediaType',
 ] as const;
 
-function pickLifebookFields(body: Record<string, unknown>): Record<string, unknown> {
+function pickContentFields(body: Record<string, unknown>): Record<string, unknown> {
   const out: Record<string, unknown> = {};
-  for (const key of LIFEBOOK_UPDATE_FIELDS) {
+  for (const key of CONTENT_UPDATE_FIELDS) {
     if (Object.prototype.hasOwnProperty.call(body, key)) {
       out[key] = body[key];
     }
@@ -87,7 +92,7 @@ export const getAllContents = async (
   next: NextFunction
 ): Promise<void> => {
   try {
-    const contents = await Content.find().sort({ createdAt: -1 }).lean();
+    const contents = await Content.find().sort({ featured: -1, createdAt: -1 }).lean();
     res.json({ success: true, contents });
   } catch (err) {
     next(err);
@@ -98,6 +103,12 @@ function mediaTypeFromMime(mime: string | undefined): 'audio' | 'video' | null {
   if (!mime) return null;
   if (mime.startsWith('audio/')) return 'audio';
   if (mime.startsWith('video/')) return 'video';
+  return null;
+}
+
+function normalizeContentType(value: unknown): 'lifebook' | 'note' | 'silence' | null {
+  if (value === 'lifebook' || value === 'note' || value === 'silence') return value;
+  if (value === 'happiness') return 'silence';
   return null;
 }
 
@@ -122,124 +133,159 @@ export const createContent = async (
       typeof body.description === 'string' ? body.description.trim() : '';
     const language = typeof body.language === 'string' ? body.language.trim() : '';
     const type = body.type === 'free' || body.type === 'premium' ? body.type : undefined;
-    const contentType = body.contentType;
+    const contentType = normalizeContentType(body.contentType);
 
     if (!title) return next(new BadRequestError('title is required'));
     if (!language) return next(new BadRequestError('language is required'));
     if (!type) return next(new BadRequestError('type must be free or premium'));
-    if (contentType !== 'lifebook') {
-      return next(new BadRequestError('contentType must be lifebook for this endpoint'));
+    if (!contentType) {
+      return next(new BadRequestError('contentType must be lifebook, note, or silence'));
     }
 
     const thumbnailFile = files?.thumbnail?.[0];
     const introFile = files?.introMedia?.[0];
     const conclusionFile = files?.conclusionMedia?.[0];
     const lessonFiles = files?.lessonMedia ?? [];
+    const mediaFile = files?.media?.[0];
 
     if (!thumbnailFile) {
       return next(new BadRequestError('thumbnail file is required'));
     }
-    if (!introFile) {
-      return next(new BadRequestError('introMedia file is required'));
-    }
-    if (!conclusionFile) {
-      return next(new BadRequestError('conclusionMedia file is required'));
-    }
-
-    const rawIntro =
-      typeof body.intro === 'string' ? JSON.parse(body.intro) : body.intro;
-    const rawConclusion =
-      typeof body.conclusion === 'string' ? JSON.parse(body.conclusion) : body.conclusion;
-    const rawLessons =
-      typeof body.lessons === 'string'
-        ? JSON.parse(body.lessons)
-        : body.lessons;
-
-    const lessonsInput = Array.isArray(rawLessons) ? rawLessons : [];
-
-    if (lessonFiles.length !== lessonsInput.length) {
-      return next(
-        new BadRequestError('lessonMedia count must match number of lessons')
-      );
+    if (contentType === 'lifebook') {
+      if (!introFile) {
+        return next(new BadRequestError('introMedia file is required'));
+      }
+      if (!conclusionFile) {
+        return next(new BadRequestError('conclusionMedia file is required'));
+      }
+    } else if (!mediaFile) {
+      return next(new BadRequestError('media file is required for note/silence'));
     }
 
     const thumbnailUpload = await uploadToCloudinary(
       thumbnailFile,
       'happinotes/thumbnails'
     );
-    const introUpload = await uploadToCloudinary(
-      introFile,
-      'happinotes/intro'
-    );
-    const conclusionUpload = await uploadToCloudinary(
-      conclusionFile,
-      'happinotes/conclusion'
-    );
+    let content: unknown;
+    if (contentType === 'lifebook') {
+      const rawIntro =
+        typeof body.intro === 'string' ? JSON.parse(body.intro) : body.intro;
+      const rawConclusion =
+        typeof body.conclusion === 'string' ? JSON.parse(body.conclusion) : body.conclusion;
+      const rawLessons =
+        typeof body.lessons === 'string'
+          ? JSON.parse(body.lessons)
+          : body.lessons;
 
-    const introMediaType = mediaTypeFromMime(introFile.mimetype);
-    const conclusionMediaType = mediaTypeFromMime(conclusionFile.mimetype);
-    if (!introMediaType || !conclusionMediaType) {
-      return next(
-        new BadRequestError('introMedia and conclusionMedia must be audio or video')
+      const lessonsInput = Array.isArray(rawLessons) ? rawLessons : [];
+      if (lessonFiles.length !== lessonsInput.length) {
+        return next(
+          new BadRequestError('lessonMedia count must match number of lessons')
+        );
+      }
+
+      const introUpload = await uploadToCloudinary(
+        introFile as UploadedFile,
+        'happinotes/intro'
       );
+      const conclusionUpload = await uploadToCloudinary(
+        conclusionFile as UploadedFile,
+        'happinotes/conclusion'
+      );
+
+      const introMediaType = mediaTypeFromMime((introFile as UploadedFile).mimetype);
+      const conclusionMediaType = mediaTypeFromMime((conclusionFile as UploadedFile).mimetype);
+      if (!introMediaType || !conclusionMediaType) {
+        return next(
+          new BadRequestError('introMedia and conclusionMedia must be audio or video')
+        );
+      }
+
+      const intro = normalizeSection({
+        ...(rawIntro || {}),
+        mediaUrl: introUpload.url,
+        mediaType: introMediaType,
+      });
+      const conclusion = normalizeSection({
+        ...(rawConclusion || {}),
+        mediaUrl: conclusionUpload.url,
+        mediaType: conclusionMediaType,
+      });
+
+      if (!intro)
+        return next(
+          new BadRequestError('intro is required (title, mediaUrl, mediaType)')
+        );
+      if (!conclusion)
+        return next(
+          new BadRequestError('conclusion is required (title, mediaUrl, mediaType)')
+        );
+
+      const lessons = normalizeLessons(
+        lessonsInput.map((lesson, index) => {
+          const file = lessonFiles[index];
+          const mt = mediaTypeFromMime(file.mimetype);
+          if (!mt) {
+            throw new BadRequestError('lessonMedia files must be audio or video');
+          }
+          return {
+            ...(lesson as Record<string, unknown>),
+            mediaUrl: undefined,
+            mediaType: mt,
+          };
+        })
+      );
+
+      for (let i = 0; i < lessons.length; i += 1) {
+        const uploaded = await uploadToCloudinary(
+          lessonFiles[i],
+          'happinotes/lessons'
+        );
+        lessons[i].mediaUrl = uploaded.url;
+      }
+
+      content = await Content.create({
+        contentType: 'lifebook',
+        title,
+        description: description || '',
+        thumbnailUrl: thumbnailUpload.url,
+        language,
+        type,
+        status: body.status === 'coming_soon' || body.status === 'live' ? body.status : 'draft',
+        featured: body.featured === 'true' || body.featured === true,
+        intro,
+        lessons,
+        conclusion,
+      });
+    } else {
+      const mediaType = mediaTypeFromMime((mediaFile as UploadedFile).mimetype);
+      if (!mediaType) {
+        return next(new BadRequestError('media must be audio or video'));
+      }
+      const mediaUpload = await uploadToCloudinary(
+        mediaFile as UploadedFile,
+        `happinotes/${contentType}`
+      );
+      const category =
+        typeof body.category === 'string' ? body.category.trim() : '';
+      if (contentType === 'silence' && !category) {
+        return next(new BadRequestError('category is required for silence'));
+      }
+
+      content = await Content.create({
+        contentType,
+        title,
+        description: description || '',
+        thumbnailUrl: thumbnailUpload.url,
+        language,
+        type,
+        status: body.status === 'coming_soon' || body.status === 'live' ? body.status : 'draft',
+        featured: body.featured === 'true' || body.featured === true,
+        mediaUrl: mediaUpload.url,
+        mediaType,
+        category: contentType === 'silence' ? category : undefined,
+      });
     }
-
-    const intro = normalizeSection({
-      ...(rawIntro || {}),
-      mediaUrl: introUpload.url,
-      mediaType: introMediaType,
-    });
-    const conclusion = normalizeSection({
-      ...(rawConclusion || {}),
-      mediaUrl: conclusionUpload.url,
-      mediaType: conclusionMediaType,
-    });
-
-    if (!intro)
-      return next(
-        new BadRequestError('intro is required (title, mediaUrl, mediaType)')
-      );
-    if (!conclusion)
-      return next(
-        new BadRequestError('conclusion is required (title, mediaUrl, mediaType)')
-      );
-
-    const lessons = normalizeLessons(
-      lessonsInput.map((lesson, index) => {
-        const file = lessonFiles[index];
-        const mt = mediaTypeFromMime(file.mimetype);
-        if (!mt) {
-          throw new BadRequestError('lessonMedia files must be audio or video');
-        }
-        return {
-          ...(lesson as Record<string, unknown>),
-          mediaUrl: undefined, // placeholder, will be set after upload
-          mediaType: mt,
-        };
-      })
-    );
-
-    // Upload lesson media and assign URLs
-    for (let i = 0; i < lessons.length; i += 1) {
-      const uploaded = await uploadToCloudinary(
-        lessonFiles[i],
-        'happinotes/lessons'
-      );
-      lessons[i].mediaUrl = uploaded.url;
-    }
-
-    const content = await Content.create({
-      contentType: 'lifebook',
-      title,
-      description: description || '',
-      thumbnailUrl: thumbnailUpload.url,
-      language,
-      type,
-      status: 'draft',
-      intro,
-      lessons,
-      conclusion,
-    });
     res.status(201).json({ success: true, content });
   } catch (err) {
     next(err);
@@ -262,14 +308,7 @@ export const updateContent = async (
       | Record<string, UploadedFile[] | undefined>
       | undefined;
 
-    const payload = pickLifebookFields(body);
-    if (Object.keys(payload).length === 0) {
-      const existing = await Content.findById(req.params.id);
-      if (!existing) return next(new NotFoundError('Content not found'));
-      res.json({ success: true, content: existing });
-      return;
-    }
-
+    const payload = pickContentFields(body);
     const existing = await Content.findById(req.params.id);
     if (!existing) return next(new NotFoundError('Content not found'));
 
@@ -277,6 +316,16 @@ export const updateContent = async (
     const introFile = files?.introMedia?.[0];
     const conclusionFile = files?.conclusionMedia?.[0];
     const lessonFiles = files?.lessonMedia ?? [];
+    const mediaFile = files?.media?.[0];
+
+    const requestedType = normalizeContentType(payload.contentType);
+    if (payload.contentType !== undefined && !requestedType) {
+      return next(new BadRequestError('contentType must be lifebook, note, or silence'));
+    }
+    const finalContentType = requestedType || normalizeContentType(existing.contentType) || 'lifebook';
+    if (payload.featured !== undefined) {
+      payload.featured = payload.featured === true || payload.featured === 'true';
+    }
 
     if (thumbnailFile) {
       const uploaded = await uploadToCloudinary(
@@ -286,7 +335,7 @@ export const updateContent = async (
       (payload as Record<string, unknown>).thumbnailUrl = uploaded.url;
     }
 
-    if (payload.intro !== undefined || introFile) {
+    if (finalContentType === 'lifebook' && (payload.intro !== undefined || introFile)) {
       const rawIntro =
         typeof body.intro === 'string' ? JSON.parse(body.intro) : body.intro;
       let introInput: Record<string, unknown> = {
@@ -318,7 +367,7 @@ export const updateContent = async (
       payload.intro = intro;
     }
 
-    if (payload.conclusion !== undefined || conclusionFile) {
+    if (finalContentType === 'lifebook' && (payload.conclusion !== undefined || conclusionFile)) {
       const rawConclusion =
         typeof body.conclusion === 'string'
           ? JSON.parse(body.conclusion)
@@ -354,7 +403,7 @@ export const updateContent = async (
       payload.conclusion = conclusion;
     }
 
-    if (payload.lessons !== undefined || lessonFiles.length > 0) {
+    if (finalContentType === 'lifebook' && (payload.lessons !== undefined || lessonFiles.length > 0)) {
       const rawLessons =
         typeof body.lessons === 'string'
           ? JSON.parse(body.lessons)
@@ -399,6 +448,59 @@ export const updateContent = async (
       }
 
       payload.lessons = normalized;
+    }
+
+    if (finalContentType !== 'lifebook') {
+      delete payload.intro;
+      delete payload.lessons;
+      delete payload.conclusion;
+      payload.contentType = finalContentType;
+
+      if (mediaFile) {
+        const mt = mediaTypeFromMime(mediaFile.mimetype);
+        if (!mt) {
+          return next(new BadRequestError('media file must be audio or video'));
+        }
+        const uploaded = await uploadToCloudinary(mediaFile, `happinotes/${finalContentType}`);
+        payload.mediaUrl = uploaded.url;
+        payload.mediaType = mt;
+      }
+
+      if (!payload.mediaUrl && !existing.mediaUrl) {
+        return next(new BadRequestError('media is required for note/silence'));
+      }
+
+      if (finalContentType === 'silence') {
+        const category =
+          typeof payload.category === 'string'
+            ? payload.category.trim()
+            : typeof existing.category === 'string'
+              ? existing.category.trim()
+              : '';
+        if (!category) {
+          return next(new BadRequestError('category is required for silence'));
+        }
+        payload.category = category;
+      } else if (Object.prototype.hasOwnProperty.call(payload, 'category')) {
+        delete payload.category;
+      }
+    } else {
+      payload.contentType = 'lifebook';
+      delete payload.mediaUrl;
+      delete payload.mediaType;
+      delete payload.category;
+    }
+
+    if (
+      Object.keys(payload).length === 0 &&
+      !thumbnailFile &&
+      !introFile &&
+      !conclusionFile &&
+      lessonFiles.length === 0 &&
+      !mediaFile
+    ) {
+      res.json({ success: true, content: existing });
+      return;
     }
 
     const content = await Content.findByIdAndUpdate(req.params.id, payload, {
@@ -449,6 +551,44 @@ export const updateContentStatus = async (
     const content = await Content.findByIdAndUpdate(
       req.params.id,
       { status },
+      { new: true, runValidators: true }
+    );
+    if (!content) return next(new NotFoundError('Content not found'));
+    res.json({ success: true, content });
+  } catch (err) {
+    next(err);
+  }
+};
+
+/** PATCH /admin/contents/:id/feature */
+export const featureContent = async (
+  req: Request,
+  res: Response,
+  next: NextFunction
+): Promise<void> => {
+  try {
+    const content = await Content.findByIdAndUpdate(
+      req.params.id,
+      { featured: true },
+      { new: true, runValidators: true }
+    );
+    if (!content) return next(new NotFoundError('Content not found'));
+    res.json({ success: true, content });
+  } catch (err) {
+    next(err);
+  }
+};
+
+/** PATCH /admin/contents/:id/unfeature */
+export const unfeatureContent = async (
+  req: Request,
+  res: Response,
+  next: NextFunction
+): Promise<void> => {
+  try {
+    const content = await Content.findByIdAndUpdate(
+      req.params.id,
+      { featured: false },
       { new: true, runValidators: true }
     );
     if (!content) return next(new NotFoundError('Content not found'));

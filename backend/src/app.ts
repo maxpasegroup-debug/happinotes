@@ -11,9 +11,10 @@ app.use(
   cors({
     origin: [
       'http://localhost:8081',
+      'http://localhost:3000',
       'https://happinotes-production.up.railway.app',
     ],
-    methods: ['GET', 'POST', 'PUT', 'DELETE'],
+    methods: ['GET', 'POST', 'PUT', 'PATCH', 'DELETE'],
     credentials: true,
   })
 );

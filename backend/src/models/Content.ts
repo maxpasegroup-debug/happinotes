@@ -35,6 +35,7 @@ export interface IContent extends Document {
   mediaUrl?: string;
   mediaType?: MediaType;
   category?: string;
+  featured: boolean;
   createdAt: Date;
   updatedAt: Date;
 }
@@ -76,6 +77,7 @@ const contentSchema = new Schema<IContent>(
     mediaUrl: { type: String, trim: true },
     mediaType: { type: String, enum: ['audio', 'video'] },
     category: { type: String, trim: true },
+    featured: { type: Boolean, default: false },
   },
   { timestamps: true }
 );

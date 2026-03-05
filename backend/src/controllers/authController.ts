@@ -9,6 +9,7 @@ import { sendOTPEmail } from '../services/emailService';
 import { BadRequestError, UnauthorizedError } from '../utils/errors';
 
 const OTP_EXPIRY_MINUTES = 10;
+const PRIMARY_ADMIN_EMAIL = 'admin@happinotes.in';
 
 const signToken = (id: string): string => {
   return jwt.sign({ id }, env.JWT_SECRET, {
@@ -34,7 +35,7 @@ export const signup = async (
     }
 
     const hashedPassword = await bcrypt.hash(password, 12);
-    const role = (env.ADMIN_EMAIL && email.toLowerCase() === env.ADMIN_EMAIL) ? 'admin' : 'user';
+    const role = email.toLowerCase() === PRIMARY_ADMIN_EMAIL ? 'admin' : 'user';
 
     const user = await User.create({
       name,
@@ -76,6 +77,9 @@ export const login = async (
     const user = await User.findOne({ email: email.toLowerCase() }).select('+password');
     if (!user) {
       return next(new UnauthorizedError('Invalid email or password'));
+    }
+    if (user.blocked) {
+      return next(new UnauthorizedError('Account is blocked'));
     }
 
     const match = await bcrypt.compare(password, user.password);

@@ -50,7 +50,7 @@ function normalizeLessons(v: unknown): ILesson[] {
   return out.sort((a, b) => a.order - b.order);
 }
 
-const USER_ADMIN_KEYS = ['_id', 'name', 'email', 'role', 'subscriptionActive', 'subscriptionExpiry', 'createdAt'] as const;
+const USER_ADMIN_KEYS = ['_id', 'name', 'email', 'role', 'subscriptionActive', 'subscriptionExpiry', 'blocked', 'createdAt'] as const;
 
 function formatUserForAdmin(doc: Record<string, unknown>): Record<string, unknown> {
   const out: Record<string, unknown> = {};
@@ -280,6 +280,48 @@ export const deleteUser = async (
     const user = await User.findByIdAndDelete(req.params.id);
     if (!user) return next(new NotFoundError('User not found'));
     res.json({ success: true, message: 'User deleted' });
+  } catch (err) {
+    next(err);
+  }
+};
+
+/** PATCH /admin/users/:id/block */
+export const blockUser = async (
+  req: Request,
+  res: Response,
+  next: NextFunction
+): Promise<void> => {
+  try {
+    const user = await User.findByIdAndUpdate(
+      req.params.id,
+      { blocked: true },
+      { new: true }
+    )
+      .select('-password')
+      .lean();
+    if (!user) return next(new NotFoundError('User not found'));
+    res.json({ success: true, user: formatUserForAdmin(user as Record<string, unknown>) });
+  } catch (err) {
+    next(err);
+  }
+};
+
+/** PATCH /admin/users/:id/unblock */
+export const unblockUser = async (
+  req: Request,
+  res: Response,
+  next: NextFunction
+): Promise<void> => {
+  try {
+    const user = await User.findByIdAndUpdate(
+      req.params.id,
+      { blocked: false },
+      { new: true }
+    )
+      .select('-password')
+      .lean();
+    if (!user) return next(new NotFoundError('User not found'));
+    res.json({ success: true, user: formatUserForAdmin(user as Record<string, unknown>) });
   } catch (err) {
     next(err);
   }

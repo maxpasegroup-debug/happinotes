@@ -10,6 +10,8 @@ import {
   activateUserSubscription,
   deactivateUserSubscription,
   deleteUser,
+  blockUser,
+  unblockUser,
 } from '../controllers/adminController';
 import { authenticate, requireAdmin } from '../middleware';
 
@@ -73,6 +75,8 @@ const updateStatusValidation = [
 router.get('/users', getUsers);
 router.patch('/users/:id/activate', activateUserSubscription);
 router.patch('/users/:id/deactivate', deactivateUserSubscription);
+router.patch('/users/:id/block', blockUser);
+router.patch('/users/:id/unblock', unblockUser);
 router.delete('/users/:id', deleteUser);
 
 router.get('/books', getAllBooks);
