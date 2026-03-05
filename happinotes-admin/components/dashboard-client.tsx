@@ -15,6 +15,7 @@ export function DashboardClient({ initialLifebooks }: { initialLifebooks: Lifebo
   const [search, setSearch] = useState("");
   const [authOpen, setAuthOpen] = useState(false);
   const [subscribeOpen, setSubscribeOpen] = useState(false);
+  const [comingSoonPreview, setComingSoonPreview] = useState<LifebookItem | null>(null);
   const [selected, setSelected] = useState<LifebookItem | null>(null);
   const [subError, setSubError] = useState("");
 
@@ -29,6 +30,7 @@ export function DashboardClient({ initialLifebooks }: { initialLifebooks: Lifebo
   async function tryPlay(item: LifebookItem) {
     setSelected(item);
     if (item.status === "coming_soon") {
+      setComingSoonPreview(item);
       return;
     }
     const user = getStoredUser();
@@ -72,12 +74,27 @@ export function DashboardClient({ initialLifebooks }: { initialLifebooks: Lifebo
         className="h-[210px] w-[165px] shrink-0 overflow-hidden rounded-2xl border border-white/10 bg-[#141a2a] shadow-[0_10px_20px_rgba(0,0,0,0.35)]"
       >
         <div className="relative h-[120px] w-full">
-          <img
-            src={item.thumbnailUrl || FALLBACK_IMAGE}
-            alt={item.title}
-            loading="lazy"
-            className="h-full w-full object-cover"
-          />
+          {comingSoon ? (
+            <button
+              type="button"
+              onClick={() => setComingSoonPreview(item)}
+              className="h-full w-full text-left"
+            >
+              <img
+                src={item.thumbnailUrl || FALLBACK_IMAGE}
+                alt={item.title}
+                loading="lazy"
+                className="h-full w-full object-cover"
+              />
+            </button>
+          ) : (
+            <img
+              src={item.thumbnailUrl || FALLBACK_IMAGE}
+              alt={item.title}
+              loading="lazy"
+              className="h-full w-full object-cover"
+            />
+          )}
           {premium ? (
             <span
               className="absolute right-2 top-2 inline-flex h-7 w-7 items-center justify-center rounded-full bg-gradient-to-r from-[#f6c453] to-[#e6a92c] text-[13px] font-bold text-[#1f1400] shadow-[0_6px_14px_rgba(246,196,83,0.45)]"
@@ -211,6 +228,35 @@ export function DashboardClient({ initialLifebooks }: { initialLifebooks: Lifebo
                 className="rounded-full border border-white/20 px-4 py-2 text-sm text-white"
               >
                 Later
+              </button>
+            </div>
+          </div>
+        </div>
+      ) : null}
+
+      {comingSoonPreview ? (
+        <div className="fixed inset-0 z-50 flex items-end justify-center bg-black/70 p-4 sm:items-center">
+          <div className="w-full max-w-md overflow-hidden rounded-2xl border border-white/10 bg-[#141a2a]">
+            <img
+              src={comingSoonPreview.thumbnailUrl || FALLBACK_IMAGE}
+              alt={comingSoonPreview.title}
+              className="h-auto max-h-[55vh] w-full object-cover"
+            />
+            <div className="p-5">
+              <p className="mb-2 inline-flex rounded-full border border-white/20 bg-white/5 px-2 py-1 text-[11px] font-semibold text-white/90">
+                Coming Soon
+              </p>
+              <h3 className="text-lg font-semibold text-white">{comingSoonPreview.title}</h3>
+              <p className="mt-2 text-sm text-[#b7c0d8]">
+                {comingSoonPreview.description?.trim() ||
+                  "This lifebook is being prepared and will be available shortly."}
+              </p>
+              <button
+                type="button"
+                onClick={() => setComingSoonPreview(null)}
+                className="mt-4 rounded-full border border-white/20 px-4 py-2 text-sm text-white"
+              >
+                Close
               </button>
             </div>
           </div>
