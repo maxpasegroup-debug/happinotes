@@ -44,6 +44,10 @@ export default function FavouritesScreen() {
   }, [load]);
 
   const openDetail = (item: ApiContent) => {
+    if (item.status === "coming_soon") {
+      Alert.alert("Coming Soon", "This lifebook is not live yet.");
+      return;
+    }
     const contentType = item.contentType ?? "";
     const id = item._id ?? item.id;
     if (!id) return;
@@ -83,7 +87,7 @@ export default function FavouritesScreen() {
           items.map((item) => (
             <Pressable
               key={item._id}
-              style={styles.card}
+              style={[styles.card, item.status === "coming_soon" && styles.cardDisabled]}
               onPress={() => openDetail(item)}
               android_ripple={{ color: "rgba(0,0,0,0.05)" }}
             >
@@ -99,6 +103,9 @@ export default function FavouritesScreen() {
                 <Text style={styles.typeLabel}>
                   {typeLabel(item.contentType)}
                 </Text>
+                {item.status === "coming_soon" ? (
+                  <Text style={styles.comingSoonText}>Coming Soon</Text>
+                ) : null}
               </View>
               <Ionicons name="chevron-forward" size={20} color="#9CA3AF" />
             </Pressable>
@@ -144,6 +151,9 @@ const styles = StyleSheet.create({
     shadowRadius: 4,
     elevation: 2,
   },
+  cardDisabled: {
+    opacity: 0.82,
+  },
   thumb: {
     width: 56,
     height: 56,
@@ -163,5 +173,11 @@ const styles = StyleSheet.create({
     fontSize: 13,
     color: "#6B7280",
     marginTop: 2,
+  },
+  comingSoonText: {
+    marginTop: 4,
+    fontSize: 12,
+    fontWeight: "700",
+    color: "#374151",
   },
 });

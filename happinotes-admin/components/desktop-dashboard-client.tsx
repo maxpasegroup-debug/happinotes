@@ -28,6 +28,9 @@ export function DesktopDashboardClient({ initialLifebooks }: { initialLifebooks:
 
   async function tryPlay(item: LifebookItem) {
     setSelected(item);
+    if (item.status === "coming_soon") {
+      return;
+    }
     const user = getStoredUser();
     if (!user) {
       setAuthOpen(true);
@@ -107,6 +110,7 @@ export function DesktopDashboardClient({ initialLifebooks }: { initialLifebooks:
             <div className="grid grid-cols-2 gap-4 xl:grid-cols-3 2xl:grid-cols-4">
               {filtered.map((item) => {
                 const premium = item.type === "premium";
+                const comingSoon = item.status === "coming_soon";
                 return (
                   <article
                     key={item._id}
@@ -124,6 +128,11 @@ export function DesktopDashboardClient({ initialLifebooks }: { initialLifebooks:
                           ★
                         </span>
                       ) : null}
+                      {comingSoon ? (
+                        <span className="absolute left-3 top-3 rounded-full border border-white/30 bg-black/60 px-2 py-1 text-[11px] font-semibold text-white">
+                          Coming Soon
+                        </span>
+                      ) : null}
                     </div>
                     <div className="p-4">
                       <h3 className="line-clamp-2 text-base font-semibold">{item.title}</h3>
@@ -133,9 +142,14 @@ export function DesktopDashboardClient({ initialLifebooks }: { initialLifebooks:
                       <button
                         type="button"
                         onClick={() => tryPlay(item)}
-                        className="mt-4 inline-flex rounded-full bg-gradient-to-r from-[#f6c453] to-[#e6a92c] px-4 py-2 text-sm font-semibold text-[#211100]"
+                        disabled={comingSoon}
+                        className={`mt-4 inline-flex rounded-full px-4 py-2 text-sm font-semibold ${
+                          comingSoon
+                            ? "border border-white/30 text-white/80"
+                            : "bg-gradient-to-r from-[#f6c453] to-[#e6a92c] text-[#211100]"
+                        }`}
                       >
-                        Listen
+                        {comingSoon ? "Coming Soon" : "Listen"}
                       </button>
                     </div>
                   </article>

@@ -131,10 +131,17 @@ export default function Library() {
           }
           renderItem={({ item }) => {
             const isFav = favouriteIds.has(item._id);
+            const isComingSoon = item.status === "coming_soon";
             return (
               <Pressable
-                style={styles.card}
-                onPress={() => router.push({ pathname: "/library/[id]", params: { id: item._id } })}
+                style={[styles.card, isComingSoon && styles.cardDisabled]}
+                onPress={() => {
+                  if (isComingSoon) {
+                    Alert.alert("Coming Soon", "This lifebook is not live yet.");
+                    return;
+                  }
+                  router.push({ pathname: "/library/[id]", params: { id: item._id } });
+                }}
               >
                 <View style={styles.thumbWrap}>
                   <Image
@@ -142,6 +149,11 @@ export default function Library() {
                     style={styles.thumbnail}
                     contentFit="cover"
                   />
+                  {isComingSoon ? (
+                    <View style={styles.comingSoonBadge}>
+                      <Text style={styles.comingSoonBadgeText}>Coming Soon</Text>
+                    </View>
+                  ) : null}
                   <Pressable
                     style={styles.heartIcon}
                     onPress={(e) => {
@@ -212,6 +224,9 @@ const styles = StyleSheet.create({
     shadowRadius: 8,
     elevation: 4,
   },
+  cardDisabled: {
+    opacity: 0.82,
+  },
   thumbWrap: {
     width: "100%",
     position: "relative",
@@ -228,6 +243,21 @@ const styles = StyleSheet.create({
     padding: 6,
     borderRadius: 20,
     backgroundColor: "rgba(255,255,255,0.9)",
+  },
+  comingSoonBadge: {
+    position: "absolute",
+    top: 8,
+    left: 8,
+    borderRadius: 999,
+    paddingHorizontal: 8,
+    paddingVertical: 4,
+    backgroundColor: "rgba(17,24,39,0.85)",
+  },
+  comingSoonBadgeText: {
+    fontSize: 10,
+    fontWeight: "700",
+    color: "#FFFFFF",
+    letterSpacing: 0.3,
   },
   title: {
     fontSize: 15,

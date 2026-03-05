@@ -28,6 +28,9 @@ export function DashboardClient({ initialLifebooks }: { initialLifebooks: Lifebo
 
   async function tryPlay(item: LifebookItem) {
     setSelected(item);
+    if (item.status === "coming_soon") {
+      return;
+    }
     const user = getStoredUser();
     if (!user) {
       setAuthOpen(true);
@@ -63,6 +66,7 @@ export function DashboardClient({ initialLifebooks }: { initialLifebooks: Lifebo
 
   function LifebookCard({ item }: { item: LifebookItem }) {
     const premium = item.type === "premium";
+    const comingSoon = item.status === "coming_soon";
     return (
       <article
         className="h-[210px] w-[165px] shrink-0 overflow-hidden rounded-2xl border border-white/10 bg-[#141a2a] shadow-[0_10px_20px_rgba(0,0,0,0.35)]"
@@ -82,6 +86,11 @@ export function DashboardClient({ initialLifebooks }: { initialLifebooks: Lifebo
               ★
             </span>
           ) : null}
+          {comingSoon ? (
+            <span className="absolute left-2 top-2 rounded-full border border-white/30 bg-black/60 px-2 py-1 text-[10px] font-semibold text-white">
+              Coming Soon
+            </span>
+          ) : null}
         </div>
         <div className="flex h-[90px] flex-col justify-between p-3">
           <div>
@@ -94,9 +103,14 @@ export function DashboardClient({ initialLifebooks }: { initialLifebooks: Lifebo
           <button
             type="button"
             onClick={() => tryPlay(item)}
-            className="inline-flex w-fit rounded-full bg-gradient-to-r from-[#f6c453] to-[#e6a92c] px-3 py-1 text-xs font-semibold text-[#211100]"
+            disabled={comingSoon}
+            className={`inline-flex w-fit rounded-full px-3 py-1 text-xs font-semibold ${
+              comingSoon
+                ? "border border-white/30 text-white/80"
+                : "bg-gradient-to-r from-[#f6c453] to-[#e6a92c] text-[#211100]"
+            }`}
           >
-            Listen
+            {comingSoon ? "Coming Soon" : "Listen"}
           </button>
         </div>
       </article>

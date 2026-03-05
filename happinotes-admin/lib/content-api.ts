@@ -10,15 +10,15 @@ export type LifebookItem = {
   thumbnailUrl?: string;
   contentType: "lifebook" | "note" | "silence";
   type?: "free" | "premium";
+  status?: "draft" | "coming_soon" | "live";
   lessons?: { title?: string; mediaUrl?: string }[];
 };
 
 export async function getLiveLifebooks(): Promise<LifebookItem[]> {
   try {
-    const res = await fetch(
-      `${BASE_URL}/contents?type=lifebook&status=live`,
-      { next: { revalidate: 30 } }
-    );
+    const res = await fetch(`${BASE_URL}/contents?type=lifebook`, {
+      next: { revalidate: 30 },
+    });
     if (!res.ok) return [];
     const data = (await res.json()) as { contents?: LifebookItem[] };
     return (data.contents || []).filter((item) => item.contentType === "lifebook");

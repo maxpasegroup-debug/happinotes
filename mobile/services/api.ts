@@ -28,7 +28,7 @@ export interface ApiBook {
   description: string;
   coverImage: string;
   audioUrl?: string;
-  status: 'upcoming' | 'live';
+  status: 'upcoming' | 'coming_soon' | 'live';
   type: 'free' | 'premium';
   createdAt: string;
   updatedAt: string;
@@ -170,7 +170,7 @@ export async function signup(
 
 /** Public content API: Lifebooks — GET /contents?type=lifebook */
 export async function getBooks(token?: string | null): Promise<ContentsResponse> {
-  return request<ContentsResponse>('/contents?type=lifebook&status=live', {
+  return request<ContentsResponse>('/contents?type=lifebook', {
     method: 'GET',
     token: token || undefined,
   });
