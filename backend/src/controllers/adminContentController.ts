@@ -98,6 +98,47 @@ async function uploadToCloudinary(
   });
 }
 
+/** POST /admin/contents/upload-media — upload single audio/video file and return URL */
+export const uploadContentMedia = async (
+  req: Request,
+  res: Response,
+  next: NextFunction
+): Promise<void> => {
+  try {
+    const file = req.file as UploadedFile | undefined;
+    if (!file) {
+      return next(new BadRequestError('media file is required'));
+    }
+    const mediaType = mediaTypeFromMime(file.mimetype);
+    if (!mediaType) {
+      return next(new BadRequestError('media must be audio or video'));
+    }
+
+    const scope = typeof req.body?.scope === 'string' ? req.body.scope.trim() : '';
+    const folder =
+      scope === 'intro'
+        ? 'happinotes/intro'
+        : scope === 'conclusion'
+          ? 'happinotes/conclusion'
+          : scope === 'lesson'
+            ? 'happinotes/lessons'
+            : scope === 'note'
+              ? 'happinotes/note'
+              : scope === 'silence'
+                ? 'happinotes/silence'
+                : 'happinotes/uploads';
+
+    const uploaded = await uploadToCloudinary(file, folder);
+    res.status(201).json({
+      success: true,
+      url: uploaded.url,
+      mediaType,
+    });
+  } catch (err) {
+    next(err);
+  }
+};
+
 /** GET /admin/contents — return all contents regardless of status */
 export const getAllContents = async (
   _req: Request,
@@ -207,6 +248,8 @@ export const createContent = async (
           mediaUrl: introUpload.url,
           mediaType: introMediaType,
         }) || undefined;
+      } else {
+        intro = normalizeSection(rawIntro) || undefined;
       }
 
       let conclusion: ILifebookSection | undefined;
@@ -228,6 +271,8 @@ export const createContent = async (
           mediaUrl: conclusionUpload.url,
           mediaType: conclusionMediaType,
         }) || undefined;
+      } else {
+        conclusion = normalizeSection(rawConclusion) || undefined;
       }
 
       const lessonsWithMedia = normalizeLessons(

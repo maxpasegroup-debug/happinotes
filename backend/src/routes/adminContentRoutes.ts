@@ -8,6 +8,7 @@ import {
   updateContentStatus,
   featureContent,
   unfeatureContent,
+  uploadContentMedia,
 } from '../controllers/adminContentController';
 import { authenticate, requireAdmin } from '../middleware';
 import { upload } from '../middleware/upload';
@@ -53,6 +54,7 @@ const updateStatusValidation = [
 ];
 
 router.get('/', getAllContents);
+router.post('/upload-media', upload.single('media'), uploadContentMedia);
 router.post(
   '/',
   upload.fields([

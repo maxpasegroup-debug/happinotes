@@ -31,6 +31,7 @@ type LifebookSection = {
   title?: string;
   description?: string;
   mediaUrl?: string;
+  mediaType?: "audio" | "video";
 };
 
 type LifebookLesson = LifebookSection & { order?: number };
@@ -50,6 +51,8 @@ type ChapterDraft = {
   title: string;
   file: File | null;
   mediaUrl?: string;
+  mediaType?: "audio" | "video";
+  uploading?: boolean;
 };
 
 type ContentForm = {
@@ -66,7 +69,12 @@ type ContentForm = {
   introDescription: string;
   introMedia: File | null;
   introMediaUrl?: string;
+  introMediaType?: "audio" | "video";
+  introUploading?: boolean;
   chapters: ChapterDraft[];
+  mediaUploadedUrl?: string;
+  mediaUploadedType?: "audio" | "video";
+  mediaUploading?: boolean;
 };
 
 type Step = 1 | 2 | 3 | 4;
@@ -86,7 +94,12 @@ function emptyForm(): ContentForm {
     introDescription: "",
     introMedia: null,
     introMediaUrl: "",
-    chapters: [{ title: "Chapter 1", file: null, mediaUrl: "" }],
+    introMediaType: undefined,
+    introUploading: false,
+    chapters: [{ title: "Chapter 1", file: null, mediaUrl: "", mediaType: undefined, uploading: false }],
+    mediaUploadedUrl: "",
+    mediaUploadedType: undefined,
+    mediaUploading: false,
   };
 }
 
@@ -103,6 +116,24 @@ export default function AdminDashboardPage() {
   const [message, setMessage] = useState("");
   const [step, setStep] = useState<Step>(1);
   const [submitting, setSubmitting] = useState(false);
+
+  async function uploadSingleMedia(file: File, scope: "intro" | "lesson" | "note" | "silence") {
+    const token = window.localStorage.getItem("admin_token") || "";
+    if (!token) throw new Error("Admin token missing");
+    const fd = new FormData();
+    fd.append("media", file);
+    fd.append("scope", scope);
+    const response = await fetch(`${process.env.NEXT_PUBLIC_API_BASE_URL || "https://happinotes-production.up.railway.app"}/admin/contents/upload-media`, {
+      method: "POST",
+      headers: { Authorization: `Bearer ${token}` },
+      body: fd,
+    });
+    const payload = (await response.json().catch(() => ({}))) as { message?: string; url?: string; mediaType?: "audio" | "video" };
+    if (!response.ok || !payload.url || !payload.mediaType) {
+      throw new Error(payload.message || "Upload failed");
+    }
+    return payload;
+  }
 
   async function load() {
     const token = window.localStorage.getItem("admin_token") || "";
@@ -168,12 +199,15 @@ export default function AdminDashboardPage() {
       next.introTitle = detail.intro.title || "Introduction";
       next.introDescription = detail.intro.description || "";
       next.introMediaUrl = detail.intro.mediaUrl || "";
+      next.introMediaType = detail.intro.mediaType;
     }
     if (detail?.lessons && detail.lessons.length > 0) {
       next.chapters = detail.lessons.map((lesson, index) => ({
         title: lesson.title || `Chapter ${index + 1}`,
         file: null,
         mediaUrl: lesson.mediaUrl || "",
+        mediaType: lesson.mediaType,
+        uploading: false,
       }));
     }
     if (detail?.category) next.category = detail.category;
@@ -221,10 +255,10 @@ export default function AdminDashboardPage() {
     if (!form.title.trim()) return setMessage("Title is required");
     if (!form.thumbnail) return setMessage("Thumbnail is required");
     if (form.status === "live" && createKind === "lifebook") {
-      if (!form.introMedia) return setMessage("Live lifebook requires intro audio");
-      if (!form.chapters[0]?.file) return setMessage("Live lifebook requires Chapter 1 audio");
+      if (!form.introMediaUrl && !form.introMedia) return setMessage("Live lifebook requires intro audio");
+      if (!form.chapters[0]?.mediaUrl && !form.chapters[0]?.file) return setMessage("Live lifebook requires Chapter 1 audio");
     }
-    if (form.status === "live" && createKind !== "lifebook" && !form.media) {
+    if (form.status === "live" && createKind !== "lifebook" && !form.media && !form.mediaUploadedUrl) {
       return setMessage("Live note/happiness requires media audio");
     }
 
@@ -240,29 +274,44 @@ export default function AdminDashboardPage() {
 
     if (createKind === "lifebook") {
       if (form.status === "live") {
-        fd.append("intro", JSON.stringify({ title: form.introTitle || "Introduction", description: form.introDescription || "" }));
-        if (form.introMedia) fd.append("introMedia", form.introMedia);
+        fd.append(
+          "intro",
+          JSON.stringify({
+            title: form.introTitle || "Introduction",
+            description: form.introDescription || "",
+            ...(form.introMediaUrl ? { mediaUrl: form.introMediaUrl } : {}),
+            ...(form.introMediaType ? { mediaType: form.introMediaType } : {}),
+          })
+        );
+        if (!form.introMediaUrl && form.introMedia) fd.append("introMedia", form.introMedia);
         const chapters = form.chapters
           .map((chapter, index) => ({
             title: chapter.title.trim() || `Chapter ${index + 1}`,
             description: "",
             order: index,
+            mediaUrl: chapter.mediaUrl || undefined,
+            mediaType: chapter.mediaType || undefined,
             file: chapter.file,
           }))
-          .filter((x) => Boolean(x.title || x.file));
+          .filter((x) => Boolean(x.title || x.file || x.mediaUrl));
         if (chapters.length > 0) {
           fd.append(
             "lessons",
-            JSON.stringify(chapters.map(({ title, description, order }) => ({ title, description, order })))
+            JSON.stringify(chapters.map(({ title, description, order, mediaUrl, mediaType }) => ({ title, description, order, mediaUrl, mediaType })))
           );
           chapters.forEach((chapter) => {
-            if (chapter.file) fd.append("lessonMedia", chapter.file);
+            if (!chapter.mediaUrl && chapter.file) fd.append("lessonMedia", chapter.file);
           });
         }
       }
     } else {
       if (createKind === "silence") fd.append("category", form.category || "General");
-      if (form.media) fd.append("media", form.media);
+      if (form.mediaUploadedUrl && form.mediaUploadedType) {
+        fd.append("mediaUrl", form.mediaUploadedUrl);
+        fd.append("mediaType", form.mediaUploadedType);
+      } else if (form.media) {
+        fd.append("media", form.media);
+      }
     }
 
     try {
@@ -303,9 +352,10 @@ export default function AdminDashboardPage() {
             title: form.introTitle.trim() || "Introduction",
             description: form.introDescription.trim(),
             ...(form.introMediaUrl ? { mediaUrl: form.introMediaUrl } : {}),
+            ...(form.introMediaType ? { mediaType: form.introMediaType } : {}),
           })
         );
-        if (form.introMedia) fd.append("introMedia", form.introMedia);
+        if (!form.introMediaUrl && form.introMedia) fd.append("introMedia", form.introMedia);
       }
       const chapters = form.chapters
         .map((chapter, index) => ({
@@ -313,22 +363,28 @@ export default function AdminDashboardPage() {
           description: "",
           order: index,
           mediaUrl: chapter.mediaUrl || undefined,
+          mediaType: chapter.mediaType || undefined,
           file: chapter.file,
         }))
         .filter((x) => Boolean(x.title || x.mediaUrl || x.file));
       if (chapters.length > 0) {
         fd.append(
           "lessons",
-          JSON.stringify(chapters.map(({ title, description, order, mediaUrl }) => ({ title, description, order, mediaUrl })))
+          JSON.stringify(chapters.map(({ title, description, order, mediaUrl, mediaType }) => ({ title, description, order, mediaUrl, mediaType })))
         );
         chapters.forEach((chapter) => {
-          if (chapter.file) fd.append("lessonMedia", chapter.file);
+          if (!chapter.mediaUrl && chapter.file) fd.append("lessonMedia", chapter.file);
         });
       }
     }
     if (editing.contentType !== "lifebook") {
       if (editing.contentType === "silence") fd.append("category", form.category || "General");
-      if (form.media) fd.append("media", form.media);
+      if (form.mediaUploadedUrl && form.mediaUploadedType) {
+        fd.append("mediaUrl", form.mediaUploadedUrl);
+        fd.append("mediaType", form.mediaUploadedType);
+      } else if (form.media) {
+        fd.append("media", form.media);
+      }
     }
 
     try {
@@ -717,11 +773,45 @@ export default function AdminDashboardPage() {
                     <input
                       type="file"
                       accept="audio/*,video/*"
-                      onChange={(e) => setForm((prev) => ({ ...prev, introMedia: e.target.files?.[0] || null }))}
+                      onChange={(e) =>
+                        setForm((prev) => ({
+                          ...prev,
+                          introMedia: e.target.files?.[0] || null,
+                          introMediaUrl: "",
+                          introMediaType: undefined,
+                        }))
+                      }
                       className="rounded-lg border border-white/10 bg-[#12131a] px-3 py-2 text-white outline-none"
                     />
                   </label>
-                  {form.introMediaUrl ? <p className="text-xs text-[#a1a1aa]">Existing intro media is already attached.</p> : null}
+                  <div className="flex flex-wrap items-center gap-2">
+                    <button
+                      type="button"
+                      disabled={!form.introMedia || Boolean(form.introUploading)}
+                      onClick={async () => {
+                        if (!form.introMedia) return;
+                        setMessage("");
+                        setForm((prev) => ({ ...prev, introUploading: true }));
+                        try {
+                          const uploaded = await uploadSingleMedia(form.introMedia, "intro");
+                          setForm((prev) => ({
+                            ...prev,
+                            introMediaUrl: uploaded.url,
+                            introMediaType: uploaded.mediaType,
+                            introUploading: false,
+                          }));
+                          setMessage("Intro uploaded.");
+                        } catch (err) {
+                          setForm((prev) => ({ ...prev, introUploading: false }));
+                          setMessage(err instanceof Error ? err.message : "Intro upload failed");
+                        }
+                      }}
+                      className="rounded-md border border-blue-400/30 px-3 py-1.5 text-xs text-blue-200 hover:bg-blue-500/10 disabled:opacity-60"
+                    >
+                      {form.introUploading ? "Uploading..." : "Upload Intro Now"}
+                    </button>
+                    {form.introMediaUrl ? <p className="text-xs text-emerald-300">Intro ready for publish.</p> : null}
+                  </div>
                 </>
               ) : null}
 
@@ -748,12 +838,65 @@ export default function AdminDashboardPage() {
                           onChange={(e) =>
                             setForm((prev) => ({
                               ...prev,
-                              chapters: prev.chapters.map((x, i) => (i === index ? { ...x, file: e.target.files?.[0] || null } : x)),
+                              chapters: prev.chapters.map((x, i) =>
+                                i === index
+                                  ? {
+                                      ...x,
+                                      file: e.target.files?.[0] || null,
+                                      mediaUrl: "",
+                                      mediaType: undefined,
+                                    }
+                                  : x
+                              ),
                             }))
                           }
                           className="rounded-lg border border-white/10 bg-[#0f1016] px-3 py-2 text-white outline-none"
                         />
-                        {chapter.mediaUrl ? <p className="text-xs text-[#a1a1aa]">Existing chapter media attached.</p> : null}
+                        <div className="flex flex-wrap items-center gap-2">
+                          <button
+                            type="button"
+                            disabled={!chapter.file || Boolean(chapter.uploading)}
+                            onClick={async () => {
+                              if (!chapter.file) return;
+                              setMessage("");
+                              setForm((prev) => ({
+                                ...prev,
+                                chapters: prev.chapters.map((x, i) =>
+                                  i === index ? { ...x, uploading: true } : x
+                                ),
+                              }));
+                              try {
+                                const uploaded = await uploadSingleMedia(chapter.file, "lesson");
+                                setForm((prev) => ({
+                                  ...prev,
+                                  chapters: prev.chapters.map((x, i) =>
+                                    i === index
+                                      ? {
+                                          ...x,
+                                          mediaUrl: uploaded.url,
+                                          mediaType: uploaded.mediaType,
+                                          uploading: false,
+                                        }
+                                      : x
+                                  ),
+                                }));
+                                setMessage(`Chapter ${index + 1} uploaded.`);
+                              } catch (err) {
+                                setForm((prev) => ({
+                                  ...prev,
+                                  chapters: prev.chapters.map((x, i) =>
+                                    i === index ? { ...x, uploading: false } : x
+                                  ),
+                                }));
+                                setMessage(err instanceof Error ? err.message : "Chapter upload failed");
+                              }
+                            }}
+                            className="rounded-md border border-blue-400/30 px-3 py-1.5 text-xs text-blue-200 hover:bg-blue-500/10 disabled:opacity-60"
+                          >
+                            {chapter.uploading ? "Uploading..." : "Upload Chapter"}
+                          </button>
+                          {chapter.mediaUrl ? <p className="text-xs text-emerald-300">Chapter ready.</p> : null}
+                        </div>
                         <button
                           type="button"
                           onClick={() =>
@@ -800,9 +943,45 @@ export default function AdminDashboardPage() {
                   <input
                     type="file"
                     accept="audio/*,video/*"
-                    onChange={(e) => setForm((prev) => ({ ...prev, media: e.target.files?.[0] || null }))}
+                    onChange={(e) =>
+                      setForm((prev) => ({
+                        ...prev,
+                        media: e.target.files?.[0] || null,
+                        mediaUploadedUrl: "",
+                        mediaUploadedType: undefined,
+                      }))
+                    }
                     className="rounded-lg border border-white/10 bg-[#12131a] px-3 py-2 text-white outline-none"
                   />
+                  <div className="mt-2 flex flex-wrap items-center gap-2">
+                    <button
+                      type="button"
+                      disabled={!form.media || Boolean(form.mediaUploading)}
+                      onClick={async () => {
+                        if (!form.media) return;
+                        const scope = (createOpen ? createKind : editing?.contentType) === "silence" ? "silence" : "note";
+                        setMessage("");
+                        setForm((prev) => ({ ...prev, mediaUploading: true }));
+                        try {
+                          const uploaded = await uploadSingleMedia(form.media, scope);
+                          setForm((prev) => ({
+                            ...prev,
+                            mediaUploadedUrl: uploaded.url,
+                            mediaUploadedType: uploaded.mediaType,
+                            mediaUploading: false,
+                          }));
+                          setMessage("Media uploaded.");
+                        } catch (err) {
+                          setForm((prev) => ({ ...prev, mediaUploading: false }));
+                          setMessage(err instanceof Error ? err.message : "Media upload failed");
+                        }
+                      }}
+                      className="rounded-md border border-blue-400/30 px-3 py-1.5 text-xs text-blue-200 hover:bg-blue-500/10 disabled:opacity-60"
+                    >
+                      {form.mediaUploading ? "Uploading..." : "Upload Media Now"}
+                    </button>
+                    {form.mediaUploadedUrl ? <span className="text-xs text-emerald-300">Media ready.</span> : null}
+                  </div>
                 </label>
               ) : null}
 

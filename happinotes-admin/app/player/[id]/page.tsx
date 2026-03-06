@@ -185,6 +185,36 @@ export default function PlayerPage() {
             ) : null}
           </div>
 
+          {chapters.length > 0 ? (
+            <div className="mx-auto mt-6 max-w-sm rounded-2xl bg-black/30 p-4 backdrop-blur">
+              <p className="mb-3 text-xs uppercase tracking-[0.2em] text-[#b7c0d8]">All Lessons</p>
+              <div className="max-h-64 space-y-2 overflow-y-auto pr-1">
+                {chapters.map((item, idx) => {
+                  const active = idx === chapterIndex;
+                  return (
+                    <button
+                      key={`${item.title || "chapter"}-${idx}`}
+                      type="button"
+                      disabled={premiumBlocked}
+                      onClick={() => {
+                        setChapterIndex(idx);
+                        if (!premiumBlocked) setIsPlaying(true);
+                      }}
+                      className={`flex w-full items-center justify-between rounded-xl px-3 py-2 text-left text-sm ${
+                        active
+                          ? "border border-[#f6c453]/50 bg-[#f6c453]/20 text-white"
+                          : "border border-white/10 bg-white/5 text-[#d7deee]"
+                      } ${premiumBlocked ? "opacity-70" : ""}`}
+                    >
+                      <span className="line-clamp-1">{item.title || `Lesson ${idx + 1}`}</span>
+                      <span className="text-xs">{active ? "Playing" : "Play"}</span>
+                    </button>
+                  );
+                })}
+              </div>
+            </div>
+          ) : null}
+
           <Link href="/" className="mt-8 inline-block text-sm text-[#f6c453]">
             Back to Lifebooks
           </Link>
