@@ -44,7 +44,21 @@ const updateContentValidation = [
     .withMessage('Invalid type'),
   body('intro').optional(),
   body('conclusion').optional(),
-  body('lessons').optional().isArray(),
+  body('lessons')
+    .optional()
+    .custom((value) => {
+      if (Array.isArray(value)) return true;
+      if (typeof value === 'string') {
+        try {
+          const parsed = JSON.parse(value);
+          return Array.isArray(parsed);
+        } catch {
+          return false;
+        }
+      }
+      return false;
+    })
+    .withMessage('lessons must be an array or JSON array string'),
 ];
 
 const updateStatusValidation = [
