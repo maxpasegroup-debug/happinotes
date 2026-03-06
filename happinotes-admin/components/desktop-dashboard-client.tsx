@@ -153,21 +153,20 @@ export function DesktopDashboardClient({ initialLifebooks }: { initialLifebooks:
                     </div>
                     <div className="p-4">
                       <h3 className="line-clamp-2 text-base font-semibold">{item.title}</h3>
-                      <p className="mt-1 text-sm text-[#b7c0d8]">
-                        {premium ? "Premium" : "Free"} • {item.lessons?.length || 5} Lessons
-                      </p>
-                      <button
-                        type="button"
-                        onClick={() => tryPlay(item)}
-                        disabled={comingSoon}
-                        className={`mt-4 inline-flex rounded-full px-4 py-2 text-sm font-semibold ${
-                          comingSoon
-                            ? "border border-white/30 text-white/80"
-                            : "bg-gradient-to-r from-[#f6c453] to-[#e6a92c] text-[#211100]"
-                        }`}
-                      >
-                        {comingSoon ? "Coming Soon" : "Listen"}
-                      </button>
+                      {!comingSoon ? (
+                        <>
+                          <p className="mt-1 text-sm text-[#b7c0d8]">
+                            {premium ? "Premium" : "Free"} • {item.lessons?.length || 5} Lessons
+                          </p>
+                          <button
+                            type="button"
+                            onClick={() => tryPlay(item)}
+                            className="mt-4 inline-flex rounded-full bg-gradient-to-r from-[#f6c453] to-[#e6a92c] px-4 py-2 text-sm font-semibold text-[#211100]"
+                          >
+                            Listen
+                          </button>
+                        </>
+                      ) : null}
                     </div>
                   </article>
                 );

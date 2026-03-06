@@ -112,23 +112,22 @@ export function DashboardClient({ initialLifebooks }: { initialLifebooks: Lifebo
         <div className="flex h-[90px] flex-col justify-between p-3">
           <div>
             <h3 className="line-clamp-2 text-sm font-semibold text-white">{item.title}</h3>
-            <p className="mt-1 text-xs text-[#b7c0d8]">
-              {premium ? "🔒 " : ""}
-              {item.lessons?.length || 5} Lessons
-            </p>
+            {!comingSoon ? (
+              <p className="mt-1 text-xs text-[#b7c0d8]">
+                {premium ? "🔒 " : ""}
+                {item.lessons?.length || 5} Lessons
+              </p>
+            ) : null}
           </div>
-          <button
-            type="button"
-            onClick={() => tryPlay(item)}
-            disabled={comingSoon}
-            className={`inline-flex w-fit rounded-full px-3 py-1 text-xs font-semibold ${
-              comingSoon
-                ? "border border-white/30 text-white/80"
-                : "bg-gradient-to-r from-[#f6c453] to-[#e6a92c] text-[#211100]"
-            }`}
-          >
-            {comingSoon ? "Coming Soon" : "Listen"}
-          </button>
+          {!comingSoon ? (
+            <button
+              type="button"
+              onClick={() => tryPlay(item)}
+              className="inline-flex w-fit rounded-full bg-gradient-to-r from-[#f6c453] to-[#e6a92c] px-3 py-1 text-xs font-semibold text-[#211100]"
+            >
+              Listen
+            </button>
+          ) : null}
         </div>
       </article>
     );
