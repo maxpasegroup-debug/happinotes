@@ -147,6 +147,7 @@ export const createContent = async (
     const language = typeof body.language === 'string' ? body.language.trim() : '';
     const type = body.type === 'free' || body.type === 'premium' ? body.type : undefined;
     const contentType = normalizeContentType(body.contentType);
+    const status = body.status === 'coming_soon' || body.status === 'live' ? body.status : 'draft';
 
     if (!title) return next(new BadRequestError('title is required'));
     if (!language) return next(new BadRequestError('language is required'));
@@ -164,8 +165,8 @@ export const createContent = async (
     if (!thumbnailFile) {
       return next(new BadRequestError('thumbnail file is required'));
     }
-    if (contentType !== 'lifebook' && !mediaFile) {
-      return next(new BadRequestError('media file is required for note/silence'));
+    if (contentType !== 'lifebook' && status === 'live' && !mediaFile) {
+      return next(new BadRequestError('media file is required for live note/silence'));
     }
 
     const thumbnailUpload = await uploadToCloudinary(
@@ -259,7 +260,7 @@ export const createContent = async (
         thumbnailUrl: thumbnailUpload.url,
         language,
         type,
-        status: body.status === 'coming_soon' || body.status === 'live' ? body.status : 'draft',
+        status,
         featured: body.featured === 'true' || body.featured === true,
       };
       if (intro) createPayload.intro = intro;
@@ -270,18 +271,22 @@ export const createContent = async (
         ...createPayload,
       });
     } else {
-      const mediaType = mediaTypeFromMime((mediaFile as UploadedFile).mimetype);
-      if (!mediaType) {
-        return next(new BadRequestError('media must be audio or video'));
+      let mediaUpload: { url: string } | undefined;
+      let mediaType: 'audio' | 'video' | undefined;
+      if (mediaFile) {
+        mediaType = mediaTypeFromMime((mediaFile as UploadedFile).mimetype) || undefined;
+        if (!mediaType) {
+          return next(new BadRequestError('media must be audio or video'));
+        }
+        mediaUpload = await uploadToCloudinary(
+          mediaFile as UploadedFile,
+          `happinotes/${contentType}`
+        );
       }
-      const mediaUpload = await uploadToCloudinary(
-        mediaFile as UploadedFile,
-        `happinotes/${contentType}`
-      );
       const category =
         typeof body.category === 'string' ? body.category.trim() : '';
-      if (contentType === 'silence' && !category) {
-        return next(new BadRequestError('category is required for silence'));
+      if (contentType === 'silence' && status === 'live' && !category) {
+        return next(new BadRequestError('category is required for live silence'));
       }
 
       content = await Content.create({
@@ -291,11 +296,11 @@ export const createContent = async (
         thumbnailUrl: thumbnailUpload.url,
         language,
         type,
-        status: body.status === 'coming_soon' || body.status === 'live' ? body.status : 'draft',
+        status,
         featured: body.featured === 'true' || body.featured === true,
-        mediaUrl: mediaUpload.url,
+        mediaUrl: mediaUpload?.url,
         mediaType,
-        category: contentType === 'silence' ? category : undefined,
+        category: contentType === 'silence' ? category || 'General' : undefined,
       });
     }
     res.status(201).json({ success: true, content });
@@ -478,8 +483,9 @@ export const updateContent = async (
         payload.mediaType = mt;
       }
 
-      if (!payload.mediaUrl && !existing.mediaUrl) {
-        return next(new BadRequestError('media is required for note/silence'));
+      const currentStatus = existing.status;
+      if (currentStatus === 'live' && !payload.mediaUrl && !existing.mediaUrl) {
+        return next(new BadRequestError('media is required for live note/silence'));
       }
 
       if (finalContentType === 'silence') {
@@ -489,10 +495,10 @@ export const updateContent = async (
             : typeof existing.category === 'string'
               ? existing.category.trim()
               : '';
-        if (!category) {
-          return next(new BadRequestError('category is required for silence'));
+        if (currentStatus === 'live' && !category) {
+          return next(new BadRequestError('category is required for live silence'));
         }
-        payload.category = category;
+        payload.category = category || 'General';
       } else if (Object.prototype.hasOwnProperty.call(payload, 'category')) {
         delete payload.category;
       }

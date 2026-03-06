@@ -93,23 +93,23 @@ contentSchema.pre('validate', function (next) {
   if (kind === 'lifebook' && !Array.isArray(this.lessons)) {
     this.lessons = [];
   }
-  if (kind === 'note') {
+  if (kind === 'note' && this.status === 'live') {
     if (typeof this.mediaUrl !== 'string' || !this.mediaUrl.trim()) {
-      return next(new Error('mediaUrl is required for contentType note'));
+      return next(new Error('mediaUrl is required for live note content'));
     }
     if (this.mediaType !== 'audio' && this.mediaType !== 'video') {
-      return next(new Error('mediaType (audio|video) is required for contentType note'));
+      return next(new Error('mediaType (audio|video) is required for live note content'));
     }
   }
-  if (kind === 'silence') {
+  if (kind === 'silence' && this.status === 'live') {
     if (typeof this.mediaUrl !== 'string' || !this.mediaUrl.trim()) {
-      return next(new Error('mediaUrl is required for contentType silence'));
+      return next(new Error('mediaUrl is required for live silence content'));
     }
     if (typeof this.category !== 'string' || !this.category.trim()) {
-      return next(new Error('category is required for contentType silence'));
+      return next(new Error('category is required for live silence content'));
     }
     if (this.mediaType !== 'audio' && this.mediaType !== 'video') {
-      return next(new Error('mediaType (audio|video) is required for contentType silence'));
+      return next(new Error('mediaType (audio|video) is required for live silence content'));
     }
   }
   next();
