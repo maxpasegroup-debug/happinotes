@@ -69,6 +69,10 @@ export function DashboardClient({ initialLifebooks }: { initialLifebooks: Lifebo
   function LifebookCard({ item }: { item: LifebookItem }) {
     const premium = item.type === "premium";
     const comingSoon = item.status === "coming_soon";
+    const accessLabel = premium ? "PREMIUM" : "FREE";
+    const accessClass = premium
+      ? "border-amber-300/40 bg-amber-500/20 text-amber-100"
+      : "border-emerald-300/40 bg-emerald-500/20 text-emerald-100";
     return (
       <article
         className="h-[210px] w-[165px] shrink-0 overflow-hidden rounded-2xl border border-white/10 bg-[#141a2a] shadow-[0_10px_20px_rgba(0,0,0,0.35)]"
@@ -88,12 +92,14 @@ export function DashboardClient({ initialLifebooks }: { initialLifebooks: Lifebo
               />
             </button>
           ) : (
-            <img
-              src={item.thumbnailUrl || FALLBACK_IMAGE}
-              alt={item.title}
-              loading="lazy"
-              className="h-full w-full object-cover"
-            />
+            <button type="button" onClick={() => tryPlay(item)} className="h-full w-full text-left">
+              <img
+                src={item.thumbnailUrl || FALLBACK_IMAGE}
+                alt={item.title}
+                loading="lazy"
+                className="h-full w-full object-cover"
+              />
+            </button>
           )}
           {premium ? (
             <span
@@ -113,10 +119,9 @@ export function DashboardClient({ initialLifebooks }: { initialLifebooks: Lifebo
           <div>
             <h3 className="line-clamp-2 text-sm font-semibold text-white">{item.title}</h3>
             {!comingSoon ? (
-              <p className="mt-1 text-xs text-[#b7c0d8]">
-                {premium ? "🔒 " : ""}
-                {item.lessons?.length || 5} Lessons
-              </p>
+              <span className={`mt-2 inline-flex rounded-full border px-2 py-1 text-[10px] font-semibold tracking-wide ${accessClass}`}>
+                {accessLabel}
+              </span>
             ) : null}
           </div>
           {!comingSoon ? (
@@ -125,7 +130,7 @@ export function DashboardClient({ initialLifebooks }: { initialLifebooks: Lifebo
               onClick={() => tryPlay(item)}
               className="inline-flex w-fit rounded-full bg-gradient-to-r from-[#f6c453] to-[#e6a92c] px-3 py-1 text-xs font-semibold text-[#211100]"
             >
-              Listen
+              Open
             </button>
           ) : null}
         </div>

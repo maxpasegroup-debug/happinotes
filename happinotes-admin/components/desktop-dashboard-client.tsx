@@ -113,6 +113,10 @@ export function DesktopDashboardClient({ initialLifebooks }: { initialLifebooks:
               {filtered.map((item) => {
                 const premium = item.type === "premium";
                 const comingSoon = item.status === "coming_soon";
+                const accessLabel = premium ? "PREMIUM" : "FREE";
+                const accessClass = premium
+                  ? "border-amber-300/40 bg-amber-500/20 text-amber-100"
+                  : "border-emerald-300/40 bg-emerald-500/20 text-emerald-100";
                 return (
                   <article
                     key={item._id}
@@ -133,12 +137,14 @@ export function DesktopDashboardClient({ initialLifebooks }: { initialLifebooks:
                           />
                         </button>
                       ) : (
-                        <img
-                          src={item.thumbnailUrl || FALLBACK_IMAGE}
-                          alt={item.title}
-                          loading="lazy"
-                          className="h-full w-full object-cover"
-                        />
+                        <button type="button" onClick={() => tryPlay(item)} className="h-full w-full text-left">
+                          <img
+                            src={item.thumbnailUrl || FALLBACK_IMAGE}
+                            alt={item.title}
+                            loading="lazy"
+                            className="h-full w-full object-cover"
+                          />
+                        </button>
                       )}
                       {premium ? (
                         <span className="absolute right-3 top-3 inline-flex h-8 w-8 items-center justify-center rounded-full bg-gradient-to-r from-[#f6c453] to-[#e6a92c] text-sm font-bold text-[#1f1400]">
@@ -155,15 +161,15 @@ export function DesktopDashboardClient({ initialLifebooks }: { initialLifebooks:
                       <h3 className="line-clamp-2 text-base font-semibold">{item.title}</h3>
                       {!comingSoon ? (
                         <>
-                          <p className="mt-1 text-sm text-[#b7c0d8]">
-                            {premium ? "Premium" : "Free"} • {item.lessons?.length || 5} Lessons
-                          </p>
+                          <span className={`mt-2 inline-flex rounded-full border px-2 py-1 text-[10px] font-semibold tracking-wide ${accessClass}`}>
+                            {accessLabel}
+                          </span>
                           <button
                             type="button"
                             onClick={() => tryPlay(item)}
                             className="mt-4 inline-flex rounded-full bg-gradient-to-r from-[#f6c453] to-[#e6a92c] px-4 py-2 text-sm font-semibold text-[#211100]"
                           >
-                            Listen
+                            Open Lifebook
                           </button>
                         </>
                       ) : null}
