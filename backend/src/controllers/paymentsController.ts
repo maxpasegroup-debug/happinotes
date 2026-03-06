@@ -3,7 +3,8 @@ import { Request, Response, NextFunction } from 'express';
 import { google } from 'googleapis';
 import crypto from 'crypto';
 import { BadRequestError } from '../utils/errors';
-import { User } from '../models';
+import { PaymentWebhookEvent, User } from '../models';
+import { activateSubscriptionForUser, computeSubscriptionExpiry } from '../utils/subscription';
 
 const PACKAGE_NAME = 'com.happinotes.app';
 const ANDROID_PUBLISHER_SCOPE = 'https://www.googleapis.com/auth/androidpublisher';
@@ -31,15 +32,22 @@ type RazorpaySubscriptionDetailsResponse = {
 
 const RAZORPAY_API_BASE = 'https://api.razorpay.com/v1';
 const DEFAULT_MONTHLY_PLAN_INR_PAISE = 49900;
+const DEFAULT_YEARLY_PLAN_INR_PAISE = 499900;
 
-function getRazorpayConfig(): { keyId: string; keySecret: string; monthlyPlanId: string } | null {
+function getRazorpayConfig(): {
+  keyId: string;
+  keySecret: string;
+  monthlyPlanId: string;
+  yearlyPlanId?: string;
+} | null {
   const keyId = process.env.RAZORPAY_KEY_ID?.trim();
   const keySecret = process.env.RAZORPAY_KEY_SECRET?.trim();
   const monthlyPlanId = process.env.RAZORPAY_MONTHLY_PLAN_ID?.trim();
+  const yearlyPlanId = process.env.RAZORPAY_YEARLY_PLAN_ID?.trim();
   if (!keyId || !keySecret || !monthlyPlanId) {
     return null;
   }
-  return { keyId, keySecret, monthlyPlanId };
+  return { keyId, keySecret, monthlyPlanId, yearlyPlanId };
 }
 
 function getRazorpayAuthHeader(keyId: string, keySecret: string): string {
@@ -146,9 +154,10 @@ export const verifyGoogleSubscription = async (
       return;
     }
 
-    req.user.subscriptionActive = true;
-    req.user.subscriptionExpiry = new Date(expiryMs);
-    await req.user.save();
+    await activateSubscriptionForUser({
+      user: req.user,
+      expiry: new Date(expiryMs),
+    });
 
     void res.json({
       success: true,
@@ -190,6 +199,13 @@ export const createRazorpaySubscription = async (
       return;
     }
 
+    const plan = (req.body?.plan ?? 'monthly').toString().trim().toLowerCase();
+    const planId =
+      plan === 'yearly'
+        ? (config.yearlyPlanId || config.monthlyPlanId)
+        : config.monthlyPlanId;
+    const amount = plan === 'yearly' ? DEFAULT_YEARLY_PLAN_INR_PAISE : DEFAULT_MONTHLY_PLAN_INR_PAISE;
+
     const response = await fetch(`${RAZORPAY_API_BASE}/subscriptions`, {
       method: 'POST',
       headers: {
@@ -197,13 +213,14 @@ export const createRazorpaySubscription = async (
         'Content-Type': 'application/json',
       },
       body: JSON.stringify({
-        plan_id: config.monthlyPlanId,
+        plan_id: planId,
         customer_notify: 1,
         total_count: 120,
         notes: {
           userId: req.user._id.toString(),
           app: 'happinotes',
-          amountInPaise: String(DEFAULT_MONTHLY_PLAN_INR_PAISE),
+          amountInPaise: String(amount),
+          plan,
         },
       }),
     });
@@ -217,16 +234,28 @@ export const createRazorpaySubscription = async (
     const data = (await response.json()) as RazorpaySubscriptionCreateResponse;
     res.json({
       success: true,
+      orderId: data.id,
       subscriptionId: data.id,
       status: data.status,
       key: config.keyId,
-      amount: DEFAULT_MONTHLY_PLAN_INR_PAISE,
+      amount,
       currency: 'INR',
       planId: data.plan_id,
+      plan,
     });
   } catch (err) {
     next(err);
   }
+};
+
+/** POST /payments/razorpay/create-order */
+export const createRazorpayOrder = async (
+  req: Request,
+  res: Response,
+  next: NextFunction
+): Promise<void> => {
+  // Alias to existing subscription creation flow for compatibility.
+  return createRazorpaySubscription(req, res, next);
 };
 
 /** POST /payments/razorpay/webhook */
@@ -284,6 +313,20 @@ export const handleRazorpayWebhook = async (req: Request, res: Response): Promis
   }
 
   const event = payload?.event || '';
+  const eventIdHeader = (req.headers['x-razorpay-event-id'] ?? '').toString().trim();
+  const eventKey = `razorpay:${eventIdHeader || `${event}:${subscriptionId}`}`;
+  try {
+    await PaymentWebhookEvent.create({
+      provider: 'razorpay',
+      eventKey,
+      eventType: event || 'unknown',
+    });
+  } catch {
+    // Already processed - acknowledge idempotently.
+    res.status(200).json({ success: true, duplicate: true });
+    return;
+  }
+
   const deactivateEvents = new Set([
     'subscription.cancelled',
     'subscription.halted',
@@ -322,12 +365,13 @@ export const handleRazorpayWebhook = async (req: Request, res: Response): Promis
 
   if (activateEvents.has(event)) {
     const currentEnd = subscription?.current_end;
-    const fallbackExpiryMs = Date.now() + 30 * 24 * 60 * 60 * 1000;
+    const fallbackExpiryMs = computeSubscriptionExpiry().getTime();
     const expiryMs = typeof currentEnd === 'number' ? currentEnd * 1000 : fallbackExpiryMs;
-    user.subscriptionActive = true;
-    user.subscriptionExpiry = new Date(expiryMs);
-    user.razorpaySubscriptionId = subscriptionId;
-    await user.save();
+    await activateSubscriptionForUser({
+      user,
+      expiry: new Date(expiryMs),
+      razorpaySubscriptionId: subscriptionId,
+    });
   }
 
   res.status(200).json({ success: true });
@@ -400,12 +444,14 @@ export const verifyRazorpaySubscription = async (
     }
 
     const expirySeconds = details.current_end;
-    const fallbackExpiryMs = Date.now() + 30 * 24 * 60 * 60 * 1000;
+    const fallbackExpiryMs = computeSubscriptionExpiry().getTime();
     const expiryMs = typeof expirySeconds === 'number' ? expirySeconds * 1000 : fallbackExpiryMs;
 
-    req.user.subscriptionActive = true;
-    req.user.subscriptionExpiry = new Date(expiryMs);
-    await req.user.save();
+    await activateSubscriptionForUser({
+      user: req.user,
+      expiry: new Date(expiryMs),
+      razorpaySubscriptionId: details.id,
+    });
 
     res.json({
       success: true,
@@ -422,6 +468,32 @@ export const verifyRazorpaySubscription = async (
         subscriptionActive: req.user.subscriptionActive,
         subscriptionExpiry: req.user.subscriptionExpiry,
       },
+    });
+  } catch (err) {
+    next(err);
+  }
+};
+
+/** POST /payments/apple/verify */
+export const verifyAppleSubscription = async (
+  req: Request,
+  res: Response,
+  next: NextFunction
+): Promise<void> => {
+  try {
+    if (!req.user) {
+      next(new BadRequestError('Authentication required'));
+      return;
+    }
+    const receiptData = (req.body?.receiptData ?? '').toString().trim();
+    if (!receiptData) {
+      next(new BadRequestError('receiptData is required'));
+      return;
+    }
+    // Placeholder for Apple IAP server-side verification.
+    res.status(501).json({
+      success: false,
+      message: 'Apple IAP verification is not implemented yet.',
     });
   } catch (err) {
     next(err);

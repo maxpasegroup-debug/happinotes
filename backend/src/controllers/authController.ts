@@ -53,6 +53,7 @@ export const signup = async (
         name: user.name,
         email: user.email,
         role: user.role,
+        isPremium: user.subscriptionActive,
         subscriptionActive: user.subscriptionActive,
         subscriptionExpiry: user.subscriptionExpiry,
       },
@@ -96,6 +97,7 @@ export const login = async (
         name: user.name,
         email: user.email,
         role: user.role,
+        isPremium: user.subscriptionActive,
         subscriptionActive: user.subscriptionActive,
         subscriptionExpiry: user.subscriptionExpiry,
       },
@@ -121,6 +123,9 @@ export const getMe = async (
     if (u && 'bookCollection' in u) {
       u.collection = u.bookCollection;
       delete u.bookCollection;
+    }
+    if (u) {
+      u.isPremium = Boolean(u.subscriptionActive);
     }
     res.json({ success: true, user: u || user });
   } catch (err) {

@@ -7,7 +7,6 @@ import { MobileShell } from "@/components/mobile-shell";
 import { BASE_URL } from "@/lib/content-api";
 import { AuthModal } from "@/components/auth-modal";
 import { clearUserSession, getStoredUser, getUserToken, setUserSession } from "@/lib/user-session";
-import { startRazorpaySubscriptionFlow } from "@/lib/razorpay";
 import type { WebUser } from "@/lib/user-session";
 
 type Me = WebUser;
@@ -166,26 +165,17 @@ export default function ProfilePage() {
         {!me?.subscriptionActive ? (
           <button
             type="button"
-            onClick={async () => {
+            onClick={() => {
               const token = getUserToken();
               if (!token) {
                 setMessage("Please signup from Lifebooks first.");
                 return;
               }
-              const result = await startRazorpaySubscriptionFlow({
-                token,
-                email: me?.email,
-                name: me?.name,
-              });
-              if (result.ok) {
-                setMessage("Payment successful.");
-              } else {
-                setMessage(result.message || "Payment failed.");
-              }
+              router.push("/subscribe");
             }}
             className="w-full rounded-xl bg-gradient-to-r from-[#f6c453] to-[#e6a92c] px-4 py-3 text-sm font-semibold text-[#211100]"
           >
-            Subscribe with Razorpay
+            Open Subscribe Plans
           </button>
         ) : (
           <div className="rounded-xl border border-emerald-300/20 bg-emerald-500/10 px-4 py-3 text-sm text-emerald-200">

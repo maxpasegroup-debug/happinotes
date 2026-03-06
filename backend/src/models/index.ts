@@ -9,3 +9,4 @@ export {
   ContentKind,
   MediaType,
 } from './Content';
+export { PaymentWebhookEvent, IPaymentWebhookEvent } from './PaymentWebhookEvent';

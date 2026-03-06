@@ -1,6 +1,7 @@
 import express from 'express';
 import helmet from 'helmet';
 import cors from 'cors';
+import rateLimit from 'express-rate-limit';
 import routes from './routes';
 import { handleRazorpayWebhook } from './controllers/paymentsController';
 import { errorHandler } from './middleware';
@@ -33,8 +34,14 @@ app.use(
     credentials: true,
   })
 );
+const webhookLimiter = rateLimit({
+  windowMs: 15 * 60 * 1000,
+  max: 300,
+  standardHeaders: true,
+  legacyHeaders: false,
+});
 // Razorpay webhook needs raw body for signature verification.
-app.post('/payments/razorpay/webhook', express.raw({ type: 'application/json' }), handleRazorpayWebhook);
+app.post('/payments/razorpay/webhook', webhookLimiter, express.raw({ type: 'application/json' }), handleRazorpayWebhook);
 app.use(express.json());
 app.use(express.urlencoded({ extended: true }));
 

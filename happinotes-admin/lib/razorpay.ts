@@ -22,6 +22,8 @@ export async function startRazorpaySubscriptionFlow(params: {
   token: string;
   email?: string;
   name?: string;
+  plan?: "monthly" | "yearly";
+  onSuccessRedirectUrl?: string;
 }): Promise<{ ok: boolean; message?: string }> {
   const key = process.env.NEXT_PUBLIC_RAZORPAY_KEY_ID;
   if (!key) {
@@ -34,23 +36,25 @@ export async function startRazorpaySubscriptionFlow(params: {
   }
 
   try {
-    const orderRes = await fetch(`${BASE_URL}/payments/razorpay/subscription`, {
+    const plan = params.plan || "monthly";
+    const orderRes = await fetch(`${BASE_URL}/payments/razorpay/create-order`, {
       method: "POST",
       headers: {
         "Content-Type": "application/json",
         Authorization: `Bearer ${params.token}`,
       },
-      body: JSON.stringify({ plan: "monthly" }),
+      body: JSON.stringify({ plan }),
     });
 
     if (!orderRes.ok) {
       return {
         ok: false,
-        message: "Razorpay subscription API is not configured yet.",
+        message: "Razorpay payment API is not configured yet.",
       };
     }
 
     const orderData = (await orderRes.json()) as {
+      orderId: string;
       subscriptionId: string;
       amount: number;
       currency: string;
@@ -75,6 +79,9 @@ export async function startRazorpaySubscriptionFlow(params: {
           email: params.email,
           name: params.name,
         },
+        modal: {
+          ondismiss: () => resolve({ ok: false, message: "Payment cancelled." }),
+        },
         theme: { color: "#f6c453" },
         handler: async (response: Record<string, string>) => {
           try {
@@ -89,6 +96,9 @@ export async function startRazorpaySubscriptionFlow(params: {
             if (!verifyRes.ok) {
               resolve({ ok: false, message: "Payment verification failed." });
               return;
+            }
+            if (params.onSuccessRedirectUrl && typeof window !== "undefined") {
+              window.location.href = params.onSuccessRedirectUrl;
             }
             resolve({ ok: true });
           } catch {

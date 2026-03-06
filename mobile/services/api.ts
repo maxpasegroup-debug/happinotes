@@ -12,6 +12,7 @@ export interface ApiUser {
   name: string;
   email: string;
   role: 'admin' | 'user';
+  isPremium?: boolean;
   subscriptionActive: boolean;
   subscriptionExpiry: string | null;
 }

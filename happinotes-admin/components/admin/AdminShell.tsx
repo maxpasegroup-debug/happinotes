@@ -6,6 +6,7 @@ import type { ReactNode } from "react";
 
 const menu = [
   { label: "Dashboard", href: "/admin/dashboard" },
+  { label: "Subscriptions", href: "/admin/subscriptions" },
   { label: "Featured", href: "/admin/featured" },
   { label: "Settings", href: "/admin/settings" },
 ];

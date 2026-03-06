@@ -1,8 +1,10 @@
 import { useRouter } from "expo-router";
 import React, { useCallback, useEffect, useState } from "react";
 import {
+  AppState,
   Alert,
   Linking,
+  Platform,
   Pressable,
   ScrollView,
   StyleSheet,
@@ -16,9 +18,9 @@ import { deleteToken, getToken } from "../../services/authStorage";
 import {
   addPurchaseUpdatedListener,
   initConnection,
-  requestSubscription,
   restorePurchases,
   PREMIUM_PRODUCT_ID,
+  WEB_SUBSCRIBE_URL,
 } from "../../services/billing";
 
 function formatExpiry(iso: string | null | undefined): string {
@@ -64,6 +66,15 @@ export default function Profile() {
   }, [loadUser]);
 
   useEffect(() => {
+    const sub = AppState.addEventListener("change", (state) => {
+      if (state === "active") {
+        loadUser();
+      }
+    });
+    return () => sub.remove();
+  }, [loadUser]);
+
+  useEffect(() => {
     initConnection();
     const remove = addPurchaseUpdatedListener((verifiedUser) => {
       setUser(verifiedUser);
@@ -76,7 +87,16 @@ export default function Profile() {
     if (subscribing || !user) return;
     setSubscribing(true);
     try {
-      await requestSubscription(PREMIUM_PRODUCT_ID);
+      if (Platform.OS === "android") {
+        await Linking.openURL(WEB_SUBSCRIBE_URL);
+      } else if (Platform.OS === "ios") {
+        Alert.alert(
+          "Coming soon",
+          "Apple In-App Purchase will be enabled soon. Please use web subscribe for now."
+        );
+      } else {
+        await Linking.openURL(WEB_SUBSCRIBE_URL);
+      }
     } catch (err: unknown) {
       const message = err instanceof Error ? err.message : String(err);
       if (
@@ -173,7 +193,7 @@ export default function Profile() {
 
   const email = user?.email ?? "";
   const initial = email ? email[0].toUpperCase() : "?";
-  const isPremium = user?.subscriptionActive ?? false;
+  const isPremium = user?.isPremium ?? user?.subscriptionActive ?? false;
 
   return (
     <View style={styles.safeArea}>
@@ -230,7 +250,7 @@ export default function Profile() {
                 disabled={subscribing}
               >
                 <Text style={styles.primaryButtonText}>
-                  {subscribing ? "Please wait…" : "Subscribe ₹499 / month"}
+                  {subscribing ? "Please wait…" : Platform.OS === "android" ? "Subscribe on Web ₹499 / month" : "Subscribe ₹499 / month"}
                 </Text>
               </Pressable>
               <Pressable

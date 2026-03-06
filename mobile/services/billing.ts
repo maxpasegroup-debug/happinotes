@@ -6,6 +6,7 @@
 import type { ApiUser } from "./api";
 
 export const PREMIUM_PRODUCT_ID = "premium_subscription";
+export const WEB_SUBSCRIBE_URL = "https://happinotes.in/subscribe";
 
 export async function initBilling(): Promise<void> {
   console.log("Billing disabled in Expo Go");
@@ -32,4 +33,18 @@ export async function requestSubscription(_productId: string): Promise<void> {
 
 export async function restorePurchases(): Promise<ApiUser> {
   throw new Error("No purchases to restore");
+}
+
+/**
+ * Placeholder for future iOS Apple IAP verification.
+ * Backend endpoint exists at POST /payments/apple/verify.
+ */
+export async function verifyAppleReceipt(_receiptData: string): Promise<{
+  success: boolean;
+  message: string;
+}> {
+  return {
+    success: false,
+    message: "Apple IAP verification is not implemented yet.",
+  };
 }
