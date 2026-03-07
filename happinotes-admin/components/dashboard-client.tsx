@@ -71,13 +71,13 @@ export function DashboardClient({ initialLifebooks }: { initialLifebooks: Lifebo
     const comingSoon = item.status === "coming_soon";
     const accessLabel = premium ? "PREMIUM" : "FREE";
     const accessClass = premium
-      ? "border-amber-300/40 bg-amber-500/20 text-amber-100"
-      : "border-emerald-300/40 bg-emerald-500/20 text-emerald-100";
+      ? "border-amber-300/40 bg-gradient-to-r from-amber-300/20 to-[#f6c453]/25 text-amber-100"
+      : "border-emerald-300/40 bg-gradient-to-r from-emerald-300/20 to-emerald-400/25 text-emerald-100";
     return (
       <article
-        className="h-[210px] w-[165px] shrink-0 overflow-hidden rounded-2xl border border-white/10 bg-[#141a2a] shadow-[0_10px_20px_rgba(0,0,0,0.35)]"
+        className="h-[216px] w-[165px] shrink-0 overflow-hidden rounded-3xl border border-white/10 bg-[#141a2a] shadow-[0_14px_28px_rgba(0,0,0,0.38)] transition hover:-translate-y-0.5"
       >
-        <div className="relative h-[120px] w-full">
+        <div className="relative h-[122px] w-full">
           {comingSoon ? (
             <button
               type="button"
@@ -115,11 +115,12 @@ export function DashboardClient({ initialLifebooks }: { initialLifebooks: Lifebo
             </span>
           ) : null}
         </div>
-        <div className="flex h-[90px] flex-col justify-between p-3">
+        <div className="flex h-[94px] flex-col justify-between p-3">
           <div>
             <h3 className="line-clamp-2 text-sm font-semibold text-white">{item.title}</h3>
             {!comingSoon ? (
-              <span className={`mt-2 inline-flex rounded-full border px-2 py-1 text-[10px] font-semibold tracking-wide ${accessClass}`}>
+              <span className={`mt-2 inline-flex items-center gap-1 rounded-full border px-2.5 py-1 text-[10px] font-semibold tracking-wide ${accessClass}`}>
+                <span className={`h-1.5 w-1.5 rounded-full ${premium ? "bg-amber-200" : "bg-emerald-200"}`} />
                 {accessLabel}
               </span>
             ) : null}
@@ -128,9 +129,9 @@ export function DashboardClient({ initialLifebooks }: { initialLifebooks: Lifebo
             <button
               type="button"
               onClick={() => tryPlay(item)}
-              className="inline-flex w-fit rounded-full bg-gradient-to-r from-[#f6c453] to-[#e6a92c] px-3 py-1 text-xs font-semibold text-[#211100]"
+              className="inline-flex w-fit items-center rounded-full bg-gradient-to-r from-[#f6c453] to-[#e6a92c] px-3.5 py-1.5 text-xs font-semibold text-[#211100] shadow-[0_8px_16px_rgba(246,196,83,0.28)] transition hover:brightness-105"
             >
-              Open
+              Listen now
             </button>
           ) : null}
         </div>
@@ -140,12 +141,17 @@ export function DashboardClient({ initialLifebooks }: { initialLifebooks: Lifebo
 
   function EmptyRowCard() {
     return (
-      <div className="h-[210px] w-[165px] shrink-0 rounded-2xl border border-dashed border-white/20 bg-[#141a2a] p-4">
-        <div className="h-full w-full rounded-xl border border-white/10 bg-[#101625]/50 p-3">
-          <p className="text-sm font-semibold text-white">Lifebooks</p>
-          <p className="mt-2 text-xs text-[#b7c0d8]">
-            No lifebooks yet. Uploads will appear automatically here.
-          </p>
+      <div className="h-[216px] w-[165px] shrink-0 rounded-3xl border border-dashed border-white/25 bg-[#141a2a] p-4">
+        <div className="flex h-full w-full flex-col justify-between rounded-2xl border border-white/10 bg-[#101625]/50 p-3">
+          <div className="inline-flex h-8 w-8 items-center justify-center rounded-full border border-white/20 bg-white/5 text-sm text-white/90">
+            ✦
+          </div>
+          <div>
+            <p className="text-sm font-semibold text-white">Lifebooks</p>
+            <p className="mt-1 text-xs leading-5 text-[#b7c0d8]">
+              No lifebooks yet. New uploads will appear here automatically.
+            </p>
+          </div>
         </div>
       </div>
     );

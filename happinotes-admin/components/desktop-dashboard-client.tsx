@@ -115,12 +115,12 @@ export function DesktopDashboardClient({ initialLifebooks }: { initialLifebooks:
                 const comingSoon = item.status === "coming_soon";
                 const accessLabel = premium ? "PREMIUM" : "FREE";
                 const accessClass = premium
-                  ? "border-amber-300/40 bg-amber-500/20 text-amber-100"
-                  : "border-emerald-300/40 bg-emerald-500/20 text-emerald-100";
+                  ? "border-amber-300/40 bg-gradient-to-r from-amber-300/20 to-[#f6c453]/25 text-amber-100"
+                  : "border-emerald-300/40 bg-gradient-to-r from-emerald-300/20 to-emerald-400/25 text-emerald-100";
                 return (
                   <article
                     key={item._id}
-                    className="overflow-hidden rounded-2xl border border-white/10 bg-[#141a2a] shadow-[0_10px_24px_rgba(0,0,0,0.35)]"
+                    className="overflow-hidden rounded-3xl border border-white/10 bg-[#141a2a] shadow-[0_14px_30px_rgba(0,0,0,0.38)] transition hover:-translate-y-0.5"
                   >
                     <div className="relative h-44 w-full">
                       {comingSoon ? (
@@ -161,15 +161,16 @@ export function DesktopDashboardClient({ initialLifebooks }: { initialLifebooks:
                       <h3 className="line-clamp-2 text-base font-semibold">{item.title}</h3>
                       {!comingSoon ? (
                         <>
-                          <span className={`mt-2 inline-flex rounded-full border px-2 py-1 text-[10px] font-semibold tracking-wide ${accessClass}`}>
+                          <span className={`mt-2 inline-flex items-center gap-1 rounded-full border px-2.5 py-1 text-[10px] font-semibold tracking-wide ${accessClass}`}>
+                            <span className={`h-1.5 w-1.5 rounded-full ${premium ? "bg-amber-200" : "bg-emerald-200"}`} />
                             {accessLabel}
                           </span>
                           <button
                             type="button"
                             onClick={() => tryPlay(item)}
-                            className="mt-4 inline-flex rounded-full bg-gradient-to-r from-[#f6c453] to-[#e6a92c] px-4 py-2 text-sm font-semibold text-[#211100]"
+                            className="mt-4 inline-flex items-center rounded-full bg-gradient-to-r from-[#f6c453] to-[#e6a92c] px-4 py-2 text-sm font-semibold text-[#211100] shadow-[0_8px_16px_rgba(246,196,83,0.28)] transition hover:brightness-105"
                           >
-                            Open Lifebook
+                            Listen now
                           </button>
                         </>
                       ) : null}
