@@ -132,9 +132,9 @@ export function DesktopDashboardClient({ initialLifebooks }: { initialLifebooks:
                 return (
                   <article
                     key={item._id}
-                    className="overflow-hidden rounded-3xl border border-white/10 bg-[#141a2a] shadow-[0_14px_30px_rgba(0,0,0,0.38)] transition hover:-translate-y-0.5"
+                    className="flex min-h-[300px] flex-col overflow-hidden rounded-3xl border border-white/10 bg-[#141a2a] shadow-[0_14px_30px_rgba(0,0,0,0.38)] transition hover:-translate-y-0.5"
                   >
-                    <div className="relative h-44 w-full">
+                    <div className="relative h-44 w-full bg-[#0f1422]">
                       {comingSoon ? (
                         <button
                           type="button"
@@ -145,7 +145,7 @@ export function DesktopDashboardClient({ initialLifebooks }: { initialLifebooks:
                             src={item.thumbnailUrl || FALLBACK_IMAGE}
                             alt={item.title}
                             loading="lazy"
-                            className="h-full w-full object-cover"
+                            className="h-full w-full object-contain"
                           />
                         </button>
                       ) : (
@@ -154,7 +154,7 @@ export function DesktopDashboardClient({ initialLifebooks }: { initialLifebooks:
                             src={item.thumbnailUrl || FALLBACK_IMAGE}
                             alt={item.title}
                             loading="lazy"
-                            className="h-full w-full object-cover"
+                            className="h-full w-full object-contain"
                           />
                         </button>
                       )}
@@ -169,10 +169,10 @@ export function DesktopDashboardClient({ initialLifebooks }: { initialLifebooks:
                         </span>
                       ) : null}
                     </div>
-                    <div className="p-4">
+                    <div className="flex min-h-0 flex-1 flex-col justify-between p-4">
                       <h3 className="line-clamp-2 text-base font-semibold">{item.title}</h3>
                       {!comingSoon ? (
-                        <>
+                        <div className="mt-3 flex flex-col items-start">
                           <span className={`mt-2 inline-flex items-center gap-1 rounded-full border px-2.5 py-1 text-[10px] font-semibold tracking-wide ${accessClass}`}>
                             <span className={`h-1.5 w-1.5 rounded-full ${premium ? "bg-amber-200" : "bg-emerald-200"}`} />
                             {accessLabel}
@@ -180,11 +180,11 @@ export function DesktopDashboardClient({ initialLifebooks }: { initialLifebooks:
                           <button
                             type="button"
                             onClick={() => tryPlay(item)}
-                            className="mt-4 inline-flex items-center rounded-full bg-gradient-to-r from-[#f6c453] to-[#e6a92c] px-4 py-2 text-sm font-semibold text-[#211100] shadow-[0_8px_16px_rgba(246,196,83,0.28)] transition hover:brightness-105"
+                            className="mt-4 inline-flex items-center whitespace-nowrap rounded-full bg-gradient-to-r from-[#f6c453] to-[#e6a92c] px-4 py-2 text-sm font-semibold text-[#211100] shadow-[0_8px_16px_rgba(246,196,83,0.28)] transition hover:brightness-105"
                           >
                             Listen now
                           </button>
-                        </>
+                        </div>
                       ) : null}
                     </div>
                   </article>

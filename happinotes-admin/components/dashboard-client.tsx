@@ -75,9 +75,9 @@ export function DashboardClient({ initialLifebooks }: { initialLifebooks: Lifebo
       : "border-emerald-300/40 bg-gradient-to-r from-emerald-300/20 to-emerald-400/25 text-emerald-100";
     return (
       <article
-        className="h-[216px] w-[165px] shrink-0 overflow-hidden rounded-3xl border border-white/10 bg-[#141a2a] shadow-[0_14px_28px_rgba(0,0,0,0.38)] transition hover:-translate-y-0.5"
+        className="flex h-[238px] w-[168px] shrink-0 flex-col overflow-hidden rounded-3xl border border-white/10 bg-[#141a2a] shadow-[0_14px_28px_rgba(0,0,0,0.38)] transition hover:-translate-y-0.5"
       >
-        <div className="relative h-[122px] w-full">
+        <div className="relative h-[126px] w-full bg-[#0f1422]">
           {comingSoon ? (
             <button
               type="button"
@@ -88,7 +88,7 @@ export function DashboardClient({ initialLifebooks }: { initialLifebooks: Lifebo
                 src={item.thumbnailUrl || FALLBACK_IMAGE}
                 alt={item.title}
                 loading="lazy"
-                className="h-full w-full object-cover"
+                className="h-full w-full object-contain"
               />
             </button>
           ) : (
@@ -97,7 +97,7 @@ export function DashboardClient({ initialLifebooks }: { initialLifebooks: Lifebo
                 src={item.thumbnailUrl || FALLBACK_IMAGE}
                 alt={item.title}
                 loading="lazy"
-                className="h-full w-full object-cover"
+                className="h-full w-full object-contain"
               />
             </button>
           )}
@@ -115,7 +115,7 @@ export function DashboardClient({ initialLifebooks }: { initialLifebooks: Lifebo
             </span>
           ) : null}
         </div>
-        <div className="flex h-[94px] flex-col justify-between p-3">
+        <div className="flex min-h-0 flex-1 flex-col justify-between p-3">
           <div>
             <h3 className="line-clamp-2 text-sm font-semibold text-white">{item.title}</h3>
             {!comingSoon ? (
@@ -129,7 +129,7 @@ export function DashboardClient({ initialLifebooks }: { initialLifebooks: Lifebo
             <button
               type="button"
               onClick={() => tryPlay(item)}
-              className="inline-flex w-fit items-center rounded-full bg-gradient-to-r from-[#f6c453] to-[#e6a92c] px-3.5 py-1.5 text-xs font-semibold text-[#211100] shadow-[0_8px_16px_rgba(246,196,83,0.28)] transition hover:brightness-105"
+              className="inline-flex w-fit items-center whitespace-nowrap rounded-full bg-gradient-to-r from-[#f6c453] to-[#e6a92c] px-3.5 py-1.5 text-xs font-semibold text-[#211100] shadow-[0_8px_16px_rgba(246,196,83,0.28)] transition hover:brightness-105"
             >
               Listen now
             </button>
