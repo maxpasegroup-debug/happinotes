@@ -1,6 +1,6 @@
 "use client";
 
-import { useMemo, useState } from "react";
+import { useEffect, useMemo, useState } from "react";
 import { useRouter } from "next/navigation";
 import type { LifebookItem } from "@/lib/content-api";
 import { AuthModal } from "@/components/auth-modal";
@@ -13,11 +13,18 @@ const FALLBACK_IMAGE =
 export function DesktopDashboardClient({ initialLifebooks }: { initialLifebooks: LifebookItem[] }) {
   const router = useRouter();
   const [search, setSearch] = useState("");
+  const [isAuthed, setIsAuthed] = useState(false);
   const [authOpen, setAuthOpen] = useState(false);
   const [subscribeOpen, setSubscribeOpen] = useState(false);
   const [comingSoonPreview, setComingSoonPreview] = useState<LifebookItem | null>(null);
   const [selected, setSelected] = useState<LifebookItem | null>(null);
   const [subError, setSubError] = useState("");
+
+  useEffect(() => {
+    if (typeof window !== "undefined") {
+      setIsAuthed(Boolean(getStoredUser()));
+    }
+  }, []);
 
   const filtered = useMemo(() => {
     return search.trim()
@@ -77,30 +84,35 @@ export function DesktopDashboardClient({ initialLifebooks }: { initialLifebooks:
               <p className="text-sm text-[#b7c0d8]">Practical Books for Real Life</p>
             </div>
           </div>
-          <div className="w-full max-w-md rounded-xl border border-white/10 bg-[#1a2133] px-4 py-3">
-            <input
-              value={search}
-              onChange={(e) => setSearch(e.target.value)}
-              placeholder="Search lifebooks..."
-              className="w-full bg-transparent text-base text-white outline-none placeholder:text-[#8f99b3]"
-            />
+          <div className="flex w-full max-w-3xl items-center justify-end gap-3">
+            <div className="w-full max-w-md rounded-xl border border-white/10 bg-[#1a2133] px-4 py-3">
+              <input
+                value={search}
+                onChange={(e) => setSearch(e.target.value)}
+                placeholder="Search lifebooks..."
+                className="w-full bg-transparent text-base text-white outline-none placeholder:text-[#8f99b3]"
+              />
+            </div>
+            <button
+              type="button"
+              onClick={() => router.push("/favourites")}
+              className="rounded-full border border-white/20 px-4 py-2 text-sm font-medium text-white/90 transition hover:bg-white/10"
+            >
+              Favourites
+            </button>
+            <button
+              type="button"
+              onClick={() => router.push("/profile")}
+              className="rounded-full bg-gradient-to-r from-[#f6c453] to-[#e6a92c] px-4 py-2 text-sm font-semibold text-[#211100]"
+            >
+              {isAuthed ? "Profile" : "Login"}
+            </button>
           </div>
         </div>
       </header>
 
-      <main className="mx-auto grid max-w-7xl grid-cols-12 gap-6 px-8 py-8">
-        <aside className="col-span-3 rounded-2xl border border-white/10 bg-[#141a2a] p-5">
-          <h2 className="text-lg font-semibold">Dashboard</h2>
-          <p className="mt-2 text-sm text-[#b7c0d8]">
-            Desktop experience for Happinotes. Mobile design remains unchanged.
-          </p>
-          <div className="mt-6 rounded-xl border border-white/10 bg-[#0f1422] p-4">
-            <p className="text-xs uppercase tracking-wide text-[#8f99b3]">Total Lifebooks</p>
-            <p className="mt-2 text-3xl font-semibold">{filtered.length}</p>
-          </div>
-        </aside>
-
-        <section className="col-span-9">
+      <main className="mx-auto max-w-7xl px-8 py-8">
+        <section>
           <div className="mb-4 flex items-center justify-between">
             <h1 className="text-3xl font-semibold">Lifebooks</h1>
           </div>
