@@ -36,6 +36,8 @@ type ChapterItem = {
 const speeds = [0.5, 0.75, 1, 1.25, 1.5, 2];
 const FALLBACK_IMAGE =
   "/happinotes-logo.png";
+const PART1_REGEX = /save\s*our\s*kids.*part\s*1/i;
+const PART1_COMPLETE_KEY = "web_save_our_kids_part1_completed";
 
 export default function PlayerPage() {
   const params = useParams<{ id: string }>();
@@ -143,6 +145,9 @@ export default function PlayerPage() {
         setIsPlaying(true);
       } else {
         setIsPlaying(false);
+        if (typeof window !== "undefined" && PART1_REGEX.test(content?.title || "")) {
+          window.localStorage.setItem(PART1_COMPLETE_KEY, "true");
+        }
       }
     };
     audio.addEventListener("timeupdate", onTime);
@@ -153,7 +158,7 @@ export default function PlayerPage() {
       audio.removeEventListener("loadedmetadata", onTime);
       audio.removeEventListener("ended", onEnded);
     };
-  }, [chapterIndex, chapters.length]);
+  }, [chapterIndex, chapters.length, content?.title]);
 
   const thumb = content?.thumbnailUrl || FALLBACK_IMAGE;
   const description = content?.description?.trim() || "";

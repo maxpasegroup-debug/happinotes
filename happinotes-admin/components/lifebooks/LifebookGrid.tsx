@@ -14,16 +14,17 @@ export function LifebookGrid({
   return (
     <section className="space-y-3">
       <h3 className="text-xl font-semibold text-white">All Lifebooks</h3>
-      <div className="grid grid-cols-1 gap-4 md:grid-cols-2 xl:grid-cols-4">
+      <div className="grid grid-cols-1 gap-4 md:grid-cols-2 xl:grid-cols-4 2xl:grid-cols-5">
         {items.map((item) => (
-          <LifebookCard
-            key={item._id}
-            item={item}
-            isFavourite={isFavourite(item._id)}
-            onToggleFavourite={() => onToggleFavourite(item)}
-            onListen={() => onListen(item)}
-            fullWidthButton={mobileFirstButtons}
-          />
+          <div key={item._id} className="w-full md:mx-auto md:max-w-[280px] xl:max-w-[240px]">
+            <LifebookCard
+              item={item}
+              isFavourite={isFavourite(item._id)}
+              onToggleFavourite={() => onToggleFavourite(item)}
+              onListen={() => onListen(item)}
+              fullWidthButton={mobileFirstButtons}
+            />
+          </div>
         ))}
       </div>
     </section>

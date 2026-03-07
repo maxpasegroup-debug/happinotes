@@ -1,6 +1,6 @@
 "use client";
 
-import { useMemo } from "react";
+import { useEffect, useMemo, useState } from "react";
 import { motion } from "framer-motion";
 import type { LifebookItem } from "@/lib/content-api";
 import { HeroLifebook } from "./HeroLifebook";
@@ -9,6 +9,10 @@ import { TrendingCarousel } from "./TrendingCarousel";
 import { SeriesCarousel } from "./SeriesCarousel";
 import { LifebookGrid } from "./LifebookGrid";
 import type { ContinueListeningItem, SeriesItem } from "./types";
+
+const PART1_REGEX = /save\s*our\s*kids.*part\s*1/i;
+const PART2_REGEX = /save\s*our\s*kids.*part\s*2/i;
+const PART1_COMPLETE_KEY = "web_save_our_kids_part1_completed";
 
 function buildSeries(items: LifebookItem[]): SeriesItem[] {
   const map = new Map<string, LifebookItem[]>();
@@ -53,14 +57,51 @@ export function LifebooksPremiumLayout({
   onResumeContinue: () => void;
   mobileFirstButtons?: boolean;
 }) {
+  const [part1Completed, setPart1Completed] = useState(false);
+
+  useEffect(() => {
+    if (typeof window === "undefined") return;
+    const read = () => setPart1Completed(window.localStorage.getItem(PART1_COMPLETE_KEY) === "true");
+    read();
+    const onStorage = () => read();
+    window.addEventListener("storage", onStorage);
+    return () => window.removeEventListener("storage", onStorage);
+  }, []);
+
   const filtered = useMemo(() => {
     const q = search.trim().toLowerCase();
     if (!q) return items;
     return items.filter((item) => item.title.toLowerCase().includes(q));
   }, [items, search]);
 
-  const heroItem = filtered[0] || items[0] || null;
-  const trendingItems = filtered.slice(0, 8);
+  const part1Item = useMemo(
+    () => items.find((item) => PART1_REGEX.test(item.title || "")) || null,
+    [items]
+  );
+  const part2Item = useMemo(
+    () => items.find((item) => PART2_REGEX.test(item.title || "")) || null,
+    [items]
+  );
+
+  const prioritized = useMemo(() => {
+    const next = [...filtered];
+    const score = (item: LifebookItem) => {
+      const title = item.title || "";
+      if (part1Completed && PART2_REGEX.test(title)) return -3;
+      if (PART1_REGEX.test(title)) return -2;
+      return 0;
+    };
+    next.sort((a, b) => {
+      const sa = score(a);
+      const sb = score(b);
+      if (sa !== sb) return sa - sb;
+      return 0;
+    });
+    return next;
+  }, [filtered, part1Completed]);
+
+  const heroItem = prioritized[0] || part1Item || filtered[0] || items[0] || null;
+  const trendingItems = prioritized.slice(0, 8);
   const series = buildSeries(filtered);
 
   return (
@@ -115,6 +156,27 @@ export function LifebooksPremiumLayout({
 
       <HeroLifebook item={heroItem} onListen={onListen} onPreview={onPreview} />
       <ContinueListening item={continueItem} onResume={onResumeContinue} />
+      {part1Completed && part2Item ? (
+        <section className="rounded-2xl border border-[#FFC107]/25 bg-[#1F1F2E] p-4">
+          <p className="text-xs uppercase tracking-[0.18em] text-[#FFC107]">Recommended Next</p>
+          <div className="mt-2 flex flex-col items-start justify-between gap-3 sm:flex-row sm:items-center">
+            <div>
+              <p className="text-lg font-semibold text-white">{part2Item.title}</p>
+              <p className="text-sm text-[#B0B0B0]">
+                You completed Part 1. Continue your journey with Part 2.
+              </p>
+            </div>
+            <motion.button
+              whileTap={{ scale: 0.95 }}
+              type="button"
+              onClick={() => onListen(part2Item)}
+              className="rounded-xl bg-gradient-to-r from-[#FFC107] to-[#FF9800] px-4 py-2 text-sm font-semibold text-[#1b1200]"
+            >
+              Listen Now
+            </motion.button>
+          </div>
+        </section>
+      ) : null}
       <TrendingCarousel
         items={trendingItems}
         onListen={onListen}
@@ -123,7 +185,7 @@ export function LifebooksPremiumLayout({
       />
       <SeriesCarousel series={series} onListen={onListen} />
       <LifebookGrid
-        items={filtered}
+        items={prioritized}
         onListen={onListen}
         onToggleFavourite={onToggleFavourite}
         isFavourite={isFavourite}
