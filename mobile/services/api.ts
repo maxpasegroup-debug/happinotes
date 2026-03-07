@@ -171,7 +171,7 @@ export async function signup(
 
 /** Public content API: Lifebooks — GET /contents?type=lifebook */
 export async function getBooks(token?: string | null): Promise<ContentsResponse> {
-  return request<ContentsResponse>('/contents?type=lifebook', {
+  return request<ContentsResponse>('/contents?type=lifebook&view=mobile', {
     method: 'GET',
     token: token || undefined,
   });

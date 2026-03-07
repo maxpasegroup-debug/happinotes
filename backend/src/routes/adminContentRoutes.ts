@@ -28,6 +28,8 @@ const createContentValidation = [
   body('type')
     .isIn(['free', 'premium'])
     .withMessage('type must be free or premium'),
+  body('webDisplayOrder').optional().isInt({ min: 0 }),
+  body('mobileDisplayOrder').optional().isInt({ min: 0 }),
 ];
 
 const updateContentValidation = [
@@ -42,6 +44,8 @@ const updateContentValidation = [
     .optional()
     .isIn(['free', 'premium'])
     .withMessage('Invalid type'),
+  body('webDisplayOrder').optional().isInt({ min: 0 }),
+  body('mobileDisplayOrder').optional().isInt({ min: 0 }),
   body('intro').optional(),
   body('conclusion').optional(),
   body('lessons')

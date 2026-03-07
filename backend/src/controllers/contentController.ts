@@ -94,6 +94,8 @@ export const getContents = async (
   try {
     const type = req.query.type as string | undefined;
     const statusQuery = req.query.status as string | undefined;
+    const view = req.query.view === 'mobile' ? 'mobile' : 'web';
+    const orderKey = view === 'mobile' ? 'mobileDisplayOrder' : 'webDisplayOrder';
     const filter: Record<string, unknown> = {
       status: { $in: ['live', 'coming_soon'] },
     };
@@ -105,11 +107,30 @@ export const getContents = async (
     } else if (type === 'happiness') {
       filter.contentType = 'silence';
     }
-    const contents = await Content.find(filter)
-      .sort({ featured: -1, createdAt: -1 })
-      .lean();
+    const contents = await Content.find(filter).lean();
+    const ordered = [...contents].sort((a, b) => {
+      const aDoc = a as Record<string, unknown>;
+      const bDoc = b as Record<string, unknown>;
+      const aFeatured = aDoc.featured === true ? 1 : 0;
+      const bFeatured = bDoc.featured === true ? 1 : 0;
+      if (aFeatured !== bFeatured) return bFeatured - aFeatured;
+
+      const aOrder =
+        typeof aDoc[orderKey] === 'number'
+          ? (aDoc[orderKey] as number)
+          : Number.MAX_SAFE_INTEGER;
+      const bOrder =
+        typeof bDoc[orderKey] === 'number'
+          ? (bDoc[orderKey] as number)
+          : Number.MAX_SAFE_INTEGER;
+      if (aOrder !== bOrder) return aOrder - bOrder;
+
+      const aCreated = Date.parse(String(aDoc.createdAt || '')) || 0;
+      const bCreated = Date.parse(String(bDoc.createdAt || '')) || 0;
+      return bCreated - aCreated;
+    });
     const canAccess = canAccessPremiumContent(req);
-    const shaped = contents.map((c) =>
+    const shaped = ordered.map((c) =>
       shapeContentForPublic(c as Record<string, unknown>, canAccess)
     );
     res.json({ success: true, contents: shaped });

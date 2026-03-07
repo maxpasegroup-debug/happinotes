@@ -15,6 +15,8 @@ type Content = {
   type: "free" | "premium";
   status: Status;
   featured?: boolean;
+  webDisplayOrder?: number;
+  mobileDisplayOrder?: number;
   createdAt?: string;
 };
 
@@ -45,7 +47,7 @@ type DetailResponse = {
   };
 };
 
-type ModuleKey = "lifebooks" | "notes" | "happiness" | "users" | "business";
+type ModuleKey = "lifebooks" | "notes" | "happiness" | "users" | "business" | "app_views";
 
 type ChapterDraft = {
   title: string;
@@ -116,6 +118,11 @@ export default function AdminDashboardPage() {
   const [message, setMessage] = useState("");
   const [step, setStep] = useState<Step>(1);
   const [submitting, setSubmitting] = useState(false);
+  const [viewPlatform, setViewPlatform] = useState<"web" | "mobile">("web");
+  const [webViewport, setWebViewport] = useState<"mobile" | "desktop">("desktop");
+  const [arrangeCategory, setArrangeCategory] = useState<"all" | Status | "free" | "premium">("all");
+  const [arrangeDraft, setArrangeDraft] = useState<Content[]>([]);
+  const [arrangeSaving, setArrangeSaving] = useState(false);
 
   async function uploadSingleMedia(file: File, scope: "intro" | "lesson" | "note" | "silence") {
     const token = window.localStorage.getItem("admin_token") || "";
@@ -170,6 +177,17 @@ export default function AdminDashboardPage() {
         .sort((a, b) => Date.parse(b.createdAt || "") - Date.parse(a.createdAt || "")),
     [contents]
   );
+
+  useEffect(() => {
+    const key = viewPlatform === "web" ? "webDisplayOrder" : "mobileDisplayOrder";
+    const sorted = [...lifebooks].sort((a, b) => {
+      const ao = typeof a[key] === "number" ? (a[key] as number) : Number.MAX_SAFE_INTEGER;
+      const bo = typeof b[key] === "number" ? (b[key] as number) : Number.MAX_SAFE_INTEGER;
+      if (ao !== bo) return ao - bo;
+      return Date.parse(b.createdAt || "") - Date.parse(a.createdAt || "");
+    });
+    setArrangeDraft(sorted);
+  }, [lifebooks, viewPlatform]);
 
   function openCreate(kind: Kind) {
     setCreateKind(kind);
@@ -432,6 +450,47 @@ export default function AdminDashboardPage() {
     }
   }
 
+  function moveArrangementItem(fromId: string, toId: string) {
+    setArrangeDraft((prev) => {
+      const fromIndex = prev.findIndex((x) => x._id === fromId);
+      const toIndex = prev.findIndex((x) => x._id === toId);
+      if (fromIndex < 0 || toIndex < 0 || fromIndex === toIndex) return prev;
+      const next = [...prev];
+      const [moved] = next.splice(fromIndex, 1);
+      next.splice(toIndex, 0, moved);
+      return next;
+    });
+  }
+
+  async function saveArrangement() {
+    const token = window.localStorage.getItem("admin_token") || "";
+    if (!token) {
+      setMessage("Admin token missing");
+      return;
+    }
+    const orderKey = viewPlatform === "web" ? "webDisplayOrder" : "mobileDisplayOrder";
+    try {
+      setArrangeSaving(true);
+      setMessage("Saving arrangement...");
+      await Promise.all(
+        arrangeDraft.map((item, idx) =>
+          apiRequest(
+            `/admin/contents/${item._id}`,
+            "PUT",
+            { contentType: "lifebook", [orderKey]: idx },
+            token
+          )
+        )
+      );
+      await load();
+      setMessage("Arrangement saved. User feeds will follow this order.");
+    } catch (err) {
+      setMessage(err instanceof Error ? err.message : "Failed to save arrangement");
+    } finally {
+      setArrangeSaving(false);
+    }
+  }
+
   const activeList =
     activeModule === "lifebooks"
       ? lifebooks
@@ -454,6 +513,13 @@ export default function AdminDashboardPage() {
             : 0;
   const isLifebookFlow = (createOpen ? createKind : editing?.contentType) === "lifebook";
   const isLiveFlow = form.status === "live";
+  const arrangeVisible = useMemo(() => {
+    return arrangeDraft.filter((item) => {
+      if (arrangeCategory === "all") return true;
+      if (arrangeCategory === "free" || arrangeCategory === "premium") return item.type === arrangeCategory;
+      return item.status === arrangeCategory;
+    });
+  }, [arrangeDraft, arrangeCategory]);
 
   return (
     <div className="space-y-5">
@@ -476,6 +542,7 @@ export default function AdminDashboardPage() {
           { key: "lifebooks", label: "Lifebooks" },
           { key: "notes", label: "Notes" },
           { key: "happiness", label: "Happiness" },
+          { key: "app_views", label: "App Views" },
           { key: "users", label: "Users" },
           { key: "business", label: "Business" },
         ].map((item) => (
@@ -566,6 +633,176 @@ export default function AdminDashboardPage() {
             ) : null}
           </div>
         </>
+      )}
+
+      {activeModule === "app_views" && (
+        <div className="space-y-4 rounded-2xl border border-white/10 bg-[#0f1320] p-4">
+          <div className="flex flex-wrap items-center justify-between gap-3">
+            <div>
+              <h2 className="m-0 text-xl font-semibold text-white">App Views & Content Arrangement</h2>
+              <p className="mt-1 text-xs text-[#a1a1aa]">
+                Set user-facing order for web and mobile feeds. Drag, arrange, and save.
+              </p>
+            </div>
+            <div className="flex flex-wrap gap-2">
+              <button
+                type="button"
+                onClick={() => setViewPlatform("web")}
+                className={`rounded-lg border px-3 py-2 text-xs font-semibold ${
+                  viewPlatform === "web"
+                    ? "border-[#3b3b48] bg-[#1a1f33] text-white"
+                    : "border-white/15 bg-[#101118] text-[#c8cbd3]"
+                }`}
+              >
+                Web App View
+              </button>
+              <button
+                type="button"
+                onClick={() => setViewPlatform("mobile")}
+                className={`rounded-lg border px-3 py-2 text-xs font-semibold ${
+                  viewPlatform === "mobile"
+                    ? "border-[#3b3b48] bg-[#1a1f33] text-white"
+                    : "border-white/15 bg-[#101118] text-[#c8cbd3]"
+                }`}
+              >
+                Mobile App View
+              </button>
+            </div>
+          </div>
+
+          {viewPlatform === "web" ? (
+            <div className="flex flex-wrap items-center justify-between gap-3 rounded-xl border border-white/10 bg-[#101118] p-3">
+              <div className="flex gap-2">
+                <button
+                  type="button"
+                  onClick={() => setWebViewport("desktop")}
+                  className={`rounded-md border px-3 py-1.5 text-xs ${
+                    webViewport === "desktop"
+                      ? "border-amber-400/40 bg-amber-500/10 text-amber-200"
+                      : "border-white/15 text-[#c8cbd3]"
+                  }`}
+                >
+                  Desktop View
+                </button>
+                <button
+                  type="button"
+                  onClick={() => setWebViewport("mobile")}
+                  className={`rounded-md border px-3 py-1.5 text-xs ${
+                    webViewport === "mobile"
+                      ? "border-amber-400/40 bg-amber-500/10 text-amber-200"
+                      : "border-white/15 text-[#c8cbd3]"
+                  }`}
+                >
+                  Mobile View
+                </button>
+              </div>
+              <a
+                href="/"
+                target="_blank"
+                rel="noreferrer"
+                className="rounded-md border border-white/20 px-3 py-1.5 text-xs text-white hover:bg-white/5"
+              >
+                Open Web Preview
+              </a>
+            </div>
+          ) : (
+            <div className="rounded-xl border border-white/10 bg-[#101118] p-3 text-xs text-[#c8cbd3]">
+              Mobile app feed order will use this arrangement. Changes become visible after mobile refresh.
+            </div>
+          )}
+
+          <div className="flex flex-wrap items-center justify-between gap-2">
+            <div className="flex flex-wrap gap-2">
+              {[
+                { key: "all", label: "All" },
+                { key: "live", label: "Live" },
+                { key: "coming_soon", label: "Coming Soon" },
+                { key: "free", label: "Free" },
+                { key: "premium", label: "Premium" },
+              ].map((chip) => (
+                <button
+                  key={chip.key}
+                  type="button"
+                  onClick={() => setArrangeCategory(chip.key as "all" | Status | "free" | "premium")}
+                  className={`rounded-full border px-3 py-1 text-xs ${
+                    arrangeCategory === chip.key
+                      ? "border-amber-400/40 bg-amber-500/10 text-amber-200"
+                      : "border-white/15 text-[#c8cbd3]"
+                  }`}
+                >
+                  {chip.label}
+                </button>
+              ))}
+            </div>
+            <button
+              type="button"
+              onClick={saveArrangement}
+              disabled={arrangeSaving}
+              className="rounded-lg bg-[#f97316] px-4 py-2 text-xs font-semibold text-white hover:bg-[#ea580c] disabled:opacity-60"
+            >
+              {arrangeSaving ? "Saving..." : "Save Order"}
+            </button>
+          </div>
+
+          <div className="overflow-hidden rounded-xl border border-white/10">
+            <table className="w-full border-collapse text-sm">
+              <thead className="bg-[#101118]">
+                <tr>
+                  <th className="px-3 py-2 text-left text-xs text-[#a1a1aa]">Order</th>
+                  <th className="px-3 py-2 text-left text-xs text-[#a1a1aa]">Title</th>
+                  <th className="px-3 py-2 text-left text-xs text-[#a1a1aa]">Category</th>
+                  <th className="px-3 py-2 text-left text-xs text-[#a1a1aa]">Type</th>
+                  <th className="px-3 py-2 text-left text-xs text-[#a1a1aa]">Status</th>
+                </tr>
+              </thead>
+              <tbody>
+                {arrangeVisible.map((item, index) => (
+                  <tr
+                    key={item._id}
+                    draggable={arrangeCategory === "all"}
+                    onDragStart={(e) => {
+                      if (arrangeCategory !== "all") return;
+                      e.dataTransfer.setData("text/plain", item._id);
+                    }}
+                    onDragOver={(e) => {
+                      if (arrangeCategory !== "all") return;
+                      e.preventDefault();
+                    }}
+                    onDrop={(e) => {
+                      if (arrangeCategory !== "all") return;
+                      e.preventDefault();
+                      const fromId = e.dataTransfer.getData("text/plain");
+                      moveArrangementItem(fromId, item._id);
+                    }}
+                    className="cursor-move border-t border-[#1f1f26] hover:bg-white/[0.02]"
+                  >
+                    <td className="px-3 py-2 text-xs text-[#d4d4d8]">{index + 1}</td>
+                    <td className="px-3 py-2 text-white">{item.title}</td>
+                    <td className="px-3 py-2 text-[#c8cbd3]">Lifebooks</td>
+                    <td className="px-3 py-2">
+                      <Badge text={item.type} tone={item.type === "premium" ? "purple" : "blue"} />
+                    </td>
+                    <td className="px-3 py-2">
+                      <Badge text={item.status} tone={item.status === "live" ? "green" : item.status === "coming_soon" ? "amber" : "gray"} />
+                    </td>
+                  </tr>
+                ))}
+                {arrangeVisible.length === 0 ? (
+                  <tr className="border-t border-[#1f1f26]">
+                    <td colSpan={5} className="px-3 py-6 text-center text-sm text-[#a1a1aa]">
+                      No items found for this filter.
+                    </td>
+                  </tr>
+                ) : null}
+              </tbody>
+            </table>
+          </div>
+          {arrangeCategory !== "all" ? (
+            <p className="text-xs text-amber-200">
+              Drag and drop is enabled only on "All" filter to preserve a single global order.
+            </p>
+          ) : null}
+        </div>
       )}
 
       {activeModule === "users" && (

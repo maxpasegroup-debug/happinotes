@@ -27,12 +27,12 @@ export async function startRazorpaySubscriptionFlow(params: {
 }): Promise<{ ok: boolean; message?: string }> {
   const key = process.env.NEXT_PUBLIC_RAZORPAY_KEY_ID;
   if (!key) {
-    return { ok: false, message: "Razorpay key is not configured." };
+    return { ok: false, message: "Payment is not configured yet. Please contact support." };
   }
 
   const scriptReady = await loadRazorpayScript();
   if (!scriptReady || !window.Razorpay) {
-    return { ok: false, message: "Unable to load Razorpay." };
+    return { ok: false, message: "Unable to open secure checkout. Please try again." };
   }
 
   try {
@@ -49,7 +49,7 @@ export async function startRazorpaySubscriptionFlow(params: {
     if (!orderRes.ok) {
       return {
         ok: false,
-        message: "Razorpay payment API is not configured yet.",
+        message: "Payment service is currently unavailable. Please try again.",
       };
     }
 
@@ -64,7 +64,7 @@ export async function startRazorpaySubscriptionFlow(params: {
     return await new Promise((resolve) => {
       const Razorpay = window.Razorpay;
       if (!Razorpay) {
-        resolve({ ok: false, message: "Unable to load Razorpay." });
+        resolve({ ok: false, message: "Unable to open secure checkout. Please try again." });
         return;
       }
 
@@ -109,6 +109,6 @@ export async function startRazorpaySubscriptionFlow(params: {
       razorpay.open();
     });
   } catch {
-    return { ok: false, message: "Unable to start Razorpay payment." };
+    return { ok: false, message: "Unable to start payment right now. Please try again." };
   }
 }

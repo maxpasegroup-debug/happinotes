@@ -4,16 +4,22 @@ import { useEffect, useMemo, useState } from "react";
 import { useRouter } from "next/navigation";
 import type { LifebookItem } from "@/lib/content-api";
 import { AuthModal } from "@/components/auth-modal";
-import { getStoredUser } from "@/lib/user-session";
+import { apiRequest } from "@/lib/api";
+import { getStoredUser, getUserToken } from "@/lib/user-session";
 import { startRazorpaySubscriptionFlow } from "@/lib/razorpay";
+import { LifebooksPremiumLayout } from "@/components/lifebooks/LifebooksPremiumLayout";
+import type { ContinueListeningItem } from "@/components/lifebooks/types";
 
 const FALLBACK_IMAGE =
   "https://images.unsplash.com/photo-1512820790803-83ca734da794?q=80&w=1200&auto=format&fit=crop";
+const FAV_KEY = "web_favourite_ids";
+const CONTINUE_KEY = "web_continue_listening";
 
 export function DesktopDashboardClient({ initialLifebooks }: { initialLifebooks: LifebookItem[] }) {
   const router = useRouter();
   const [search, setSearch] = useState("");
-  const [isAuthed, setIsAuthed] = useState(false);
+  const [favouriteIds, setFavouriteIds] = useState<string[]>([]);
+  const [continueItem, setContinueItem] = useState<ContinueListeningItem | null>(null);
   const [authOpen, setAuthOpen] = useState(false);
   const [subscribeOpen, setSubscribeOpen] = useState(false);
   const [comingSoonPreview, setComingSoonPreview] = useState<LifebookItem | null>(null);
@@ -22,19 +28,50 @@ export function DesktopDashboardClient({ initialLifebooks }: { initialLifebooks:
 
   useEffect(() => {
     if (typeof window !== "undefined") {
-      setIsAuthed(Boolean(getStoredUser()));
+      const rawFav = window.localStorage.getItem(FAV_KEY);
+      if (rawFav) {
+        try {
+          setFavouriteIds(JSON.parse(rawFav) as string[]);
+        } catch {
+          setFavouriteIds([]);
+        }
+      }
+      const rawContinue = window.localStorage.getItem(CONTINUE_KEY);
+      if (rawContinue) {
+        try {
+          setContinueItem(JSON.parse(rawContinue) as ContinueListeningItem);
+        } catch {
+          setContinueItem(null);
+        }
+      }
     }
+    const token = getUserToken();
+    if (!token) return;
+    apiRequest<{ favourites?: Array<{ _id: string }> }>("/favourites", "GET", undefined, token)
+      .then((res) => {
+        const ids = (res.favourites || []).map((x) => x._id);
+        setFavouriteIds(ids);
+        if (typeof window !== "undefined") {
+          window.localStorage.setItem(FAV_KEY, JSON.stringify(ids));
+        }
+      })
+      .catch(() => undefined);
   }, []);
 
-  const filtered = useMemo(() => {
-    return search.trim()
-      ? initialLifebooks.filter((item) =>
-          item.title.toLowerCase().includes(search.toLowerCase())
-        )
-      : initialLifebooks;
-  }, [initialLifebooks, search]);
+  function rememberContinue(item: LifebookItem, progressPercent = 10) {
+    const next: ContinueListeningItem = {
+      id: item.id || item._id,
+      title: item.title,
+      thumbnailUrl: item.thumbnailUrl,
+      progressPercent,
+    };
+    setContinueItem(next);
+    if (typeof window !== "undefined") {
+      window.localStorage.setItem(CONTINUE_KEY, JSON.stringify(next));
+    }
+  }
 
-  async function tryPlay(item: LifebookItem) {
+  async function tryPlay(item: LifebookItem, opts?: { allowPreview?: boolean }) {
     setSelected(item);
     if (item.status === "coming_soon") {
       setComingSoonPreview(item);
@@ -45,11 +82,40 @@ export function DesktopDashboardClient({ initialLifebooks }: { initialLifebooks:
       setAuthOpen(true);
       return;
     }
-    if (item.type === "premium" && !user.subscriptionActive) {
+    if (!opts?.allowPreview && item.type === "premium" && !user.subscriptionActive) {
       setSubscribeOpen(true);
       return;
     }
+    rememberContinue(item, continueItem?.id === (item.id || item._id) ? continueItem.progressPercent : 10);
     router.push(`/player/${item.id || item._id}`);
+  }
+
+  async function toggleFavourite(item: LifebookItem) {
+    const token = getUserToken();
+    const user = getStoredUser();
+    if (!token || !user) {
+      setSelected(item);
+      setAuthOpen(true);
+      return;
+    }
+    const id = item.id || item._id;
+    const exists = favouriteIds.includes(id);
+    try {
+      if (exists) {
+        await apiRequest(`/favourites/${id}`, "DELETE", undefined, token);
+      } else {
+        await apiRequest(`/favourites/${id}`, "POST", undefined, token);
+      }
+      setFavouriteIds((prev) => {
+        const next = exists ? prev.filter((x) => x !== id) : [...prev, id];
+        if (typeof window !== "undefined") {
+          window.localStorage.setItem(FAV_KEY, JSON.stringify(next));
+        }
+        return next;
+      });
+    } catch {
+      // best effort only
+    }
   }
 
   async function handleSubscribe() {
@@ -73,126 +139,30 @@ export function DesktopDashboardClient({ initialLifebooks }: { initialLifebooks:
     setSubscribeOpen(false);
   }
 
-  return (
-    <div className="min-h-screen bg-[#0b0f1a] text-white">
-      <header className="border-b border-white/10 bg-[#10172a]/90 backdrop-blur">
-        <div className="mx-auto flex max-w-7xl items-center justify-between px-8 py-5">
-          <div className="flex items-center gap-4">
-            <img src="/happinotes-logo.png" alt="Happinotes" className="h-12 w-auto object-contain" />
-            <div>
-              <p className="text-xl font-semibold">Happinotes Lifebooks</p>
-              <p className="text-sm text-[#b7c0d8]">Practical Books for Real Life</p>
-            </div>
-          </div>
-          <div className="flex w-full max-w-3xl items-center justify-end gap-3">
-            <div className="w-full max-w-md rounded-xl border border-white/10 bg-[#1a2133] px-4 py-3">
-              <input
-                value={search}
-                onChange={(e) => setSearch(e.target.value)}
-                placeholder="Search lifebooks..."
-                className="w-full bg-transparent text-base text-white outline-none placeholder:text-[#8f99b3]"
-              />
-            </div>
-            <button
-              type="button"
-              onClick={() => router.push("/favourites")}
-              className="rounded-full border border-white/20 px-4 py-2 text-sm font-medium text-white/90 transition hover:bg-white/10"
-            >
-              Favourites
-            </button>
-            <button
-              type="button"
-              onClick={() => router.push("/profile")}
-              className="rounded-full bg-gradient-to-r from-[#f6c453] to-[#e6a92c] px-4 py-2 text-sm font-semibold text-[#211100]"
-            >
-              {isAuthed ? "Profile" : "Login"}
-            </button>
-          </div>
-        </div>
-      </header>
+  const firstPlayable = useMemo(
+    () => initialLifebooks.find((x) => x.status !== "coming_soon") || initialLifebooks[0] || null,
+    [initialLifebooks]
+  );
 
-      <main className="mx-auto max-w-7xl px-8 py-8">
-        <section>
-          <div className="mb-4 flex items-center justify-between">
-            <h1 className="text-3xl font-semibold">Lifebooks</h1>
-          </div>
-          {filtered.length === 0 ? (
-            <div className="rounded-2xl border border-dashed border-white/20 bg-[#141a2a] p-10 text-center text-[#b7c0d8]">
-              No lifebooks yet. Uploads will appear automatically here.
-            </div>
-          ) : (
-            <div className="grid grid-cols-2 gap-4 xl:grid-cols-3 2xl:grid-cols-4">
-              {filtered.map((item) => {
-                const premium = item.type === "premium";
-                const comingSoon = item.status === "coming_soon";
-                const accessLabel = premium ? "PREMIUM" : "FREE";
-                const accessClass = premium
-                  ? "border-amber-300/40 bg-gradient-to-r from-amber-300/20 to-[#f6c453]/25 text-amber-100"
-                  : "border-emerald-300/40 bg-gradient-to-r from-emerald-300/20 to-emerald-400/25 text-emerald-100";
-                return (
-                  <article
-                    key={item._id}
-                    className="flex min-h-[300px] flex-col overflow-hidden rounded-3xl border border-white/10 bg-[#141a2a] shadow-[0_14px_30px_rgba(0,0,0,0.38)] transition hover:-translate-y-0.5"
-                  >
-                    <div className="relative h-44 w-full bg-[#0f1422]">
-                      {comingSoon ? (
-                        <button
-                          type="button"
-                          onClick={() => setComingSoonPreview(item)}
-                          className="h-full w-full text-left"
-                        >
-                          <img
-                            src={item.thumbnailUrl || FALLBACK_IMAGE}
-                            alt={item.title}
-                            loading="lazy"
-                            className="h-full w-full object-contain"
-                          />
-                        </button>
-                      ) : (
-                        <button type="button" onClick={() => tryPlay(item)} className="h-full w-full text-left">
-                          <img
-                            src={item.thumbnailUrl || FALLBACK_IMAGE}
-                            alt={item.title}
-                            loading="lazy"
-                            className="h-full w-full object-contain"
-                          />
-                        </button>
-                      )}
-                      {premium ? (
-                        <span className="absolute right-3 top-3 inline-flex h-8 w-8 items-center justify-center rounded-full bg-gradient-to-r from-[#f6c453] to-[#e6a92c] text-sm font-bold text-[#1f1400]">
-                          ★
-                        </span>
-                      ) : null}
-                      {comingSoon ? (
-                        <span className="absolute left-3 top-3 rounded-full border border-white/30 bg-black/60 px-2 py-1 text-[11px] font-semibold text-white">
-                          Coming Soon
-                        </span>
-                      ) : null}
-                    </div>
-                    <div className="flex min-h-0 flex-1 flex-col justify-between p-4">
-                      <h3 className="line-clamp-2 text-base font-semibold">{item.title}</h3>
-                      {!comingSoon ? (
-                        <div className="mt-3 flex flex-col items-start">
-                          <span className={`mt-2 inline-flex items-center gap-1 rounded-full border px-2.5 py-1 text-[10px] font-semibold tracking-wide ${accessClass}`}>
-                            <span className={`h-1.5 w-1.5 rounded-full ${premium ? "bg-amber-200" : "bg-emerald-200"}`} />
-                            {accessLabel}
-                          </span>
-                          <button
-                            type="button"
-                            onClick={() => tryPlay(item)}
-                            className="mt-4 inline-flex items-center whitespace-nowrap rounded-full bg-gradient-to-r from-[#f6c453] to-[#e6a92c] px-4 py-2 text-sm font-semibold text-[#211100] shadow-[0_8px_16px_rgba(246,196,83,0.28)] transition hover:brightness-105"
-                          >
-                            Listen now
-                          </button>
-                        </div>
-                      ) : null}
-                    </div>
-                  </article>
-                );
-              })}
-            </div>
-          )}
-        </section>
+  return (
+    <div className="min-h-screen bg-gradient-to-br from-[#0F0F1B] to-[#1A1A2E] text-white">
+      <main className="mx-auto max-w-7xl px-6 py-6">
+        <LifebooksPremiumLayout
+          items={initialLifebooks}
+          search={search}
+          onSearchChange={setSearch}
+          onOpenFavourites={() => router.push("/favourites")}
+          onOpenProfile={() => router.push("/profile")}
+          onListen={(item) => void tryPlay(item)}
+          onPreview={(item) => void tryPlay(item, { allowPreview: true })}
+          onToggleFavourite={(item) => void toggleFavourite(item)}
+          isFavourite={(id) => favouriteIds.includes(id)}
+          continueItem={continueItem}
+          onResumeContinue={() => {
+            const target = initialLifebooks.find((x) => (x.id || x._id) === continueItem?.id) || firstPlayable;
+            if (target) void tryPlay(target, { allowPreview: true });
+          }}
+        />
       </main>
 
       <AuthModal
@@ -204,6 +174,7 @@ export function DesktopDashboardClient({ initialLifebooks }: { initialLifebooks:
             if (selected.type === "premium" && !user?.subscriptionActive) {
               setSubscribeOpen(true);
             } else {
+              rememberContinue(selected, continueItem?.progressPercent || 10);
               router.push(`/player/${selected.id || selected._id}`);
             }
           }
@@ -213,8 +184,15 @@ export function DesktopDashboardClient({ initialLifebooks }: { initialLifebooks:
       {subscribeOpen ? (
         <div className="fixed inset-0 z-50 flex items-center justify-center bg-black/65 p-4">
           <div className="w-full max-w-md rounded-2xl border border-white/10 bg-[#141a2a] p-5">
-            <h3 className="text-lg font-semibold text-white">Premium Lifebook</h3>
-            <p className="mt-2 text-sm text-[#b7c0d8]">Subscribe to unlock premium listening.</p>
+            <h3 className="text-lg font-semibold text-white">Subscription details</h3>
+            <p className="mt-2 text-sm text-[#b7c0d8]">
+              Unlock all premium lifebooks across web and mobile.
+            </p>
+            <div className="mt-3 rounded-xl border border-white/10 bg-[#0f1422] p-3 text-sm text-[#d7deee]">
+              <p className="font-semibold text-white">Premium Plan</p>
+              <p className="mt-1">₹499 / month</p>
+              <p className="mt-1 text-xs text-[#b7c0d8]">Cancel anytime. Secure checkout on next step.</p>
+            </div>
             {subError ? <p className="mt-2 text-sm text-rose-300">{subError}</p> : null}
             <div className="mt-4 flex gap-2">
               <button
@@ -222,14 +200,14 @@ export function DesktopDashboardClient({ initialLifebooks }: { initialLifebooks:
                 onClick={handleSubscribe}
                 className="rounded-full bg-gradient-to-r from-[#f6c453] to-[#e6a92c] px-4 py-2 text-sm font-semibold text-[#211100]"
               >
-                Subscribe with Razorpay
+                Proceed to payment
               </button>
               <button
                 type="button"
                 onClick={() => setSubscribeOpen(false)}
                 className="rounded-full border border-white/20 px-4 py-2 text-sm text-white"
               >
-                Later
+                Cancel
               </button>
             </div>
           </div>

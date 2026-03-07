@@ -14,6 +14,8 @@ const CONTENT_UPDATE_FIELDS = [
   'type',
   'contentType',
   'featured',
+  'webDisplayOrder',
+  'mobileDisplayOrder',
   'category',
   'intro',
   'lessons',
@@ -56,6 +58,17 @@ function normalizeLessons(v: unknown): ILesson[] {
     out.push({ ...section, order });
   });
   return out.sort((a, b) => a.order - b.order);
+}
+
+function normalizeDisplayOrder(value: unknown): number {
+  if (typeof value === 'number' && Number.isFinite(value) && value >= 0) {
+    return Math.floor(value);
+  }
+  if (typeof value === 'string') {
+    const parsed = Number.parseInt(value, 10);
+    if (Number.isFinite(parsed) && parsed >= 0) return parsed;
+  }
+  return 0;
 }
 
 type UploadedFile = Express.Multer.File;
@@ -307,6 +320,8 @@ export const createContent = async (
         type,
         status,
         featured: body.featured === 'true' || body.featured === true,
+        webDisplayOrder: normalizeDisplayOrder(body.webDisplayOrder),
+        mobileDisplayOrder: normalizeDisplayOrder(body.mobileDisplayOrder),
       };
       if (intro) createPayload.intro = intro;
       if (lessonsWithMedia.length > 0) createPayload.lessons = lessonsWithMedia;
@@ -343,6 +358,8 @@ export const createContent = async (
         type,
         status,
         featured: body.featured === 'true' || body.featured === true,
+        webDisplayOrder: normalizeDisplayOrder(body.webDisplayOrder),
+        mobileDisplayOrder: normalizeDisplayOrder(body.mobileDisplayOrder),
         mediaUrl: mediaUpload?.url,
         mediaType,
         category: contentType === 'silence' ? category || 'General' : undefined,

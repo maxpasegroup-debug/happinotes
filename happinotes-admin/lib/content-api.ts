@@ -11,12 +11,14 @@ export type LifebookItem = {
   contentType: "lifebook" | "note" | "silence";
   type?: "free" | "premium";
   status?: "draft" | "coming_soon" | "live";
+  webDisplayOrder?: number;
+  mobileDisplayOrder?: number;
   lessons?: { title?: string; mediaUrl?: string }[];
 };
 
 export async function getLiveLifebooks(): Promise<LifebookItem[]> {
   try {
-    const res = await fetch(`${BASE_URL}/contents?type=lifebook`, {
+    const res = await fetch(`${BASE_URL}/contents?type=lifebook&view=web`, {
       next: { revalidate: 30 },
     });
     if (!res.ok) return [];
