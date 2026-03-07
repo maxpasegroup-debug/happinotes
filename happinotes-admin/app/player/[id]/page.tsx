@@ -29,16 +29,18 @@ type ChapterItem = {
   description?: string;
   mediaUrl: string;
   duration?: number;
+  lessonNumber?: number;
   kind: "intro" | "chapter" | "conclusion";
 };
 
 const speeds = [0.5, 0.75, 1, 1.25, 1.5, 2];
 const FALLBACK_IMAGE =
-  "https://images.unsplash.com/photo-1512820790803-83ca734da794?q=80&w=1200&auto=format&fit=crop";
+  "/happinotes-logo.png";
 
 export default function PlayerPage() {
   const params = useParams<{ id: string }>();
   const router = useRouter();
+  const [isLoading, setIsLoading] = useState(true);
   const [content, setContent] = useState<Content | null>(null);
   const [chapterIndex, setChapterIndex] = useState(0);
   const [miniOpen, setMiniOpen] = useState(false);
@@ -57,13 +59,20 @@ export default function PlayerPage() {
 
   useEffect(() => {
     async function load() {
-      const res = await fetch(`${BASE_URL}/contents/${params.id}`, { cache: "no-store" });
-      const data = (await res.json().catch(() => ({}))) as { content?: Content };
-      const item = data.content || null;
-      setContent(item);
-      const user = getStoredUser();
-      if (item?.type === "premium" && !user?.subscriptionActive) {
-        setPremiumBlocked(true);
+      setIsLoading(true);
+      try {
+        const res = await fetch(`${BASE_URL}/contents/${params.id}`, { cache: "no-store" });
+        const data = (await res.json().catch(() => ({}))) as { content?: Content };
+        const item = data.content || null;
+        setContent(item);
+        const user = getStoredUser();
+        if (item?.type === "premium" && !user?.subscriptionActive) {
+          setPremiumBlocked(true);
+        } else {
+          setPremiumBlocked(false);
+        }
+      } finally {
+        setIsLoading(false);
       }
     }
     load().catch(() => undefined);
@@ -88,6 +97,7 @@ export default function PlayerPage() {
         description: lesson.description || "",
         mediaUrl: lesson.mediaUrl,
         duration: lesson.duration,
+        lessonNumber: idx + 1,
         kind: "chapter",
       });
     });
@@ -230,6 +240,34 @@ export default function PlayerPage() {
         ? "Pause"
         : "Resume";
 
+  if (isLoading) {
+    return (
+      <div className="min-h-screen bg-[#f4f5f7] text-[#111111]">
+        <div className="mx-auto w-full max-w-md">
+          <div className="sticky top-0 z-20 flex items-center justify-between border-b border-black/10 bg-white/95 px-4 py-3 backdrop-blur">
+            <button
+              type="button"
+              onClick={handleBack}
+              className="inline-flex h-9 w-9 items-center justify-center rounded-full border border-black/10 text-black"
+              aria-label="Back"
+            >
+              ←
+            </button>
+            <p className="text-sm font-semibold">Loading lifebook...</p>
+            <div className="h-9 w-9" />
+          </div>
+          <div className="animate-pulse px-5 py-4">
+            <div className="h-[260px] w-full rounded-2xl bg-[#e5e7eb]" />
+            <div className="mt-4 h-10 w-4/5 rounded bg-[#e5e7eb]" />
+            <div className="mt-2 h-4 w-full rounded bg-[#e5e7eb]" />
+            <div className="mt-2 h-4 w-3/4 rounded bg-[#e5e7eb]" />
+            <div className="mt-6 h-12 w-full rounded-full bg-[#d1d5db]" />
+          </div>
+        </div>
+      </div>
+    );
+  }
+
   return (
     <div className="min-h-screen bg-[#f4f5f7] text-[#111111]">
       <div className="relative mx-auto min-h-screen w-full max-w-md overflow-hidden bg-[#f4f5f7]">
@@ -309,18 +347,18 @@ export default function PlayerPage() {
             ) : null}
           </div>
 
-          <div className="mt-5 flex items-center gap-6 border-b border-black/10 px-5">
-            <span className="pb-2 text-lg font-medium text-[#6b7280]">Overview</span>
-            <span className="border-b-[3px] border-black pb-2 text-lg font-semibold text-black">Lessons</span>
-            <span className="pb-2 text-lg font-medium text-[#9ca3af]">Stories</span>
-          </div>
+          <p className="mt-5 px-5 text-xl font-semibold text-black">Lessons</p>
 
           {chapters.length > 0 ? (
             <div className="mt-4 space-y-2 px-5">
               {chapters.map((item, idx) => {
                 const active = idx === chapterIndex && miniOpen;
                 const label =
-                  item.kind === "intro" ? `INTRO ${idx + 1}` : item.kind === "conclusion" ? "CONCLUSION" : `LESSON ${idx + 1}`;
+                  item.kind === "intro"
+                    ? "INTRO"
+                    : item.kind === "conclusion"
+                      ? "CONCLUSION"
+                      : `LESSON ${item.lessonNumber || 1}`;
                 const isPreview = item.kind === "intro";
                 const locked = premiumBlocked && !isPreview;
                 const completed = completedIndices.includes(idx);
