@@ -27,7 +27,7 @@ export const authenticate = async (
     }
 
     const decoded = jwt.verify(token, env.JWT_SECRET) as { id: string };
-    const user = await User.findById(decoded.id).select('+password');
+    const user = await User.findById(decoded.id);
 
     if (!user) {
       return next(new UnauthorizedError('User not found'));
@@ -39,3 +39,5 @@ export const authenticate = async (
     next(new UnauthorizedError('Invalid or expired token'));
   }
 };
+
+export const authMiddleware = authenticate;

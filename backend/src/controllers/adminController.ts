@@ -1,6 +1,6 @@
 import { Request, Response, NextFunction } from 'express';
 import { validationResult } from 'express-validator';
-import { User, Book } from '../models';
+import { User, Book, Chapter } from '../models';
 import { BadRequestError, NotFoundError } from '../utils/errors';
 
 export const getUsers = async (
@@ -13,6 +13,35 @@ export const getUsers = async (
       .select('-password')
       .sort({ createdAt: -1 });
     res.json({ success: true, users });
+  } catch (err) {
+    next(err);
+  }
+};
+
+export const getAdminBooks = async (
+  _req: Request,
+  res: Response,
+  next: NextFunction
+): Promise<void> => {
+  try {
+    const books = await Book.aggregate([
+      { $sort: { sortOrder: 1, createdAt: -1 } },
+      {
+        $lookup: {
+          from: 'chapters',
+          localField: '_id',
+          foreignField: 'bookId',
+          as: 'chapters',
+        },
+      },
+      {
+        $addFields: {
+          chaptersCount: { $size: '$chapters' },
+        },
+      },
+      { $project: { chapters: 0 } },
+    ]);
+    res.json({ success: true, books });
   } catch (err) {
     next(err);
   }
@@ -65,6 +94,7 @@ export const deleteBook = async (
   try {
     const book = await Book.findByIdAndDelete(req.params.id);
     if (!book) return next(new NotFoundError('Book not found'));
+    await Chapter.deleteMany({ bookId: book._id });
     res.json({ success: true, message: 'Book deleted' });
   } catch (err) {
     next(err);

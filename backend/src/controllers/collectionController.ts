@@ -32,8 +32,8 @@ export const addToCollection = async (
     if (!book) return next(new NotFoundError('Book not found'));
     if (book.status !== 'live') return next(new BadRequestError('Book is not available'));
 
-    const isPremium = book.type === 'premium';
-    if (isPremium && !req.user.subscriptionActive) {
+    const isPremium = book.accessType === 'premium';
+    if (isPremium && req.user.subscriptionStatus === 'free') {
       return next(new ForbiddenError('Premium subscription required to add this book'));
     }
 

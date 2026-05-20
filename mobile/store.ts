@@ -16,6 +16,7 @@ const COLLECTION_KEY = "collection";
 const ROLE_KEY = "role";
 const SUB_KEY = "subscription";
 const USER_KEY = "current_user";
+const JWT_KEY = "jwt_token";
 
 /* =====================================================
    USER LOGIN + ROLE
@@ -34,16 +35,22 @@ export const setCurrentUser = async (email: string) => {
 };
 
 export const getCurrentUser = async () => {
-  const email = await AsyncStorage.getItem(USER_KEY);
+  const storedUser = await AsyncStorage.getItem(USER_KEY);
+  const parsedUser = storedUser?.startsWith("{") ? JSON.parse(storedUser) : null;
   const role = await AsyncStorage.getItem(ROLE_KEY);
 
   return {
-    email: email || "",
-    role: (role as UserRole) || "user",
+    email: parsedUser?.email || storedUser || "",
+    role: (parsedUser?.role as UserRole) || (role as UserRole) || "user",
   };
 };
 
 export const getUserRole = async (): Promise<UserRole> => {
+  const storedUser = await AsyncStorage.getItem(USER_KEY);
+  if (storedUser?.startsWith("{")) {
+    const parsedUser = JSON.parse(storedUser);
+    return (parsedUser.role as UserRole) || "user";
+  }
   const role = await AsyncStorage.getItem(ROLE_KEY);
   return (role as UserRole) || "user";
 };
@@ -54,6 +61,7 @@ export const getUserRole = async (): Promise<UserRole> => {
 
 export const logoutUser = async () => {
   await AsyncStorage.removeItem(USER_KEY);
+  await AsyncStorage.removeItem(JWT_KEY);
   await AsyncStorage.removeItem(ROLE_KEY);
   await AsyncStorage.removeItem(SUB_KEY);
 };

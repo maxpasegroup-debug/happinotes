@@ -1,13 +1,21 @@
 import { useRouter } from "expo-router";
 import React, { useState } from "react";
 import {
-    Alert,
-    StyleSheet,
-    Text,
-    TextInput,
-    TouchableOpacity,
-    View,
+  Pressable,
+  StyleSheet,
+  Text,
+  TextInput,
+  TouchableOpacity,
+  View,
 } from "react-native";
+import { api } from "@/services/api";
+import { AuthUser, saveAuth } from "@/store/authStore";
+
+type AuthResponse = {
+  success: boolean;
+  token: string;
+  user: AuthUser;
+};
 
 export default function Signup() {
   const router = useRouter();
@@ -16,21 +24,43 @@ export default function Signup() {
   const [email, setEmail] = useState("");
   const [password, setPassword] = useState("");
   const [confirmPassword, setConfirmPassword] = useState("");
+  const [error, setError] = useState("");
+  const [loading, setLoading] = useState(false);
 
-  const handleSignup = () => {
-    if (!name || !email || !password || !confirmPassword) {
-      Alert.alert("Error", "Please fill all fields");
+  const handleSignup = async () => {
+    setError("");
+    const normalizedEmail = email.trim().toLowerCase();
+
+    if (!name.trim() || !normalizedEmail || !password || !confirmPassword) {
+      setError("Please fill all fields.");
+      return;
+    }
+
+    if (password.length < 8) {
+      setError("Password must be at least 8 characters.");
       return;
     }
 
     if (password !== confirmPassword) {
-      Alert.alert("Error", "Passwords do not match");
+      setError("Passwords do not match.");
       return;
     }
 
-    Alert.alert("Success", "Account created successfully");
+    setLoading(true);
+    const result = await api.post<AuthResponse>(
+      "/auth/signup",
+      { name: name.trim(), email: normalizedEmail, password },
+      { skipAuth: true }
+    );
+    setLoading(false);
 
-    router.replace("/library");
+    if (!result.success || !result.data) {
+      setError(result.error || "Signup failed.");
+      return;
+    }
+
+    await saveAuth(result.data.token, result.data.user);
+    router.replace(result.data.user.role === "admin" ? "/(admin)/dashboard" : "/(app)/home");
   };
 
   return (
@@ -49,6 +79,8 @@ export default function Signup() {
         style={styles.input}
         value={email}
         onChangeText={setEmail}
+        autoCapitalize="none"
+        keyboardType="email-address"
       />
 
       <TextInput
@@ -67,18 +99,15 @@ export default function Signup() {
         onChangeText={setConfirmPassword}
       />
 
-      <TouchableOpacity
-        style={styles.button}
-        onPress={handleSignup}
-      >
-        <Text style={styles.buttonText}>Sign Up</Text>
+      {error ? <Text style={styles.error}>{error}</Text> : null}
+
+      <TouchableOpacity style={styles.button} onPress={handleSignup} disabled={loading}>
+        <Text style={styles.buttonText}>{loading ? "Creating..." : "Sign Up"}</Text>
       </TouchableOpacity>
 
-      <TouchableOpacity onPress={() => router.back()}>
-        <Text style={styles.link}>
-          Already have an account? Login
-        </Text>
-      </TouchableOpacity>
+      <Pressable onPress={() => router.back()}>
+        <Text style={styles.link}>Already have an account? Login</Text>
+      </Pressable>
     </View>
   );
 }
@@ -102,6 +131,10 @@ const styles = StyleSheet.create({
     borderRadius: 14,
     marginBottom: 16,
   },
+  error: {
+    color: "#B42318",
+    marginBottom: 12,
+  },
   button: {
     backgroundColor: "#FF6B4A",
     padding: 18,
@@ -117,6 +150,6 @@ const styles = StyleSheet.create({
   link: {
     marginTop: 20,
     textAlign: "center",
-    color: "#555",
+    color: "#555555",
   },
 });

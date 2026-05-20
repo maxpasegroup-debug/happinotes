@@ -14,3 +14,5 @@ export const requireAdmin = (
   }
   next();
 };
+
+export const adminMiddleware = requireAdmin;

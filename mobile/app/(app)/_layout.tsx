@@ -1,6 +1,8 @@
 import { Ionicons } from "@expo/vector-icons";
 import { Tabs } from "expo-router";
 import { useEffect, useState } from "react";
+import { MiniPlayer } from "@/components/MiniPlayer";
+import { PlayerProvider } from "@/store/playerStore";
 import { getUserRole } from "../../store";
 
 export default function AppLayout() {
@@ -15,19 +17,27 @@ export default function AppLayout() {
   }, []);
 
   return (
-    <Tabs
-      screenOptions={{
-        headerShown: false,
-        tabBarActiveTintColor: "#FF6B4A",
-      }}
-    >
+    <PlayerProvider>
+      <Tabs
+        screenOptions={{
+          headerShown: false,
+          tabBarActiveTintColor: "#FF6B4A",
+        }}
+      >
       <Tabs.Screen
-        name="library"
+        name="home"
         options={{
-          title: "Library",
+          title: "Home",
           tabBarIcon: ({ color, size }) => (
             <Ionicons name="home-outline" size={size} color={color} />
           ),
+        }}
+      />
+
+      <Tabs.Screen
+        name="library"
+        options={{
+          href: null,
         }}
       />
 
@@ -81,6 +91,29 @@ export default function AppLayout() {
           href: null,
         }}
       />
-    </Tabs>
+
+      <Tabs.Screen
+        name="book/[id]"
+        options={{
+          href: null,
+        }}
+      />
+
+      <Tabs.Screen
+        name="player"
+        options={{
+          href: null,
+        }}
+      />
+
+      <Tabs.Screen
+        name="subscribe"
+        options={{
+          href: null,
+        }}
+      />
+      </Tabs>
+      <MiniPlayer />
+    </PlayerProvider>
   );
 }

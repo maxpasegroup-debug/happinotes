@@ -4,13 +4,21 @@ import {
   Image,
   KeyboardAvoidingView,
   Platform,
+  Pressable,
   StyleSheet,
   Text,
   TextInput,
   TouchableOpacity,
   View,
 } from "react-native";
-import { setCurrentUser } from "../store";
+import { api } from "@/services/api";
+import { AuthUser, saveAuth } from "@/store/authStore";
+
+type AuthResponse = {
+  success: boolean;
+  token: string;
+  user: AuthUser;
+};
 
 export default function Login() {
   const router = useRouter();
@@ -18,15 +26,33 @@ export default function Login() {
   const [email, setEmail] = useState("");
   const [password, setPassword] = useState("");
   const [showPassword, setShowPassword] = useState(false);
+  const [error, setError] = useState("");
+  const [loading, setLoading] = useState(false);
 
   const handleLogin = async () => {
-    if (!email) return;
+    setError("");
+    const normalizedEmail = email.trim().toLowerCase();
 
-    // Save user + role
-    await setCurrentUser(email.toLowerCase());
+    if (!normalizedEmail || !password) {
+      setError("Enter your email and password.");
+      return;
+    }
 
-    // ALWAYS go to main app tabs
-    router.replace("/(app)/library");
+    setLoading(true);
+    const result = await api.post<AuthResponse>(
+      "/auth/login",
+      { email: normalizedEmail, password },
+      { skipAuth: true }
+    );
+    setLoading(false);
+
+    if (!result.success || !result.data) {
+      setError(result.error || "Login failed.");
+      return;
+    }
+
+    await saveAuth(result.data.token, result.data.user);
+    router.replace(result.data.user.role === "admin" ? "/(admin)/dashboard" : "/(app)/home");
   };
 
   return (
@@ -50,6 +76,7 @@ export default function Login() {
         value={email}
         onChangeText={setEmail}
         autoCapitalize="none"
+        keyboardType="email-address"
       />
 
       <View style={styles.passwordContainer}>
@@ -62,21 +89,26 @@ export default function Login() {
         />
 
         <TouchableOpacity
-          onPress={() => setShowPassword(!showPassword)}
+          onPress={() => setShowPassword((value) => !value)}
           style={styles.eyeButton}
         >
-          <Text style={{ fontSize: 18 }}>
-            {showPassword ? "🙈" : "👁"}
-          </Text>
+          <Text style={styles.eyeText}>{showPassword ? "Hide" : "Show"}</Text>
         </TouchableOpacity>
       </View>
 
-      <TouchableOpacity
-        style={styles.button}
-        onPress={handleLogin}
-      >
-        <Text style={styles.buttonText}>Login</Text>
+      {error ? <Text style={styles.error}>{error}</Text> : null}
+
+      <TouchableOpacity style={styles.button} onPress={handleLogin} disabled={loading}>
+        <Text style={styles.buttonText}>{loading ? "Logging in..." : "Login"}</Text>
       </TouchableOpacity>
+
+      <Pressable onPress={() => router.push("/forgot-password")}>
+        <Text style={styles.link}>Forgot Password?</Text>
+      </Pressable>
+
+      <Pressable onPress={() => router.push("/signup")}>
+        <Text style={styles.link}>{"Don't have account? Sign Up"}</Text>
+      </Pressable>
     </KeyboardAvoidingView>
   );
 }
@@ -113,7 +145,7 @@ const styles = StyleSheet.create({
     alignItems: "center",
     backgroundColor: "#F2F2F2",
     borderRadius: 14,
-    marginBottom: 20,
+    marginBottom: 10,
   },
   passwordInput: {
     flex: 1,
@@ -122,15 +154,30 @@ const styles = StyleSheet.create({
   eyeButton: {
     paddingHorizontal: 15,
   },
+  eyeText: {
+    color: "#FF6B4A",
+    fontWeight: "700",
+  },
+  error: {
+    color: "#B42318",
+    marginBottom: 12,
+  },
   button: {
     backgroundColor: "#FF6B4A",
     padding: 18,
     borderRadius: 16,
     alignItems: "center",
+    marginTop: 8,
   },
   buttonText: {
     color: "#FFFFFF",
     fontWeight: "700",
     fontSize: 16,
+  },
+  link: {
+    marginTop: 18,
+    textAlign: "center",
+    color: "#555555",
+    fontWeight: "600",
   },
 });

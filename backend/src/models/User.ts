@@ -1,14 +1,18 @@
 import mongoose, { Document, Schema } from 'mongoose';
 
 export type UserRole = 'admin' | 'user';
+export type LanguagePreference = 'english' | 'malayalam' | 'hindi' | 'all';
+export type SubscriptionStatus = 'free' | 'premium' | 'lifetime';
 
 export interface IUser extends Document {
   name: string;
   email: string;
   password: string;
   role: UserRole;
-  subscriptionActive: boolean;
-  subscriptionExpiry: Date;
+  languagePreference: LanguagePreference;
+  subscriptionStatus: SubscriptionStatus;
+  subscriptionExpiry: Date | null;
+  razorpaySubscriptionId: string | null;
   bookCollection: mongoose.Types.ObjectId[];
   createdAt: Date;
   updatedAt: Date;
@@ -20,8 +24,18 @@ const userSchema = new Schema<IUser>(
     email: { type: String, required: true, unique: true, lowercase: true, trim: true },
     password: { type: String, required: true, select: false },
     role: { type: String, enum: ['admin', 'user'], default: 'user' },
-    subscriptionActive: { type: Boolean, default: false },
+    languagePreference: {
+      type: String,
+      enum: ['english', 'malayalam', 'hindi', 'all'],
+      default: 'all',
+    },
+    subscriptionStatus: {
+      type: String,
+      enum: ['free', 'premium', 'lifetime'],
+      default: 'free',
+    },
     subscriptionExpiry: { type: Date, default: null },
+    razorpaySubscriptionId: { type: String, default: null },
     bookCollection: [{ type: Schema.Types.ObjectId, ref: 'Book', default: [] }],
   },
   { timestamps: true }
