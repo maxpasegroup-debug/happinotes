@@ -21,6 +21,7 @@ import {
   updateUserSubscription,
 } from '../controllers/adminController';
 import { authenticate, requireAdmin } from '../middleware';
+import { sendNotification } from '../controllers/notificationsController';
 
 const router = Router();
 
@@ -95,5 +96,6 @@ router.get('/offers', getOffers);
 router.post('/offers', offerValidation, createOffer);
 router.put('/offers/:id', offerValidation, updateOffer);
 router.delete('/offers/:id', deleteOffer);
+router.post('/notify', sendNotification);
 
 export default router;

@@ -23,4 +23,6 @@ export const env = {
   SMTP_PASS: process.env.SMTP_PASS || '',
   SMTP_FROM: process.env.SMTP_FROM || 'HappiNotes <no-reply@happinotes.app>',
   CORS_ORIGINS: process.env.CORS_ORIGINS || '',
+  SENTRY_DSN: process.env.SENTRY_DSN || '',
+  EXPO_ACCESS_TOKEN: process.env.EXPO_ACCESS_TOKEN || '',
 } as const;

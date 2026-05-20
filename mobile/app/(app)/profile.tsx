@@ -12,6 +12,8 @@ import {
   logoutUser,
 } from "../../store";
 import { getAuth } from "@/store/authStore";
+import { api } from "@/services/api";
+import i18n from "@/i18n";
 
 export default function Profile() {
   const router = useRouter();
@@ -19,6 +21,7 @@ export default function Profile() {
   const [email, setEmail] = useState("");
   const [name, setName] = useState("");
   const [expiry, setExpiry] = useState<string | null>(null);
+  const [language, setLanguage] = useState("all");
 
   useFocusEffect(
     useCallback(() => {
@@ -28,6 +31,7 @@ export default function Profile() {
         setEmail(user?.email || "");
         setName(user?.name || "");
         setExpiry(user?.subscriptionExpiry || null);
+        setLanguage(user?.languagePreference || "all");
       };
 
       loadData();
@@ -46,6 +50,13 @@ export default function Profile() {
         },
       },
     ]);
+  };
+
+  const updateLanguage = async (nextLanguage: string) => {
+    setLanguage(nextLanguage);
+    await api.put("/auth/me", { languagePreference: nextLanguage });
+    const lng = nextLanguage === "all" ? "en" : nextLanguage === "malayalam" ? "ml" : nextLanguage === "hindi" ? "hi" : "en";
+    await i18n.changeLanguage(lng);
   };
 
   return (
@@ -71,6 +82,23 @@ export default function Profile() {
           <Text style={styles.upgradeText}>Upgrade to Premium</Text>
         </TouchableOpacity>
       ) : null}
+
+      <View style={styles.card}>
+        <Text style={styles.sectionLabel}>Language Preference</Text>
+        <View style={styles.languageRow}>
+          {["all", "english", "malayalam", "hindi"].map((item) => (
+            <TouchableOpacity
+              key={item}
+              style={[styles.languageChip, language === item && styles.languageChipActive]}
+              onPress={() => updateLanguage(item)}
+            >
+              <Text style={[styles.languageText, language === item && styles.languageTextActive]}>
+                {item}
+              </Text>
+            </TouchableOpacity>
+          ))}
+        </View>
+      </View>
 
       {/* Legal Button */}
       <TouchableOpacity
@@ -148,6 +176,35 @@ const styles = StyleSheet.create({
     padding: 16,
     borderRadius: 12,
     marginBottom: 15,
+  },
+  sectionLabel: {
+    color: "#181818",
+    fontWeight: "900",
+    marginBottom: 12,
+  },
+  languageRow: {
+    flexDirection: "row",
+    flexWrap: "wrap",
+    gap: 8,
+  },
+  languageChip: {
+    borderColor: "#D0D5DD",
+    borderRadius: 8,
+    borderWidth: 1,
+    paddingHorizontal: 10,
+    paddingVertical: 8,
+  },
+  languageChipActive: {
+    backgroundColor: "#FF6B4A",
+    borderColor: "#FF6B4A",
+  },
+  languageText: {
+    color: "#344054",
+    fontWeight: "800",
+    textTransform: "capitalize",
+  },
+  languageTextActive: {
+    color: "#FFFFFF",
   },
   secondaryText: {
     fontWeight: "600",

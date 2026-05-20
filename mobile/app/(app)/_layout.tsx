@@ -4,9 +4,11 @@ import { useEffect, useState } from "react";
 import { MiniPlayer } from "@/components/MiniPlayer";
 import { PlayerProvider } from "@/store/playerStore";
 import { getUserRole } from "../../store";
+import { useTranslation } from "react-i18next";
 
 export default function AppLayout() {
   const [role, setRole] = useState<"user" | "admin">("user");
+  const { t } = useTranslation();
 
   useEffect(() => {
     const loadRole = async () => {
@@ -44,7 +46,7 @@ export default function AppLayout() {
       <Tabs.Screen
         name="collections"
         options={{
-          title: "My Collection",
+          title: t("collections"),
           tabBarIcon: ({ color, size }) => (
             <Ionicons name="bookmark-outline" size={size} color={color} />
           ),
@@ -52,9 +54,19 @@ export default function AppLayout() {
       />
 
       <Tabs.Screen
+        name="search"
+        options={{
+          title: t("search"),
+          tabBarIcon: ({ color, size }) => (
+            <Ionicons name="search-outline" size={size} color={color} />
+          ),
+        }}
+      />
+
+      <Tabs.Screen
         name="profile"
         options={{
-          title: "Profile",
+          title: t("profile"),
           tabBarIcon: ({ color, size }) => (
             <Ionicons name="person-outline" size={size} color={color} />
           ),

@@ -1,6 +1,9 @@
 import express from 'express';
 import helmet from 'helmet';
 import cors from 'cors';
+import rateLimit from 'express-rate-limit';
+import mongoSanitize from 'express-mongo-sanitize';
+import * as Sentry from '@sentry/node';
 import routes from './routes';
 import { errorHandler } from './middleware';
 import { env } from './config/env';
@@ -9,7 +12,20 @@ import { handleWebhook } from './controllers/paymentsController';
 const app = express();
 const allowedOrigins = env.CORS_ORIGINS.split(',').map((origin) => origin.trim()).filter(Boolean);
 
-app.use(helmet());
+if (env.SENTRY_DSN) {
+  Sentry.init({ dsn: env.SENTRY_DSN, environment: env.NODE_ENV });
+}
+
+const authLimiter = rateLimit({
+  windowMs: 60 * 1000,
+  limit: 5,
+  standardHeaders: true,
+  legacyHeaders: false,
+});
+
+app.use(helmet({
+  crossOriginResourcePolicy: { policy: 'cross-origin' },
+}));
 app.use(cors({
   origin: (origin, callback) => {
     if (!origin || env.NODE_ENV === 'development' || allowedOrigins.includes(origin)) {
@@ -23,6 +39,8 @@ app.use(cors({
 app.post('/api/payments/webhook', express.raw({ type: 'application/json' }), handleWebhook);
 app.use(express.json());
 app.use(express.urlencoded({ extended: true }));
+app.use(mongoSanitize());
+app.use('/api/auth', authLimiter);
 
 app.get('/health', (_req, res) => {
   res.json({ success: true, message: 'Happinotes Backend is running' });

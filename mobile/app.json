@@ -1,7 +1,7 @@
 {
   "expo": {
-    "name": "Happinotes",
-    "slug": "Happinotes",
+    "name": "HappiNotes",
+    "slug": "happinotes",
     "version": "1.0.0",
     "orientation": "portrait",
     "icon": "./assets/images/icon.png",
@@ -10,6 +10,7 @@
     "newArchEnabled": true,
     "ios": {
       "supportsTablet": true,
+      "bundleIdentifier": "com.happinotes.app",
       "infoPlist": {
         "UIBackgroundModes": [
           "audio"
@@ -17,6 +18,8 @@
       }
     },
     "android": {
+      "package": "com.happinotes.app",
+      "versionCode": 1,
       "adaptiveIcon": {
         "backgroundColor": "#E6F4FE",
         "foregroundImage": "./assets/images/android-icon-foreground.png",
@@ -26,7 +29,9 @@
       "edgeToEdgeEnabled": true,
       "predictiveBackGestureEnabled": false,
       "permissions": [
-        "INTERNET"
+        "INTERNET",
+        "VIBRATE",
+        "POST_NOTIFICATIONS"
       ]
     },
     "web": {
@@ -35,6 +40,8 @@
     },
     "plugins": [
       "expo-router",
+      "expo-notifications",
+      "@sentry/react-native",
       [
         "expo-splash-screen",
         {
@@ -51,6 +58,11 @@
     "experiments": {
       "typedRoutes": true,
       "reactCompiler": true
+    },
+    "extra": {
+      "eas": {
+        "projectId": "replace-with-eas-project-id"
+      }
     }
   }
 }

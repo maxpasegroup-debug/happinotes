@@ -13,6 +13,7 @@ export interface IUser extends Document {
   subscriptionStatus: SubscriptionStatus;
   subscriptionExpiry: Date | null;
   razorpaySubscriptionId: string | null;
+  expoPushToken: string | null;
   bookCollection: mongoose.Types.ObjectId[];
   createdAt: Date;
   updatedAt: Date;
@@ -36,6 +37,7 @@ const userSchema = new Schema<IUser>(
     },
     subscriptionExpiry: { type: Date, default: null },
     razorpaySubscriptionId: { type: String, default: null },
+    expoPushToken: { type: String, default: null },
     bookCollection: [{ type: Schema.Types.ObjectId, ref: 'Book', default: [] }],
   },
   { timestamps: true }

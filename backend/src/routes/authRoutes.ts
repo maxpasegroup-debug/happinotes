@@ -7,6 +7,7 @@ import {
   login,
   resetPassword,
   signup,
+  updateMe,
   verifyOtp,
 } from '../controllers/authController';
 import { authenticate, validateRequest } from '../middleware';
@@ -55,6 +56,7 @@ const resetPasswordValidation = [
 router.post('/signup', signupValidation, validateRequest, signup);
 router.post('/login', loginValidation, validateRequest, login);
 router.get('/me', authenticate, getMe);
+router.put('/me', authenticate, updateMe);
 router.post('/change-password', authenticate, changePasswordValidation, validateRequest, changePassword);
 router.post('/forgot-password', forgotPasswordValidation, validateRequest, forgotPassword);
 router.post('/verify-otp', otpValidation, validateRequest, verifyOtp);

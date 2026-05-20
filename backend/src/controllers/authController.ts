@@ -124,6 +124,32 @@ export const getMe = async (
   }
 };
 
+export const updateMe = async (
+  req: Request,
+  res: Response,
+  next: NextFunction
+): Promise<void> => {
+  try {
+    if (!req.user) return next(new UnauthorizedError('Not authenticated'));
+
+    const allowed = ['name', 'languagePreference', 'expoPushToken'] as const;
+    const update: Partial<Record<(typeof allowed)[number], string>> = {};
+    allowed.forEach((key) => {
+      if (req.body[key] !== undefined) update[key] = req.body[key];
+    });
+
+    const user = await User.findByIdAndUpdate(req.user._id, update, {
+      new: true,
+      runValidators: true,
+    }).select('-password');
+
+    if (!user) return next(new UnauthorizedError('Not authenticated'));
+    res.json({ success: true, user: serializeUser(user) });
+  } catch (err) {
+    next(err);
+  }
+};
+
 export const changePassword = async (
   req: Request,
   res: Response,
