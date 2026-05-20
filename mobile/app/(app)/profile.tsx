@@ -9,25 +9,25 @@ import {
   View,
 } from "react-native";
 import {
-  getCurrentUser,
-  getSubscription,
   logoutUser,
 } from "../../store";
+import { getAuth } from "@/store/authStore";
 
 export default function Profile() {
   const router = useRouter();
-  const [subscription, setSubscription] =
-    useState<"free" | "premium">("free");
+  const [subscription, setSubscription] = useState("free");
   const [email, setEmail] = useState("");
+  const [name, setName] = useState("");
+  const [expiry, setExpiry] = useState<string | null>(null);
 
   useFocusEffect(
     useCallback(() => {
       const loadData = async () => {
-        const sub = await getSubscription();
-        const user = await getCurrentUser();
-
-        setSubscription(sub);
+        const { user } = await getAuth();
+        setSubscription(user?.subscriptionStatus || "free");
         setEmail(user?.email || "");
+        setName(user?.name || "");
+        setExpiry(user?.subscriptionExpiry || null);
       };
 
       loadData();
@@ -54,12 +54,23 @@ export default function Profile() {
 
       <View style={styles.card}>
         <Text style={styles.email}>{email}</Text>
+        {name ? <Text style={styles.name}>{name}</Text> : null}
         <Text style={styles.status}>
-          {subscription === "premium"
-            ? "Premium Member"
-            : "Free Member"}
+          {subscription === "free" ? "Free Member" : `${subscription.toUpperCase()} Member`}
         </Text>
+        {expiry && subscription !== "lifetime" ? (
+          <Text style={styles.expiry}>Expires {new Date(expiry).toLocaleDateString()}</Text>
+        ) : null}
       </View>
+
+      {subscription === "free" ? (
+        <TouchableOpacity
+          style={styles.upgradeButton}
+          onPress={() => router.push("/(app)/subscribe")}
+        >
+          <Text style={styles.upgradeText}>Upgrade to Premium</Text>
+        </TouchableOpacity>
+      ) : null}
 
       {/* Legal Button */}
       <TouchableOpacity
@@ -109,9 +120,28 @@ const styles = StyleSheet.create({
     fontSize: 16,
     marginBottom: 8,
   },
+  name: {
+    color: "#667085",
+    marginBottom: 8,
+  },
   status: {
     fontWeight: "600",
     color: "#FF6B4A",
+  },
+  expiry: {
+    color: "#667085",
+    marginTop: 8,
+  },
+  upgradeButton: {
+    alignItems: "center",
+    backgroundColor: "#FF6B4A",
+    borderRadius: 12,
+    marginBottom: 15,
+    padding: 16,
+  },
+  upgradeText: {
+    color: "#FFFFFF",
+    fontWeight: "800",
   },
   secondaryButton: {
     backgroundColor: "#F4F4F4",

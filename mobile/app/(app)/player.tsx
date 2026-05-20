@@ -4,6 +4,7 @@ import { useLocalSearchParams, useRouter } from "expo-router";
 import React, { useEffect, useMemo, useState } from "react";
 import { Pressable, ScrollView, StyleSheet, Text, View } from "react-native";
 import { api } from "@/services/api";
+import { PremiumGate } from "@/components/PremiumGate";
 import { usePlayer } from "@/store/playerStore";
 import { Book, Chapter } from "@/types/book";
 
@@ -137,7 +138,11 @@ export default function PlayerScreen() {
   if (error) {
     return (
       <View style={styles.center}>
-        <Text style={styles.error}>{error}</Text>
+        {error.includes("locked") ? (
+          <PremiumGate />
+        ) : (
+          <Text style={styles.error}>{error}</Text>
+        )}
         <Pressable style={styles.secondaryButton} onPress={() => router.back()}>
           <Text style={styles.secondaryButtonText}>Go Back</Text>
         </Pressable>

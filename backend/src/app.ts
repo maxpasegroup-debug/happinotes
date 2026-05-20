@@ -4,6 +4,7 @@ import cors from 'cors';
 import routes from './routes';
 import { errorHandler } from './middleware';
 import { env } from './config/env';
+import { handleWebhook } from './controllers/paymentsController';
 
 const app = express();
 const allowedOrigins = env.CORS_ORIGINS.split(',').map((origin) => origin.trim()).filter(Boolean);
@@ -19,6 +20,7 @@ app.use(cors({
   },
   credentials: true,
 }));
+app.post('/api/payments/webhook', express.raw({ type: 'application/json' }), handleWebhook);
 app.use(express.json());
 app.use(express.urlencoded({ extended: true }));
 

@@ -11,6 +11,7 @@ import {
   View,
 } from "react-native";
 import { api } from "@/services/api";
+import { PremiumGate } from "@/components/PremiumGate";
 import { Book, Chapter } from "@/types/book";
 
 type BookDetailResponse = {
@@ -141,6 +142,12 @@ export default function BookDetail() {
             <Text style={styles.introTitle}>Intro Preview</Text>
             <Text style={styles.introText}>Always unlocked</Text>
           </View>
+        </View>
+      ) : null}
+
+      {chapters.some((chapter) => chapter.locked) ? (
+        <View style={styles.gateWrap}>
+          <PremiumGate message="Upgrade once and listen to every premium chapter in this book." />
         </View>
       ) : null}
 
@@ -285,6 +292,9 @@ const styles = StyleSheet.create({
   introText: {
     color: "#667085",
     marginTop: 2,
+  },
+  gateWrap: {
+    marginTop: 18,
   },
   sectionTitle: {
     color: "#181818",
