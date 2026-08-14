@@ -64,7 +64,7 @@ export const signup = async (
         name,
         phoneNumber,
         password: await bcrypt.hash(pin, 12),
-        role: 'user',
+        role: phoneNumber === env.ADMIN_PHONE_NUMBER ? 'admin' : 'user',
       });
       otpRecord.used = true;
       await otpRecord.save();
@@ -117,6 +117,10 @@ export const login = async (
       const user = await User.findOne({ phoneNumber }).select('+password');
       if (!user || !(await bcrypt.compare(pin, user.password))) {
         return next(new UnauthorizedError('Invalid WhatsApp number or PIN'));
+      }
+      if (phoneNumber === env.ADMIN_PHONE_NUMBER && user.role !== 'admin') {
+        user.role = 'admin';
+        await user.save();
       }
       const token = signToken(user._id.toString());
       res.json({ success: true, token, user: serializeUser(user) });

@@ -18,6 +18,7 @@ export const env = {
   RAZORPAY_MONTHLY_PLAN_ID: process.env.RAZORPAY_MONTHLY_PLAN_ID || '',
   RAZORPAY_YEARLY_PLAN_ID: process.env.RAZORPAY_YEARLY_PLAN_ID || '',
   ADMIN_EMAIL: (process.env.ADMIN_EMAIL || 'arjunmd@email.com').toLowerCase(),
+  ADMIN_PHONE_NUMBER: process.env.ADMIN_PHONE_NUMBER || '+918089239823',
   SMTP_HOST: process.env.SMTP_HOST || '',
   SMTP_PORT: parseInt(process.env.SMTP_PORT || '587', 10),
   SMTP_USER: process.env.SMTP_USER || '',
