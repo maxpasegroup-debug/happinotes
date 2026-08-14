@@ -2,6 +2,7 @@ import { Request, Response, NextFunction } from 'express';
 import { BadRequestError } from '../utils/errors';
 import {
   isCloudinaryConfigured,
+  isPersistentLocalStorageConfigured,
   uploadAudio,
   uploadImage,
   uploadLocalMedia,
@@ -29,8 +30,8 @@ export const uploadBookCover = async (
 ): Promise<void> => {
   try {
     if (!req.file) return next(new BadRequestError('Select an image to upload'));
-    if (!isCloudinaryConfigured && env.NODE_ENV !== 'development') {
-      return next(new BadRequestError('Media storage is not configured'));
+    if (!isCloudinaryConfigured && env.NODE_ENV !== 'development' && !isPersistentLocalStorageConfigured) {
+      return next(new BadRequestError('Attach a Railway Volume or configure Cloudinary for media storage'));
     }
     const media = isCloudinaryConfigured
       ? await uploadImage(req.file.buffer)
@@ -51,8 +52,8 @@ export const uploadBookAudio = async (
 ): Promise<void> => {
   try {
     if (!req.file) return next(new BadRequestError('Select an audio file to upload'));
-    if (!isCloudinaryConfigured && env.NODE_ENV !== 'development') {
-      return next(new BadRequestError('Media storage is not configured'));
+    if (!isCloudinaryConfigured && env.NODE_ENV !== 'development' && !isPersistentLocalStorageConfigured) {
+      return next(new BadRequestError('Attach a Railway Volume or configure Cloudinary for media storage'));
     }
     const media = isCloudinaryConfigured
       ? await uploadAudio(req.file.buffer)

@@ -28,4 +28,6 @@ export const env = {
   SENTRY_DSN: process.env.SENTRY_DSN || '',
   EXPO_ACCESS_TOKEN: process.env.EXPO_ACCESS_TOKEN || '',
   WHATSAPP_OTP_MODE: process.env.WHATSAPP_OTP_MODE || 'test',
+  MEDIA_STORAGE_PATH: process.env.MEDIA_STORAGE_PATH || '',
+  RAILWAY_VOLUME_MOUNT_PATH: process.env.RAILWAY_VOLUME_MOUNT_PATH || '',
 } as const;

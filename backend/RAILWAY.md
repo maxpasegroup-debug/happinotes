@@ -29,7 +29,9 @@ CLOUDINARY_API_SECRET=your-api-secret
 
 `WHATSAPP_OTP_MODE=test` displays the OTP in the app. It is only for testing. Change it when a real WhatsApp OTP provider is connected.
 
-Cloudinary is required in production for book covers and MP3 files. Railway service files are temporary between deployments, so local upload storage must not be used.
+For direct persistent storage on Railway, attach a Volume to the backend service and mount it at `/app/uploads`. Railway automatically supplies `RAILWAY_VOLUME_MOUNT_PATH`; no extra variable is required. Admin-selected covers and MP3 files are then stored in that Volume and served from `/uploads`.
+
+Cloudinary remains optional. If its three variables are configured, Cloudinary is used instead of the Railway Volume.
 
 Razorpay, SMTP, Sentry, and Expo notification variables may remain blank until those integrations are configured.
 

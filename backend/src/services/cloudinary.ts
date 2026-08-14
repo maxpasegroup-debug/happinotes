@@ -14,12 +14,20 @@ export const isCloudinaryConfigured = Boolean(
   env.CLOUDINARY_CLOUD_NAME && env.CLOUDINARY_API_KEY && env.CLOUDINARY_API_SECRET
 );
 
+export const mediaStoragePath = path.resolve(
+  env.RAILWAY_VOLUME_MOUNT_PATH || env.MEDIA_STORAGE_PATH || path.join(process.cwd(), 'uploads')
+);
+
+export const isPersistentLocalStorageConfigured = Boolean(
+  env.RAILWAY_VOLUME_MOUNT_PATH || env.MEDIA_STORAGE_PATH
+);
+
 export const uploadLocalMedia = async (
   buffer: Buffer,
   kind: 'covers' | 'audio',
   extension: string
 ) => {
-  const directory = path.resolve(process.cwd(), 'uploads', kind);
+  const directory = path.join(mediaStoragePath, kind);
   await mkdir(directory, { recursive: true });
   const filename = `${randomUUID()}.${extension}`;
   await writeFile(path.join(directory, filename), buffer);
@@ -68,7 +76,7 @@ export const deleteMedia = async (publicId: string, resourceType: 'image' | 'vid
   if (publicId.startsWith('local:')) {
     const relativePath = publicId.slice('local:'.length);
     if (!/^(covers|audio)\/[a-f0-9-]+\.[a-z0-9]+$/i.test(relativePath)) return;
-    await unlink(path.resolve(process.cwd(), 'uploads', relativePath)).catch(() => undefined);
+    await unlink(path.join(mediaStoragePath, relativePath)).catch(() => undefined);
     return;
   }
   if (!env.CLOUDINARY_CLOUD_NAME || !env.CLOUDINARY_API_KEY || !env.CLOUDINARY_API_SECRET) return;

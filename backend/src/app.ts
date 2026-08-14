@@ -8,9 +8,10 @@ import routes from './routes';
 import { errorHandler } from './middleware';
 import { env } from './config/env';
 import { handleWebhook } from './controllers/paymentsController';
-import path from 'path';
+import { mediaStoragePath } from './services/cloudinary';
 
 const app = express();
+app.set('trust proxy', 1);
 const allowedOrigins = env.CORS_ORIGINS.split(',').map((origin) => origin.trim()).filter(Boolean);
 
 if (env.SENTRY_DSN) {
@@ -40,7 +41,7 @@ app.use(cors({
 app.post('/api/payments/webhook', express.raw({ type: 'application/json' }), handleWebhook);
 app.use(express.json());
 app.use(express.urlencoded({ extended: true }));
-app.use('/uploads', express.static(path.resolve(process.cwd(), 'uploads')));
+app.use('/uploads', express.static(mediaStoragePath));
 app.use(mongoSanitize());
 app.use('/api/auth', authLimiter);
 
