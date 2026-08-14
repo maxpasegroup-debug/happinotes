@@ -5,7 +5,7 @@ import Toast from "react-native-toast-message";
 import { api } from "@/services/api";
 import "@/i18n";
 import { AuthUser, getAuth, saveAuth } from "@/store/authStore";
-import { registerPushNotifications } from "@/services/notifications";
+import { listenForNotificationResponses, registerPushNotifications } from "@/services/notifications";
 import AsyncStorage from "@react-native-async-storage/async-storage";
 import { RealtimeProvider } from "@/contexts/RealtimeContext";
 
@@ -61,6 +61,10 @@ export default function RootLayout() {
 
     checkSession();
   }, [router, segments]);
+
+  useEffect(() => listenForNotificationResponses((bookId) => {
+    router.push({ pathname: "/(app)/book/[id]", params: { id: bookId } });
+  }), [router]);
 
   if (!ready) return null;
 

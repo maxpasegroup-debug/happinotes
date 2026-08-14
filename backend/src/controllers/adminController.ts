@@ -5,6 +5,7 @@ import { User, Book, Chapter, Offer, PaymentTransaction } from '../models';
 import { BadRequestError, NotFoundError } from '../utils/errors';
 import { emitBooksChanged } from '../realtime';
 import { deleteMedia } from '../services/cloudinary';
+import { sendNotificationToUsers } from './notificationsController';
 
 export const getUsers = async (
   _req: Request,
@@ -156,6 +157,13 @@ export const createBook = async (
     }
     const book = await Book.create(req.body);
     emitBooksChanged('created', book._id.toString());
+    if (book.status === 'live' || book.status === 'upcoming') {
+      void sendNotificationToUsers({
+        title: book.status === 'live' ? 'New audiobook available' : 'Audiobook coming soon',
+        message: book.status === 'live' ? `${book.title} is ready to listen.` : `${book.title} is coming soon to HappiNotes.`,
+        data: { type: 'book', bookId: book._id.toString() },
+      }).catch((error) => console.error('Automatic book notification failed:', error));
+    }
     res.status(201).json({ success: true, book });
   } catch (err) {
     next(err);
@@ -187,6 +195,13 @@ export const updateBook = async (
       await deleteMedia(previousBook.introAudioPublicId, 'video');
     }
     emitBooksChanged('updated', book._id.toString());
+    if (book.status === 'live' && previousBook.status !== 'live') {
+      void sendNotificationToUsers({
+        title: 'New audiobook available',
+        message: `${book.title} is ready to listen.`,
+        data: { type: 'book', bookId: book._id.toString() },
+      }).catch((error) => console.error('Automatic book notification failed:', error));
+    }
     res.json({ success: true, book });
   } catch (err) {
     next(err);

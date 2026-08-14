@@ -43,3 +43,24 @@ export async function registerPushNotifications() {
   await api.put("/auth/me", { expoPushToken: token });
   return token;
 }
+
+export function listenForNotificationResponses(openBook: (bookId: string) => void) {
+  if (Constants.executionEnvironment === ExecutionEnvironment.StoreClient) return () => undefined;
+  let removed = false;
+  let subscription: { remove: () => void } | undefined;
+
+  void import("expo-notifications").then(async (Notifications) => {
+    if (removed) return;
+    const handle = (response: Awaited<ReturnType<typeof Notifications.getLastNotificationResponseAsync>>) => {
+      const data = response?.notification.request.content.data;
+      if (data?.type === "book" && typeof data.bookId === "string") openBook(data.bookId);
+    };
+    subscription = Notifications.addNotificationResponseReceivedListener(handle);
+    handle(await Notifications.getLastNotificationResponseAsync());
+  });
+
+  return () => {
+    removed = true;
+    subscription?.remove();
+  };
+}
