@@ -15,6 +15,8 @@ export const errorHandler = (
   res: Response,
   _next: NextFunction
 ): void => {
+  console.error('Request failed:', err);
+
   if (err instanceof AppError) {
     const payload: ErrorResponse = {
       success: false,
