@@ -1,22 +1,29 @@
 import { Ionicons } from "@expo/vector-icons";
-import { Tabs } from "expo-router";
+import { Tabs, useRouter } from "expo-router";
 import { useEffect, useState } from "react";
 import { MiniPlayer } from "@/components/MiniPlayer";
 import { PlayerProvider } from "@/store/playerStore";
-import { getUserRole } from "../../store";
+import { getAuth } from "@/store/authStore";
 import { useTranslation } from "react-i18next";
 
 export default function AppLayout() {
-  const [role, setRole] = useState<"user" | "admin">("user");
+  const [role, setRole] = useState<"user" | "admin" | null>(null);
+  const router = useRouter();
   const { t } = useTranslation();
 
   useEffect(() => {
     const loadRole = async () => {
-      const userRole = await getUserRole();
-      setRole(userRole);
+      const { user } = await getAuth();
+      if (user?.role === "admin") {
+        router.replace("/(admin)/dashboard");
+        return;
+      }
+      setRole("user");
     };
     loadRole();
-  }, []);
+  }, [router]);
+
+  if (role === null) return null;
 
   return (
     <PlayerProvider>

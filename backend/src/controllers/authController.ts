@@ -256,6 +256,13 @@ export const updateMe = async (
       if (req.body[key] !== undefined) update[key] = req.body[key];
     });
 
+    if (update.expoPushToken) {
+      await User.updateMany(
+        { _id: { $ne: req.user._id }, expoPushToken: update.expoPushToken },
+        { $set: { expoPushToken: null } }
+      );
+    }
+
     const user = await User.findByIdAndUpdate(req.user._id, update, {
       new: true,
       runValidators: true,

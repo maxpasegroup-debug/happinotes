@@ -20,7 +20,7 @@ import {
   updateChapter,
   updateUserSubscription,
 } from '../controllers/adminController';
-import { authenticate, requireAdmin } from '../middleware';
+import { authenticate, requireAdmin, validateRequest } from '../middleware';
 import { sendNotification } from '../controllers/notificationsController';
 import { uploadBookAudio, uploadBookCover } from '../controllers/uploadsController';
 import { audioUpload, imageUpload } from '../middleware/upload';
@@ -101,6 +101,10 @@ router.get('/offers', getOffers);
 router.post('/offers', offerValidation, createOffer);
 router.put('/offers/:id', offerValidation, updateOffer);
 router.delete('/offers/:id', deleteOffer);
-router.post('/notify', sendNotification);
+router.post('/notify', [
+  body('title').trim().isLength({ min: 1, max: 100 }).withMessage('Title must be between 1 and 100 characters'),
+  body('message').trim().isLength({ min: 1, max: 500 }).withMessage('Message must be between 1 and 500 characters'),
+  body('target').optional().isIn(['all', 'free', 'premium']).withMessage('Invalid notification audience'),
+], validateRequest, sendNotification);
 
 export default router;

@@ -22,6 +22,13 @@ export default function AdminDashboard() {
         <Text style={styles.cardText}>Manage Books</Text>
       </TouchableOpacity>
 
+      <TouchableOpacity
+        style={styles.card}
+        onPress={() => router.push("/(admin)/notifications" as never)}
+      >
+        <Text style={styles.cardText}>Send Push Notification</Text>
+      </TouchableOpacity>
+
     </View>
   );
 }

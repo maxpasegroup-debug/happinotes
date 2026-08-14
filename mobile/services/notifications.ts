@@ -37,7 +37,9 @@ export async function registerPushNotifications() {
     });
   }
 
-  const token = (await Notifications.getExpoPushTokenAsync()).data;
+  const projectId = Constants.expoConfig?.extra?.eas?.projectId ?? Constants.easConfig?.projectId;
+  if (!projectId || projectId === "replace-with-eas-project-id") return null;
+  const token = (await Notifications.getExpoPushTokenAsync({ projectId })).data;
   await api.put("/auth/me", { expoPushToken: token });
   return token;
 }
