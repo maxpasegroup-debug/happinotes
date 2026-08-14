@@ -5,6 +5,7 @@ import { Book } from "@/types/book";
 type Props = {
   book: Book;
   onPress: () => void;
+  layout?: "shelf" | "grid";
 };
 
 const formatDuration = (seconds: number) => {
@@ -14,10 +15,11 @@ const formatDuration = (seconds: number) => {
   return `${minutes}m`;
 };
 
-export function BookCard({ book, onPress }: Props) {
+export function BookCard({ book, onPress, layout = "shelf" }: Props) {
+  const grid = layout === "grid";
   return (
-    <Pressable style={styles.card} onPress={onPress}>
-      <View style={styles.coverWrap}>
+    <Pressable style={[styles.card, grid && styles.gridCard]} onPress={onPress}>
+      <View style={[styles.coverWrap, grid && styles.gridCover]}>
         {book.coverImageUrl ? (
           <Image source={{ uri: book.coverImageUrl }} style={styles.cover} contentFit="cover" />
         ) : (
@@ -51,12 +53,22 @@ const styles = StyleSheet.create({
     width: 154,
     marginRight: 14,
   },
+  gridCard: {
+    flex: 1,
+    marginRight: 0,
+    width: undefined,
+  },
   coverWrap: {
     width: 154,
     height: 210,
     borderRadius: 8,
     overflow: "hidden",
     backgroundColor: "#EFEFEF",
+  },
+  gridCover: {
+    aspectRatio: 154 / 210,
+    height: undefined,
+    width: "100%",
   },
   cover: {
     width: "100%",

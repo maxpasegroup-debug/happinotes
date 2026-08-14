@@ -1,21 +1,23 @@
-import { useState } from "react";
+import { useCallback, useEffect, useState } from "react";
 import { FlatList, Pressable, StyleSheet, Text, TextInput, View } from "react-native";
 import { useRouter } from "expo-router";
 import { BookCard } from "@/components/BookCard";
 import { api } from "@/services/api";
 import type { Book } from "@/types/book";
+import { useRealtime } from "@/contexts/RealtimeContext";
 
 type BooksResponse = { success: boolean; books: Book[] };
 
 export default function SearchScreen() {
   const router = useRouter();
+  const { booksRevision } = useRealtime();
   const [query, setQuery] = useState("");
   const [language, setLanguage] = useState("all");
   const [accessType, setAccessType] = useState("");
   const [books, setBooks] = useState<Book[]>([]);
   const [error, setError] = useState("");
 
-  async function search(nextQuery = query, nextLanguage = language, nextAccess = accessType) {
+  const search = useCallback(async (nextQuery = query, nextLanguage = language, nextAccess = accessType) => {
     const params = new URLSearchParams();
     if (nextQuery) params.set("query", nextQuery);
     if (nextLanguage !== "all") params.set("language", nextLanguage);
@@ -27,7 +29,9 @@ export default function SearchScreen() {
     } else {
       setError(result.error || "Search failed.");
     }
-  }
+  }, [query, language, accessType]);
+
+  useEffect(() => { void search(); }, [booksRevision, search]);
 
   return (
     <View style={styles.container}>
@@ -61,7 +65,7 @@ export default function SearchScreen() {
         columnWrapperStyle={{ gap: 14 }}
         contentContainerStyle={{ paddingBottom: 120 }}
         renderItem={({ item }) => (
-          <BookCard book={item} onPress={() => router.push(`/(app)/book/${item._id}`)} />
+          <BookCard layout="grid" book={item} onPress={() => router.push(`/(app)/book/${item._id}`)} />
         )}
         ListEmptyComponent={<Text style={styles.empty}>Search the library.</Text>}
       />

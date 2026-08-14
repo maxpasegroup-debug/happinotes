@@ -6,7 +6,8 @@ export type SubscriptionStatus = 'free' | 'premium' | 'lifetime';
 
 export interface IUser extends Document {
   name: string;
-  email: string;
+  email?: string;
+  phoneNumber?: string;
   password: string;
   role: UserRole;
   languagePreference: LanguagePreference;
@@ -22,7 +23,8 @@ export interface IUser extends Document {
 const userSchema = new Schema<IUser>(
   {
     name: { type: String, required: true, trim: true },
-    email: { type: String, required: true, unique: true, lowercase: true, trim: true },
+    email: { type: String, unique: true, sparse: true, lowercase: true, trim: true },
+    phoneNumber: { type: String, unique: true, sparse: true, trim: true },
     password: { type: String, required: true, select: false },
     role: { type: String, enum: ['admin', 'user'], default: 'user' },
     languagePreference: {

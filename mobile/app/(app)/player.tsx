@@ -46,8 +46,10 @@ export default function PlayerScreen() {
     playbackRate,
     volume,
     sleepTimerMinutes,
+    playbackError,
     playTrack,
     togglePlayback,
+    stopPlayback,
     seekTo,
     skipToChapter,
     setPlaybackRate,
@@ -76,7 +78,21 @@ export default function PlayerScreen() {
       }
 
       const nextBook = bookResult.data.book;
-      const nextChapters = bookResult.data.chapters;
+      const introChapter: Chapter | null = nextBook.introAudioUrl
+        ? {
+            _id: "__intro__",
+            bookId: nextBook._id,
+            title: "Book Audio",
+            chapterNumber: 0,
+            description: "Main book audio",
+            audioUrl: nextBook.introAudioUrl,
+            durationSeconds: 0,
+            isFreePreview: true,
+          }
+        : null;
+      const nextChapters = introChapter
+        ? [introChapter, ...bookResult.data.chapters]
+        : bookResult.data.chapters;
       const nextChapter = nextChapters.find((chapter) => chapter._id === chapterId);
 
       if (!nextChapter?.audioUrl) {
@@ -87,7 +103,7 @@ export default function PlayerScreen() {
       setBook(nextBook);
       setChapters(nextChapters);
 
-      const progress = progressResult.data?.progress;
+      const progress = chapterId === "__intro__" ? null : progressResult.data?.progress;
       const progressChapter = progress?.chapterId;
       const progressChapterId =
         typeof progressChapter === "string" ? progressChapter : progressChapter?._id;
@@ -174,6 +190,7 @@ export default function PlayerScreen() {
 
       <Text style={styles.chapterTitle}>{activeChapter.title}</Text>
       <Text style={styles.bookTitle}>{activeBook.title}</Text>
+      {playbackError ? <Text accessibilityRole="alert" style={styles.playbackError}>{playbackError}</Text> : null}
 
       <Pressable
         style={styles.progressTrack}
@@ -197,8 +214,12 @@ export default function PlayerScreen() {
         >
           <Ionicons name="play-skip-back" size={24} color="#344054" />
         </Pressable>
-        <Pressable style={styles.playButton} onPress={togglePlayback}>
-          <Ionicons name={isPlaying ? "pause" : "play"} size={34} color="#FFFFFF" />
+        <Pressable
+          accessibilityLabel={isPlaying ? "Stop audio" : "Play audio"}
+          style={styles.playButton}
+          onPress={() => (isPlaying ? stopPlayback() : togglePlayback())}
+        >
+          <Ionicons name={isPlaying ? "stop" : "play"} size={34} color="#FFFFFF" />
         </Pressable>
         <Pressable
           style={[styles.skipButton, !nextChapter && styles.disabled]}
@@ -323,7 +344,9 @@ const styles = StyleSheet.create({
     height: 10,
     marginTop: 28,
     overflow: "hidden",
-    width: 320,
+    marginHorizontal: 24,
+    maxWidth: 320,
+    width: "86%",
   },
   progressFill: {
     backgroundColor: "#FF6B4A",
@@ -334,7 +357,8 @@ const styles = StyleSheet.create({
     flexDirection: "row",
     justifyContent: "space-between",
     marginTop: 8,
-    width: 320,
+    maxWidth: 320,
+    width: "86%",
   },
   time: {
     color: "#667085",
@@ -431,6 +455,14 @@ const styles = StyleSheet.create({
   error: {
     color: "#B42318",
     fontWeight: "700",
+    textAlign: "center",
+  },
+  playbackError: {
+    color: "#B42318",
+    fontSize: 13,
+    fontWeight: "700",
+    marginHorizontal: 24,
+    marginTop: 14,
     textAlign: "center",
   },
   muted: {

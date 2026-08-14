@@ -1,7 +1,8 @@
 import mongoose, { Document, Schema } from 'mongoose';
 
 export interface IOtp extends Document {
-  email: string;
+  identifier: string;
+  purpose: 'signup' | 'reset-pin' | 'login';
   otp: string;
   expiresAt: Date;
   used: boolean;
@@ -11,7 +12,8 @@ export interface IOtp extends Document {
 
 const otpSchema = new Schema<IOtp>(
   {
-    email: { type: String, required: true, lowercase: true, trim: true, index: true },
+    identifier: { type: String, required: true, trim: true, index: true },
+    purpose: { type: String, enum: ['signup', 'reset-pin', 'login'], required: true },
     otp: { type: String, required: true },
     expiresAt: { type: Date, required: true, index: { expires: 0 } },
     used: { type: Boolean, default: false },

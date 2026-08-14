@@ -49,8 +49,9 @@ export default function Collections() {
         columnWrapperStyle={{ gap: 14 }}
         refreshControl={<RefreshControl refreshing={refreshing} onRefresh={refresh} />}
         renderItem={({ item }) => (
-          <BookCard book={item} onPress={() => router.push(`/(app)/book/${item._id}`)} />
+          <BookCard layout="grid" book={item} onPress={() => router.push(`/(app)/book/${item._id}`)} />
         )}
+        contentContainerStyle={styles.list}
         ListEmptyComponent={
           <View style={styles.emptyContainer}>
             <Text style={styles.emptyText}>No books yet. Browse the library!</Text>
@@ -67,4 +68,5 @@ const styles = StyleSheet.create({
   emptyContainer: { alignItems: "center", marginTop: 60 },
   emptyText: { color: "#667085", fontSize: 16, fontWeight: "700" },
   error: { color: "#B42318", marginBottom: 12 },
+  list: { paddingBottom: 120 },
 });

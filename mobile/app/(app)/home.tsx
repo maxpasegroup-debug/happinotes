@@ -2,6 +2,7 @@ import { Image } from "expo-image";
 import { useRouter } from "expo-router";
 import React, { useCallback, useEffect, useMemo, useState } from "react";
 import {
+  Alert,
   Pressable,
   RefreshControl,
   ScrollView,
@@ -12,6 +13,7 @@ import {
 import { api } from "@/services/api";
 import { BookCard } from "@/components/BookCard";
 import { Book, BookLanguage } from "@/types/book";
+import { useRealtime } from "@/contexts/RealtimeContext";
 
 type BooksResponse = {
   success: boolean;
@@ -45,9 +47,11 @@ const filters: { label: string; value: LanguageFilter }[] = [
 ];
 
 export default function Home() {
+  const { booksRevision } = useRealtime();
   const router = useRouter();
   const [books, setBooks] = useState<Book[]>([]);
   const [featured, setFeatured] = useState<Book[]>([]);
+  const [upcoming, setUpcoming] = useState<Book[]>([]);
   const [recentProgress, setRecentProgress] = useState<RecentProgress[]>([]);
   const [language, setLanguage] = useState<LanguageFilter>("all");
   const [loading, setLoading] = useState(true);
@@ -57,9 +61,10 @@ export default function Home() {
   const loadBooks = useCallback(async () => {
     setError("");
     const query = language === "all" ? "" : `?language=${language}`;
-    const [booksResult, featuredResult] = await Promise.all([
+    const [booksResult, featuredResult, upcomingResult] = await Promise.all([
       api.get<BooksResponse>(`/books${query}`),
       api.get<BooksResponse>("/books/featured"),
+      api.get<BooksResponse>(`/books/upcoming${query}`),
     ]);
     const recentResult = await api.get<RecentProgressResponse>("/progress/recent");
 
@@ -72,6 +77,9 @@ export default function Home() {
     if (featuredResult.success && featuredResult.data) {
       setFeatured(featuredResult.data.books);
     }
+    if (upcomingResult.success && upcomingResult.data) {
+      setUpcoming(upcomingResult.data.books);
+    }
     if (recentResult.success && recentResult.data) {
       setRecentProgress(recentResult.data.progress);
     }
@@ -80,7 +88,7 @@ export default function Home() {
   useEffect(() => {
     setLoading(true);
     loadBooks().finally(() => setLoading(false));
-  }, [loadBooks]);
+  }, [loadBooks, booksRevision]);
 
   const refresh = async () => {
     setRefreshing(true);
@@ -97,12 +105,22 @@ export default function Home() {
 
   const openBook = (book: Book) => router.push(`/(app)/book/${book._id}`);
 
-  const renderSection = (title: string, data: Book[]) => (
+  const renderSection = (title: string, data: Book[], comingSoon = false) => (
     <View style={styles.section}>
       <Text style={styles.sectionTitle}>{title}</Text>
       <ScrollView horizontal showsHorizontalScrollIndicator={false}>
         {data.length ? (
-          data.map((book) => <BookCard key={book._id} book={book} onPress={() => openBook(book)} />)
+          data.map((book) => (
+            <BookCard
+              key={book._id}
+              book={book}
+              onPress={() =>
+                comingSoon
+                  ? Alert.alert("Coming Soon", `${book.title} is not available to listen to yet.`)
+                  : openBook(book)
+              }
+            />
+          ))
         ) : (
           <View style={styles.emptyShelf}>
             <Text style={styles.emptyShelfText}>No books here yet.</Text>
@@ -214,6 +232,7 @@ export default function Home() {
       {error ? <Text style={styles.error}>{error}</Text> : null}
 
       {renderContinueListening()}
+      {upcoming.length ? renderSection("Coming Soon", upcoming, true) : null}
       {renderSection("New Releases", books)}
       {renderSection("Free Books", freeBooks)}
       {renderSection("Premium Books", premiumBooks)}

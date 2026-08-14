@@ -10,7 +10,10 @@ export type Book = {
   language: BookLanguage;
   category: BookCategory;
   coverImageUrl: string;
+  coverPublicId?: string;
   introAudioUrl: string;
+  introAudioPublicId?: string;
+  introAudioFileName?: string;
   totalDurationSeconds: number;
   accessType: BookAccessType;
   status: BookStatus;

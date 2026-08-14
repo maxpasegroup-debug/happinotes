@@ -8,6 +8,7 @@ import routes from './routes';
 import { errorHandler } from './middleware';
 import { env } from './config/env';
 import { handleWebhook } from './controllers/paymentsController';
+import path from 'path';
 
 const app = express();
 const allowedOrigins = env.CORS_ORIGINS.split(',').map((origin) => origin.trim()).filter(Boolean);
@@ -39,6 +40,7 @@ app.use(cors({
 app.post('/api/payments/webhook', express.raw({ type: 'application/json' }), handleWebhook);
 app.use(express.json());
 app.use(express.urlencoded({ extended: true }));
+app.use('/uploads', express.static(path.resolve(process.cwd(), 'uploads')));
 app.use(mongoSanitize());
 app.use('/api/auth', authLimiter);
 

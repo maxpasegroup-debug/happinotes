@@ -77,7 +77,7 @@ export default function BookDetail() {
   const firstPlayableChapter = chapters.find((chapter) => chapter.audioUrl);
 
   const startListening = () => {
-    const chapter = currentChapterId || introChapter?._id || firstPlayableChapter?._id;
+    const chapter = currentChapterId || introChapter?._id || firstPlayableChapter?._id || (book?.introAudioUrl ? "__intro__" : null);
     if (!book || !chapter) return;
     router.push(`/(app)/player?bookId=${book._id}&chapterId=${chapter}`);
   };
@@ -136,13 +136,19 @@ export default function BookDetail() {
       <Text style={styles.description}>{book.description}</Text>
 
       {book.introAudioUrl ? (
-        <View style={styles.intro}>
+        <Pressable
+          style={styles.intro}
+          onPress={() => router.push(`/(app)/player?bookId=${book._id}&chapterId=__intro__`)}
+          accessibilityRole="button"
+          accessibilityLabel={`Play the introduction to ${book.title}`}
+        >
           <Ionicons name="headset-outline" size={22} color="#FF6B4A" />
-          <View>
-            <Text style={styles.introTitle}>Intro Preview</Text>
-            <Text style={styles.introText}>Always unlocked</Text>
+          <View style={{ flex: 1 }}>
+            <Text style={styles.introTitle}>Play Book Audio</Text>
+            <Text style={styles.introText}>Tap to listen</Text>
           </View>
-        </View>
+          <Ionicons name="play-circle" size={30} color="#FF6B4A" />
+        </Pressable>
       ) : null}
 
       {chapters.some((chapter) => chapter.locked) ? (
@@ -206,6 +212,7 @@ const styles = StyleSheet.create({
   },
   header: {
     flexDirection: "row",
+    flexWrap: "wrap",
     gap: 18,
   },
   cover: {
@@ -226,6 +233,7 @@ const styles = StyleSheet.create({
   },
   headerText: {
     flex: 1,
+    minWidth: 130,
   },
   title: {
     color: "#181818",
@@ -245,6 +253,7 @@ const styles = StyleSheet.create({
   },
   actions: {
     flexDirection: "row",
+    flexWrap: "wrap",
     gap: 10,
     marginTop: 18,
   },

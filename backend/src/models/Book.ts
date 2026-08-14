@@ -14,6 +14,7 @@ export interface IBook extends Document {
   coverPublicId: string;
   introAudioUrl: string;
   introAudioPublicId: string;
+  introAudioFileName: string;
   totalDurationSeconds: number;
   accessType: BookAccessType;
   status: BookStatus;
@@ -43,6 +44,7 @@ const bookSchema = new Schema<IBook>(
     coverPublicId: { type: String, default: '' },
     introAudioUrl: { type: String, default: '' },
     introAudioPublicId: { type: String, default: '' },
+    introAudioFileName: { type: String, default: '' },
     totalDurationSeconds: { type: Number, default: 0, min: 0 },
     accessType: { type: String, enum: ['free', 'premium'], default: 'free' },
     status: { type: String, enum: ['draft', 'upcoming', 'live'], default: 'draft' },

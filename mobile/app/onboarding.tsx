@@ -1,7 +1,8 @@
 import AsyncStorage from "@react-native-async-storage/async-storage";
 import { useRouter } from "expo-router";
 import { useState } from "react";
-import { Pressable, StyleSheet, Text, View } from "react-native";
+import { Pressable, ScrollView, StyleSheet, Text, View } from "react-native";
+import { SafeAreaView } from "react-native-safe-area-context";
 import { useTranslation } from "react-i18next";
 
 const slides = [
@@ -32,7 +33,8 @@ export default function Onboarding() {
   const slide = slides[index];
 
   return (
-    <View style={styles.container}>
+    <SafeAreaView style={styles.safe}>
+    <ScrollView contentContainerStyle={styles.container}>
       <View style={styles.art}>
         <Text style={styles.note}>H</Text>
       </View>
@@ -52,12 +54,14 @@ export default function Onboarding() {
           <Text style={styles.buttonText}>{index === slides.length - 1 ? t("getStarted") : "Next"}</Text>
         </Pressable>
       </View>
-    </View>
+    </ScrollView>
+    </SafeAreaView>
   );
 }
 
 const styles = StyleSheet.create({
-  container: { flex: 1, backgroundColor: "#FFFFFF", justifyContent: "center", padding: 24 },
+  safe: { flex: 1, backgroundColor: "#FFFFFF" },
+  container: { flexGrow: 1, backgroundColor: "#FFFFFF", justifyContent: "center", padding: 24, paddingBottom: 32 },
   art: { alignItems: "center", alignSelf: "center", backgroundColor: "#FFF0E8", borderRadius: 8, height: 180, justifyContent: "center", marginBottom: 34, width: 180 },
   note: { color: "#FF6B4A", fontSize: 82, fontWeight: "900" },
   title: { color: "#181818", fontSize: 30, fontWeight: "900", textAlign: "center" },

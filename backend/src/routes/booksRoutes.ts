@@ -1,7 +1,7 @@
 import { Router } from 'express';
 import { Request, Response, NextFunction } from 'express';
 import jwt from 'jsonwebtoken';
-import { getBooks, getBookById, getFeaturedBooks } from '../controllers/booksController';
+import { getBooks, getBookById, getFeaturedBooks, getUpcomingBooks } from '../controllers/booksController';
 import { env } from '../config/env';
 import { User } from '../models';
 
@@ -23,6 +23,7 @@ const optionalAuth = async (req: Request, _res: Response, next: NextFunction) =>
 
 router.get('/', getBooks);
 router.get('/featured', getFeaturedBooks);
+router.get('/upcoming', getUpcomingBooks);
 router.get('/:id', optionalAuth, getBookById);
 
 export default router;

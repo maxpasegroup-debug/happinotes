@@ -2,7 +2,7 @@ import { ScrollView, StyleSheet, Text } from "react-native";
 
 export default function Legal() {
   return (
-    <ScrollView style={styles.container}>
+    <ScrollView style={styles.container} contentContainerStyle={styles.content}>
       <Text style={styles.header}>Legal</Text>
 
       <Text style={styles.title}>Privacy Policy</Text>
@@ -26,8 +26,12 @@ export default function Legal() {
 const styles = StyleSheet.create({
   container: {
     flex: 1,
-    padding: 20,
     backgroundColor: "#FFFFFF",
+  },
+  content: {
+    padding: 20,
+    paddingBottom: 120,
+    paddingTop: 54,
   },
   header: {
     fontSize: 26,

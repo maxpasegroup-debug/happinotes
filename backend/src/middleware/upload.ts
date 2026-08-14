@@ -4,7 +4,7 @@ import { BadRequestError } from '../utils/errors';
 const storage = multer.memoryStorage();
 
 const imageMimeTypes = ['image/jpeg', 'image/png', 'image/webp'];
-const audioMimeTypes = ['audio/mpeg', 'audio/mp4', 'audio/aac', 'audio/x-m4a', 'audio/m4a'];
+const audioMimeTypes = ['audio/mpeg'];
 
 export const imageUpload = multer({
   storage,
@@ -23,7 +23,7 @@ export const audioUpload = multer({
   limits: { fileSize: 200 * 1024 * 1024 },
   fileFilter: (_req, file, callback) => {
     if (!audioMimeTypes.includes(file.mimetype)) {
-      callback(new BadRequestError('Only mp3, m4a, and aac audio files are allowed'));
+      callback(new BadRequestError('Only MP3 audio files are allowed'));
       return;
     }
     callback(null, true);

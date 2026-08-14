@@ -22,6 +22,8 @@ import {
 } from '../controllers/adminController';
 import { authenticate, requireAdmin } from '../middleware';
 import { sendNotification } from '../controllers/notificationsController';
+import { uploadBookAudio, uploadBookCover } from '../controllers/uploadsController';
+import { audioUpload, imageUpload } from '../middleware/upload';
 
 const router = Router();
 
@@ -38,6 +40,7 @@ const bookValidation = [
   body('coverPublicId').optional().trim(),
   body('introAudioUrl').optional().trim(),
   body('introAudioPublicId').optional().trim(),
+  body('introAudioFileName').optional().trim().isLength({ max: 255 }),
   body('totalDurationSeconds').optional().isNumeric(),
   body('accessType').optional().isIn(['free', 'premium']).withMessage('Invalid access type'),
   body('status').optional().isIn(['draft', 'upcoming', 'live']).withMessage('Invalid status'),
@@ -85,6 +88,8 @@ router.put('/users/:id/subscription', subscriptionValidation, updateUserSubscrip
 router.delete('/users/:id', deleteUser);
 router.get('/books', getAdminBooks);
 router.get('/books/:id', getAdminBookById);
+router.post('/uploads/cover', imageUpload.single('file'), uploadBookCover);
+router.post('/uploads/audio', audioUpload.single('file'), uploadBookAudio);
 router.post('/books', bookValidation, createBook);
 router.put('/books/:id', bookValidation, updateBook);
 router.delete('/books/:id', deleteBook);

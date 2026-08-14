@@ -44,7 +44,7 @@ export const authFetch = async <T>(
     const token = options.skipAuth ? null : await getToken();
     const headers = new Headers(options.headers);
 
-    if (!headers.has("Content-Type")) {
+    if (!headers.has("Content-Type") && !(options.body instanceof FormData)) {
       headers.set("Content-Type", "application/json");
     }
     if (token) {
@@ -88,4 +88,13 @@ export const api = {
     }),
   delete: <T>(endpoint: string, options?: ApiOptions) =>
     authFetch<T>(endpoint, { ...options, method: "DELETE" }),
+  upload: <T>(endpoint: string, file: { uri: string; name: string; mimeType: string }) => {
+    const form = new FormData();
+    form.append("file", {
+      uri: file.uri,
+      name: file.name,
+      type: file.mimeType,
+    } as unknown as Blob);
+    return authFetch<T>(endpoint, { method: "POST", body: form });
+  },
 };

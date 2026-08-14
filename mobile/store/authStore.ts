@@ -7,7 +7,8 @@ export type SubscriptionStatus = "free" | "premium" | "lifetime";
 export type AuthUser = {
   id: string;
   name: string;
-  email: string;
+  email?: string;
+  phoneNumber?: string;
   role: UserRole;
   languagePreference: LanguagePreference;
   subscriptionStatus: SubscriptionStatus;

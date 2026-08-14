@@ -54,6 +54,23 @@ export const getFeaturedBooks = async (
   }
 };
 
+export const getUpcomingBooks = async (
+  req: Request,
+  res: Response,
+  next: NextFunction
+): Promise<void> => {
+  try {
+    const filter: FilterQuery<IBook> = { status: 'upcoming' };
+    const { language } = req.query;
+    if (typeof language === 'string' && language !== 'all') filter.language = language;
+
+    const books = await Book.find(filter).sort({ sortOrder: 1, createdAt: -1 });
+    res.json({ success: true, books });
+  } catch (err) {
+    next(err);
+  }
+};
+
 export const getBookById = async (
   req: Request,
   res: Response,

@@ -3,6 +3,8 @@ import { validationResult } from 'express-validator';
 import mongoose from 'mongoose';
 import { User, Book, Chapter, Offer, PaymentTransaction } from '../models';
 import { BadRequestError, NotFoundError } from '../utils/errors';
+import { emitBooksChanged } from '../realtime';
+import { deleteMedia } from '../services/cloudinary';
 
 export const getUsers = async (
   _req: Request,
@@ -153,6 +155,7 @@ export const createBook = async (
       return next(new BadRequestError(errors.array()[0].msg));
     }
     const book = await Book.create(req.body);
+    emitBooksChanged('created', book._id.toString());
     res.status(201).json({ success: true, book });
   } catch (err) {
     next(err);
@@ -169,12 +172,21 @@ export const updateBook = async (
     if (!errors.isEmpty()) {
       return next(new BadRequestError(errors.array()[0].msg));
     }
+    const previousBook = await Book.findById(req.params.id);
+    if (!previousBook) return next(new NotFoundError('Book not found'));
     const book = await Book.findByIdAndUpdate(
       req.params.id,
       req.body,
       { new: true, runValidators: true }
     );
     if (!book) return next(new NotFoundError('Book not found'));
+    if (previousBook.coverPublicId && previousBook.coverPublicId !== book.coverPublicId) {
+      await deleteMedia(previousBook.coverPublicId, 'image');
+    }
+    if (previousBook.introAudioPublicId && previousBook.introAudioPublicId !== book.introAudioPublicId) {
+      await deleteMedia(previousBook.introAudioPublicId, 'video');
+    }
+    emitBooksChanged('updated', book._id.toString());
     res.json({ success: true, book });
   } catch (err) {
     next(err);
@@ -190,6 +202,11 @@ export const deleteBook = async (
     const book = await Book.findByIdAndDelete(req.params.id);
     if (!book) return next(new NotFoundError('Book not found'));
     await Chapter.deleteMany({ bookId: book._id });
+    await Promise.all([
+      deleteMedia(book.coverPublicId, 'image'),
+      deleteMedia(book.introAudioPublicId, 'video'),
+    ]);
+    emitBooksChanged('deleted', book._id.toString());
     res.json({ success: true, message: 'Book deleted' });
   } catch (err) {
     next(err);

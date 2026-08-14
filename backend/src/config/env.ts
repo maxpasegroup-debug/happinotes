@@ -17,7 +17,7 @@ export const env = {
   RAZORPAY_WEBHOOK_SECRET: process.env.RAZORPAY_WEBHOOK_SECRET || '',
   RAZORPAY_MONTHLY_PLAN_ID: process.env.RAZORPAY_MONTHLY_PLAN_ID || '',
   RAZORPAY_YEARLY_PLAN_ID: process.env.RAZORPAY_YEARLY_PLAN_ID || '',
-  ADMIN_EMAIL: process.env.ADMIN_EMAIL || 'arundasmd@gmail.com',
+  ADMIN_EMAIL: (process.env.ADMIN_EMAIL || 'arjunmd@email.com').toLowerCase(),
   SMTP_HOST: process.env.SMTP_HOST || '',
   SMTP_PORT: parseInt(process.env.SMTP_PORT || '587', 10),
   SMTP_USER: process.env.SMTP_USER || '',
@@ -26,4 +26,5 @@ export const env = {
   CORS_ORIGINS: process.env.CORS_ORIGINS || '',
   SENTRY_DSN: process.env.SENTRY_DSN || '',
   EXPO_ACCESS_TOKEN: process.env.EXPO_ACCESS_TOKEN || '',
+  WHATSAPP_OTP_MODE: process.env.WHATSAPP_OTP_MODE || 'test',
 } as const;
