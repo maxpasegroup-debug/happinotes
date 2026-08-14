@@ -4,7 +4,7 @@ import { getPlan, PLANS } from '../config/plans';
 import { env } from '../config/env';
 import { BadRequestError, ForbiddenError, NotFoundError } from '../utils/errors';
 import { Offer, PaymentTransaction, User } from '../models';
-import { razorpay, verifyPaymentSignature, verifyWebhookSignature } from '../services/razorpay';
+import { getRazorpay, verifyPaymentSignature, verifyWebhookSignature } from '../services/razorpay';
 
 const getDiscountedAmount = async (planId: string, price: number) => {
   const now = new Date();
@@ -58,6 +58,11 @@ export const createOrder = async (
 
     const plan = getPlan(req.body.planId);
     if (!plan) return next(new BadRequestError('Invalid plan'));
+
+    const razorpay = getRazorpay();
+    if (!razorpay) {
+      return next(new BadRequestError('Payments are not configured on this server'));
+    }
 
     const { amount, offer } = await getDiscountedAmount(plan.id, plan.price);
     const order = await razorpay.orders.create({
