@@ -8,6 +8,7 @@ import { AuthUser, getAuth, saveAuth } from "@/store/authStore";
 import { listenForNotificationResponses, registerPushNotifications } from "@/services/notifications";
 import AsyncStorage from "@react-native-async-storage/async-storage";
 import { RealtimeProvider } from "@/contexts/RealtimeContext";
+import { LaunchSplash } from "@/components/LaunchSplash";
 
 void SplashScreen.preventAutoHideAsync();
 
@@ -21,6 +22,13 @@ export default function RootLayout() {
   const segments = useSegments();
   const [ready, setReady] = useState(false);
   const sessionCheckStarted = useRef(false);
+  const nativeSplashHidden = useRef(false);
+
+  const revealLaunchScreen = async () => {
+    if (nativeSplashHidden.current) return;
+    nativeSplashHidden.current = true;
+    await SplashScreen.hideAsync();
+  };
 
   useEffect(() => {
     if (sessionCheckStarted.current) return;
@@ -35,7 +43,6 @@ export default function RootLayout() {
         const seenOnboarding = await AsyncStorage.getItem("seen_onboarding");
         if (!authRoute) router.replace(seenOnboarding ? "/" : "/onboarding");
         setReady(true);
-        await SplashScreen.hideAsync();
         return;
       }
 
@@ -56,7 +63,6 @@ export default function RootLayout() {
       }
 
       setReady(true);
-      await SplashScreen.hideAsync();
     };
 
     checkSession();
@@ -66,7 +72,7 @@ export default function RootLayout() {
     router.push({ pathname: "/(app)/book/[id]", params: { id: bookId } });
   }), [router]);
 
-  if (!ready) return null;
+  if (!ready) return <LaunchSplash onLayout={() => void revealLaunchScreen()} />;
 
   return (
     <RealtimeProvider>

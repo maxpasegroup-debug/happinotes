@@ -7,13 +7,16 @@
       "developmentClient": true,
       "distribution": "internal",
       "env": {
-        "EXPO_PUBLIC_API_URL": "https://happinotes-production.up.railway.app/api"
+        "EXPO_PUBLIC_API_URL": "https://happinotes-production-6b44.up.railway.app/api"
       }
     },
     "preview": {
       "distribution": "internal",
+      "android": {
+        "buildType": "apk"
+      },
       "env": {
-        "EXPO_PUBLIC_API_URL": "https://happinotes-production.up.railway.app/api"
+        "EXPO_PUBLIC_API_URL": "https://happinotes-production-6b44.up.railway.app/api"
       }
     },
     "production": {
@@ -21,7 +24,7 @@
         "buildType": "app-bundle"
       },
       "env": {
-        "EXPO_PUBLIC_API_URL": "https://happinotes-production.up.railway.app/api"
+        "EXPO_PUBLIC_API_URL": "https://happinotes-production-6b44.up.railway.app/api"
       }
     }
   },

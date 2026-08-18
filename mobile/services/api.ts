@@ -1,8 +1,8 @@
 import AsyncStorage from "@react-native-async-storage/async-storage";
 import { router } from "expo-router";
 import { clearAuth, JWT_TOKEN_KEY } from "@/store/authStore";
+import { API_BASE_URL } from "@/constants/apiConfig";
 
-const API_URL = process.env.EXPO_PUBLIC_API_URL || "http://localhost:3000/api";
 
 type ApiOptions = RequestInit & {
   skipAuth?: boolean;
@@ -51,7 +51,7 @@ export const authFetch = async <T>(
       headers.set("Authorization", `Bearer ${token}`);
     }
 
-    const response = await fetch(`${API_URL}${endpoint}`, {
+    const response = await fetch(`${API_BASE_URL}${endpoint}`, {
       ...options,
       headers,
     });

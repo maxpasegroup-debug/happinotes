@@ -1,46 +1,24 @@
-import { useRouter } from "expo-router";
-import { StyleSheet, Text, TouchableOpacity, View } from "react-native";
+import { Ionicons } from "@expo/vector-icons";
+import { useFocusEffect, useRouter } from "expo-router";
+import { useCallback, useState } from "react";
+import { ActivityIndicator, Pressable, RefreshControl, ScrollView, StyleSheet, Text, View } from "react-native";
+import { api } from "@/services/api";
 
-export default function AdminDashboard() {
-  const router = useRouter();
-
-  return (
-    <View style={styles.container}>
-      <Text style={styles.title}>Admin Panel</Text>
-
-      <TouchableOpacity
-        style={styles.card}
-        onPress={() => router.push("/(admin)/users")}
-      >
-        <Text style={styles.cardText}>User Management</Text>
-      </TouchableOpacity>
-
-      <TouchableOpacity
-        style={styles.card}
-        onPress={() => router.push("/(admin)/books")}
-      >
-        <Text style={styles.cardText}>Manage Books</Text>
-      </TouchableOpacity>
-
-      <TouchableOpacity
-        style={styles.card}
-        onPress={() => router.push("/(admin)/notifications" as never)}
-      >
-        <Text style={styles.cardText}>Send Push Notification</Text>
-      </TouchableOpacity>
-
-    </View>
-  );
+type Stats={totalUsers:number;activePremiumSubscribers:number;totalBooksPublished:number;totalChaptersUploaded:number;mostListenedBook:string};
+const EMPTY:Stats={totalUsers:0,activePremiumSubscribers:0,totalBooksPublished:0,totalChaptersUploaded:0,mostListenedBook:"Not available"};
+export default function AdminDashboard(){
+ const router=useRouter();const [stats,setStats]=useState(EMPTY);const [loading,setLoading]=useState(true);const [refreshing,setRefreshing]=useState(false);const [error,setError]=useState("");
+ const load=useCallback(async()=>{const result=await api.get<{success:boolean;stats:Stats}>("/admin/stats");if(result.success&&result.data){setStats(result.data.stats);setError("")}else setError(result.error||"Could not load the catalog pulse.")},[]);
+ useFocusEffect(useCallback(()=>{load().finally(()=>setLoading(false))},[load]));const refresh=async()=>{setRefreshing(true);await load();setRefreshing(false)};
+ const cards=[{title:"Catalog",copy:"Add, edit and publish audiobooks",icon:"library-outline" as const,route:"/(admin)/books" as const},{title:"Listeners",copy:"See registered user accounts",icon:"people-outline" as const,route:"/(admin)/users" as const},{title:"Broadcast",copy:"Send a push notification",icon:"notifications-outline" as const,route:"/(admin)/notifications" as const}];
+ return <ScrollView style={styles.screen} contentContainerStyle={styles.content} refreshControl={<RefreshControl refreshing={refreshing} onRefresh={refresh} tintColor="#F15D47"/>}>
+  <View style={styles.intro}><Text style={styles.kicker}>HAPPINOTES / ADMIN</Text><Text style={styles.greeting}>Good to see you.</Text><Text style={styles.introCopy}>Your listening library, at a glance.</Text></View>
+  <View style={styles.pulse}><View style={styles.pulseHead}><View><Text style={styles.pulseLabel}>CATALOG PULSE</Text><Text style={styles.pulseTitle}>The library is live.</Text></View><View style={styles.live}><View style={styles.liveDot}/><Text style={styles.liveText}>ONLINE</Text></View></View>
+   {loading?<ActivityIndicator color="#F15D47" style={{marginVertical:30}}/>:<View style={styles.metrics}><Metric value={stats.totalBooksPublished} label="Live books"/><Metric value={stats.totalUsers} label="Listeners"/><Metric value={stats.activePremiumSubscribers} label="Premium"/></View>}
+   {error?<Text accessibilityRole="alert" style={styles.error}>{error}</Text>:null}<View style={styles.rule}/><View style={styles.secondary}><Text style={styles.secondaryText}>{stats.totalChaptersUploaded} chapters uploaded</Text><Text style={styles.secondaryText} numberOfLines={1}>Top: {stats.mostListenedBook}</Text></View>
+   <Pressable onPress={()=>router.push("/(admin)/create-book")} style={({pressed})=>[styles.primary,pressed&&styles.pressed]}><Ionicons name="add" size={22} color="#FFF"/><Text style={styles.primaryText}>Add a new book</Text><Ionicons name="arrow-forward" size={19} color="#FFF"/></Pressable></View>
+  <Text style={styles.sectionTitle}>Control desk</Text>{cards.map(card=><Pressable key={card.title} onPress={()=>router.push(card.route)} style={({pressed})=>[styles.navCard,pressed&&styles.cardPressed]}><View style={styles.iconBox}><Ionicons name={card.icon} size={23} color="#14233C"/></View><View style={styles.navCopy}><Text style={styles.navTitle}>{card.title}</Text><Text style={styles.navBody}>{card.copy}</Text></View><Ionicons name="chevron-forward" size={20} color="#8A827B"/></Pressable>)}
+ </ScrollView>;
 }
-
-const styles = StyleSheet.create({
-  container: { flex: 1, padding: 20, backgroundColor: "#fff" },
-  title: { fontSize: 24, fontWeight: "700", marginBottom: 30 },
-  card: {
-    backgroundColor: "#FF6B4A",
-    padding: 20,
-    borderRadius: 14,
-    marginBottom: 15,
-  },
-  cardText: { color: "#fff", fontWeight: "600" },
-});
+function Metric({value,label}:{value:number;label:string}){return <View style={styles.metric}><Text style={styles.metricValue}>{value}</Text><Text style={styles.metricLabel}>{label}</Text></View>}
+const styles=StyleSheet.create({screen:{flex:1,backgroundColor:"#F8F4ED"},content:{padding:18,paddingBottom:48},intro:{paddingBottom:20,paddingTop:5},kicker:{color:"#E85743",fontSize:11,fontWeight:"900",letterSpacing:1.8},greeting:{color:"#14233C",fontSize:32,fontWeight:"900",letterSpacing:-.7,marginTop:7},introCopy:{color:"#6D6A66",fontSize:15,marginTop:5},pulse:{backgroundColor:"#14233C",borderRadius:18,padding:20},pulseHead:{alignItems:"flex-start",flexDirection:"row",justifyContent:"space-between",gap:12},pulseLabel:{color:"#ABB7CA",fontSize:10,fontWeight:"900",letterSpacing:1.5},pulseTitle:{color:"#FFFDF8",fontSize:21,fontWeight:"900",marginTop:5},live:{alignItems:"center",backgroundColor:"#24344F",borderRadius:5,flexDirection:"row",gap:6,paddingHorizontal:8,paddingVertical:6},liveDot:{backgroundColor:"#74D6A0",borderRadius:4,height:7,width:7},liveText:{color:"#DDF7E8",fontSize:9,fontWeight:"900",letterSpacing:1},metrics:{flexDirection:"row",marginTop:25},metric:{flex:1},metricValue:{color:"#FFF",fontSize:30,fontWeight:"900"},metricLabel:{color:"#B9C3D2",fontSize:11,fontWeight:"700",marginTop:2},rule:{backgroundColor:"#34435C",height:1,marginVertical:17},secondary:{flexDirection:"row",justifyContent:"space-between",gap:10},secondaryText:{color:"#B9C3D2",fontSize:11,flexShrink:1},primary:{alignItems:"center",backgroundColor:"#F15D47",borderRadius:10,flexDirection:"row",gap:9,justifyContent:"center",marginTop:20,minHeight:52,paddingHorizontal:15},primaryText:{color:"#FFF",flex:1,fontSize:15,fontWeight:"900"},pressed:{opacity:.82},error:{color:"#FFD0CA",fontSize:12,marginTop:14},sectionTitle:{color:"#14233C",fontSize:18,fontWeight:"900",marginBottom:11,marginTop:25},navCard:{alignItems:"center",backgroundColor:"#FFFEFB",borderColor:"#E5DED5",borderRadius:12,borderWidth:1,flexDirection:"row",marginBottom:10,minHeight:76,padding:13},cardPressed:{backgroundColor:"#F2ECE4"},iconBox:{alignItems:"center",backgroundColor:"#F1ECE4",borderRadius:9,height:46,justifyContent:"center",width:46},navCopy:{flex:1,minWidth:0,paddingHorizontal:13},navTitle:{color:"#14233C",fontSize:16,fontWeight:"900"},navBody:{color:"#746F69",fontSize:12,marginTop:3}});

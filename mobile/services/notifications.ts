@@ -3,6 +3,8 @@ import { Platform } from "react-native";
 import { api } from "@/services/api";
 
 export async function registerPushNotifications() {
+  // Push notifications are native-only; never load expo-notifications on web.
+  if (Platform.OS === "web") return null;
   // Remote push notifications are unavailable in Expo Go on Android (SDK 53+).
   // Avoid importing the native module there because the import itself throws.
   if (Constants.executionEnvironment === ExecutionEnvironment.StoreClient) {
@@ -45,7 +47,7 @@ export async function registerPushNotifications() {
 }
 
 export function listenForNotificationResponses(openBook: (bookId: string) => void) {
-  if (Constants.executionEnvironment === ExecutionEnvironment.StoreClient) return () => undefined;
+  if (Platform.OS === "web" || Constants.executionEnvironment === ExecutionEnvironment.StoreClient) return () => undefined;
   let removed = false;
   let subscription: { remove: () => void } | undefined;
 
