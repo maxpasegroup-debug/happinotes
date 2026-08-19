@@ -2,6 +2,7 @@ import 'package:flutter/material.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
 import '../../app/providers.dart';
 import '../theme.dart';
+import '../widgets/app_message.dart';
 
 class MembershipScreen extends ConsumerWidget {
   const MembershipScreen({super.key});
@@ -12,9 +13,7 @@ class MembershipScreen extends ConsumerWidget {
       membershipControllerProvider.select((value) => value.activationCount),
       (previous, next) {
         if (next > (previous ?? 0)) {
-          ScaffoldMessenger.of(
-            context,
-          ).showSnackBar(const SnackBar(content: Text('Premium activated')));
+          AppMessage.show(context, 'Premium activated');
           Navigator.pop(context);
         }
       },

@@ -4,6 +4,7 @@ import '../../app/providers.dart';
 import '../../features/auth/presentation/controllers/session_controller.dart';
 import '../../features/books/domain/entities/book.dart';
 import '../theme.dart';
+import '../widgets/app_message.dart';
 import '../widgets/book_card.dart';
 import 'book_detail.dart';
 import 'legal_screen.dart';
@@ -497,17 +498,14 @@ Future<void> showLanguagePicker(
   try {
     await state.updateLanguage(selected);
     if (context.mounted) {
-      ScaffoldMessenger.of(context).showSnackBar(
-        const SnackBar(content: Text('Language preference updated')),
-      );
+      AppMessage.show(context, 'Language preference updated');
     }
   } catch (error) {
     if (context.mounted) {
-      ScaffoldMessenger.of(context).showSnackBar(
-        SnackBar(
-          backgroundColor: Colors.red.shade700,
-          content: Text(ref.read(apiClientProvider).errorMessage(error)),
-        ),
+      AppMessage.show(
+        context,
+        ref.read(apiClientProvider).errorMessage(error),
+        success: false,
       );
     }
   }

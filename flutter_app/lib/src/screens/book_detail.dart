@@ -4,6 +4,7 @@ import 'package:flutter_riverpod/flutter_riverpod.dart';
 import '../../app/providers.dart';
 import '../../features/books/domain/entities/book.dart';
 import '../theme.dart';
+import '../widgets/app_message.dart';
 
 class BookDetail extends ConsumerWidget {
   const BookDetail({super.key, required this.book});
@@ -104,9 +105,7 @@ class BookDetail extends ConsumerWidget {
                   await ref.read(playerControllerProvider).play(book);
                 } catch (e) {
                   if (context.mounted) {
-                    ScaffoldMessenger.of(
-                      context,
-                    ).showSnackBar(SnackBar(content: Text(e.toString())));
+                    AppMessage.show(context, e.toString(), success: false);
                   }
                 }
               },

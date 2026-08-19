@@ -2,6 +2,7 @@ import 'package:flutter/material.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
 import '../../app/providers.dart';
 import '../../features/admin/presentation/controllers/admin_controller.dart';
+import '../widgets/app_message.dart';
 
 class AdminScreen extends ConsumerWidget {
   const AdminScreen({super.key});
@@ -378,16 +379,6 @@ class _ErrorState extends StatelessWidget {
 
 class AdminSnack {
   static void show(BuildContext context, String message, {required bool success}) {
-    ScaffoldMessenger.of(context)
-      ..hideCurrentSnackBar()
-      ..showSnackBar(SnackBar(
-        behavior: SnackBarBehavior.floating,
-        backgroundColor: success ? const Color(0xFF21894A) : const Color(0xFFC43D3D),
-        content: Row(children: [
-          Icon(success ? Icons.check_circle : Icons.error, color: Colors.white),
-          const SizedBox(width: 10),
-          Expanded(child: Text(message)),
-        ]),
-      ));
+    AppMessage.show(context, message, success: success);
   }
 }

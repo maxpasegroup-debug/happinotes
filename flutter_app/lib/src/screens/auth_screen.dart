@@ -4,6 +4,7 @@ import 'package:flutter_riverpod/flutter_riverpod.dart';
 import '../../app/providers.dart';
 import '../../features/auth/presentation/controllers/auth_form_controller.dart';
 import '../theme.dart';
+import '../widgets/app_message.dart';
 
 class AuthScreen extends ConsumerWidget {
   const AuthScreen({super.key});
@@ -18,28 +19,7 @@ class AuthScreen extends ConsumerWidget {
     if (message == null && error == null) return;
 
     final successful = message != null;
-    ScaffoldMessenger.of(context)
-      ..hideCurrentSnackBar()
-      ..showSnackBar(
-        SnackBar(
-          content: Row(
-            children: [
-              Icon(
-                successful ? Icons.check_circle_rounded : Icons.error_rounded,
-                color: Colors.white,
-              ),
-              const SizedBox(width: 10),
-              Expanded(child: Text(message ?? error!)),
-            ],
-          ),
-          backgroundColor: successful
-              ? const Color(0xFF21894A)
-              : const Color(0xFFC43D3D),
-          behavior: SnackBarBehavior.floating,
-          margin: const EdgeInsets.fromLTRB(16, 0, 16, 18),
-          duration: const Duration(seconds: 3),
-        ),
-      );
+    AppMessage.show(context, message ?? error!, success: successful);
   }
 
   @override
