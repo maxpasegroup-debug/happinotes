@@ -19,4 +19,17 @@ class BooksRepositoryImpl implements BooksRepository {
         .map((x) => BookModel.fromJson(Map<String, dynamic>.from(x)))
         .toList();
   }
+
+  @override
+  Future<List<Book>> getUpcomingBooks({String? language}) async {
+    final response = await client.dio.get(
+      '/books/upcoming',
+      queryParameters: {
+        if (language != null && language != 'all') 'language': language,
+      },
+    );
+    return (response.data['books'] as List? ?? [])
+        .map((value) => BookModel.fromJson(Map<String, dynamic>.from(value)))
+        .toList();
+  }
 }

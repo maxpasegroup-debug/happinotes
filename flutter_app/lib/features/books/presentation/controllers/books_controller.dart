@@ -8,6 +8,7 @@ class BooksController extends ChangeNotifier {
   final BooksRepository repository;
   final ApiClient client;
   List<Book> books = const [];
+  List<Book> upcoming = const [];
   bool loading = false;
   String? error;
   Future<void> loadBooks({String? query, String? language}) async {
@@ -15,7 +16,12 @@ class BooksController extends ChangeNotifier {
     error = null;
     notifyListeners();
     try {
-      books = await repository.getBooks(query: query, language: language);
+      final result = await Future.wait([
+        repository.getBooks(query: query, language: language),
+        repository.getUpcomingBooks(language: language),
+      ]);
+      books = result[0];
+      upcoming = result[1];
     } catch (e) {
       error = client.errorMessage(e);
     }

@@ -16,7 +16,10 @@ class MainShell extends ConsumerWidget {
   Widget build(BuildContext context, WidgetRef ref) {
     final index = ref.watch(mainTabIndexProvider);
     final books = ref.watch(booksControllerProvider);
-    if (!books.loading && books.books.isEmpty && books.error == null) {
+    if (!books.loading &&
+        books.books.isEmpty &&
+        books.upcoming.isEmpty &&
+        books.error == null) {
       Future.microtask(() => ref.read(booksControllerProvider).loadBooks());
     }
     final pages = [
@@ -128,7 +131,7 @@ class HomeTab extends StatelessWidget {
                 const Center(child: CircularProgressIndicator())
               else if (s.error != null)
                 Text(s.error!, style: const TextStyle(color: Colors.redAccent))
-              else if (books.isEmpty)
+              else if (books.isEmpty && s.upcoming.isEmpty)
                 const Padding(
                   padding: EdgeInsets.all(40),
                   child: Text(
@@ -137,7 +140,7 @@ class HomeTab extends StatelessWidget {
                     style: TextStyle(color: AppColors.muted),
                   ),
                 )
-              else ...[
+              else if (books.isNotEmpty) ...[
                 FeaturedBook(book: books.first),
                 const SizedBox(height: 28),
                 const SectionTitle('Recently added'),
@@ -174,6 +177,34 @@ class HomeTab extends StatelessWidget {
                       return BookCard(
                         book: b,
                         onTap: () => openBook(context, b),
+                      );
+                    },
+                  ),
+                ),
+              ],
+              if (!s.loading && s.upcoming.isNotEmpty) ...[
+                const SizedBox(height: 24),
+                const SectionTitle('Coming soon'),
+                const SizedBox(height: 6),
+                const Text(
+                  'New audiobooks being prepared for release.',
+                  style: TextStyle(color: AppColors.muted),
+                ),
+                const SizedBox(height: 12),
+                SizedBox(
+                  height: 250,
+                  child: ListView.separated(
+                    scrollDirection: Axis.horizontal,
+                    itemCount: s.upcoming.length,
+                    separatorBuilder: (_, _) => const SizedBox(width: 12),
+                    itemBuilder: (_, index) {
+                      final book = s.upcoming[index];
+                      return BookCard(
+                        book: book,
+                        onTap: () => AppMessage.show(
+                          context,
+                          '${book.title} is coming soon',
+                        ),
                       );
                     },
                   ),
