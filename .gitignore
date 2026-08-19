@@ -30,6 +30,12 @@ mobile/.expo-shared/
 ios/
 android/
 
+# Keep the standalone Flutter application's native projects buildable.
+!flutter_app/android/
+!flutter_app/android/**
+!flutter_app/ios/
+!flutter_app/ios/**
+
 *.orig.*
 *.metro-health-check*
 
