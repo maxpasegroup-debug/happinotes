@@ -3,16 +3,19 @@ import { Image } from "expo-image";
 import { useRouter } from "expo-router";
 import { Pressable, StyleSheet, Text, View } from "react-native";
 import { usePlayer } from "@/store/playerStore";
+import { UserPalette as Palette, Shadows } from "@/constants/theme";
+import { useSafeAreaInsets } from "react-native-safe-area-context";
 
 export function MiniPlayer() {
   const router = useRouter();
+  const insets = useSafeAreaInsets();
   const { currentTrack, isPlaying, togglePlayback } = usePlayer();
 
   if (!currentTrack) return null;
 
   return (
     <Pressable
-      style={styles.container}
+      style={[styles.container, { bottom: 68 + insets.bottom }]}
       onPress={() =>
         router.push(
           `/(app)/player?bookId=${currentTrack.book._id}&chapterId=${currentTrack.chapter._id}`
@@ -52,19 +55,19 @@ export function MiniPlayer() {
 const styles = StyleSheet.create({
   container: {
     alignItems: "center",
-    backgroundColor: "#181818",
+    backgroundColor: Palette.paper,
     borderTopColor: "rgba(255,255,255,0.08)",
     borderTopWidth: 1,
-    bottom: 76,
     flexDirection: "row",
     gap: 12,
-    left: 12,
+    left: 0,
     minHeight: 64,
     padding: 10,
     position: "absolute",
-    right: 12,
+    right: 0,
     zIndex: 10,
-    borderRadius: 8,
+    borderRadius: 0,
+    ...Shadows.soft,
   },
   cover: {
     borderRadius: 6,
@@ -72,7 +75,7 @@ const styles = StyleSheet.create({
     width: 44,
   },
   coverPlaceholder: {
-    backgroundColor: "#FF6B4A",
+    backgroundColor: Palette.coral,
     borderRadius: 6,
     height: 44,
     width: 44,
@@ -86,13 +89,13 @@ const styles = StyleSheet.create({
     fontWeight: "800",
   },
   book: {
-    color: "#D0D5DD",
+    color: Palette.muted,
     fontSize: 12,
     marginTop: 2,
   },
   button: {
     alignItems: "center",
-    backgroundColor: "#FF6B4A",
+    backgroundColor: Palette.coral,
     borderRadius: 18,
     height: 36,
     justifyContent: "center",

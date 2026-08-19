@@ -5,6 +5,7 @@ import { MiniPlayer } from "@/components/MiniPlayer";
 import { PlayerProvider } from "@/store/playerStore";
 import { getAuth } from "@/store/authStore";
 import { useTranslation } from "react-i18next";
+import { UserPalette as Palette } from "@/constants/theme";
 
 export default function AppLayout() {
   const [role, setRole] = useState<"user" | "admin" | null>(null);
@@ -30,7 +31,10 @@ export default function AppLayout() {
       <Tabs
         screenOptions={{
           headerShown: false,
-          tabBarActiveTintColor: "#FF6B4A",
+          tabBarActiveTintColor: Palette.coral,
+          tabBarInactiveTintColor: Palette.muted,
+          tabBarStyle: { height: 68, paddingTop: 7, paddingBottom: 7, borderTopColor: Palette.line, backgroundColor: Palette.paper },
+          tabBarLabelStyle: { fontSize: 11, fontWeight: "700" },
         }}
       >
       <Tabs.Screen
@@ -38,7 +42,7 @@ export default function AppLayout() {
         options={{
           title: "Home",
           tabBarIcon: ({ color, size }) => (
-            <Ionicons name="home-outline" size={size} color={color} />
+            <Ionicons name={color === Palette.coral ? "home" : "home-outline"} size={size} color={color} />
           ),
         }}
       />
@@ -55,7 +59,7 @@ export default function AppLayout() {
         options={{
           title: t("collections"),
           tabBarIcon: ({ color, size }) => (
-            <Ionicons name="bookmark-outline" size={size} color={color} />
+            <Ionicons name={color === Palette.coral ? "bookmark" : "bookmark-outline"} size={size} color={color} />
           ),
         }}
       />
@@ -65,7 +69,7 @@ export default function AppLayout() {
         options={{
           title: t("search"),
           tabBarIcon: ({ color, size }) => (
-            <Ionicons name="search-outline" size={size} color={color} />
+            <Ionicons name={color === Palette.coral ? "search" : "search-outline"} size={size} color={color} />
           ),
         }}
       />
@@ -75,7 +79,7 @@ export default function AppLayout() {
         options={{
           title: t("profile"),
           tabBarIcon: ({ color, size }) => (
-            <Ionicons name="person-outline" size={size} color={color} />
+            <Ionicons name={color === Palette.coral ? "person" : "person-outline"} size={size} color={color} />
           ),
         }}
       />

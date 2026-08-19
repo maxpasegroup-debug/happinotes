@@ -14,6 +14,10 @@ import { api } from "@/services/api";
 import { BookCard } from "@/components/BookCard";
 import { Book, BookLanguage } from "@/types/book";
 import { useRealtime } from "@/contexts/RealtimeContext";
+import { Ionicons } from "@expo/vector-icons";
+import { LinearGradient } from "expo-linear-gradient";
+import { UserPalette as Palette, Shadows } from "@/constants/theme";
+import { useSafeAreaInsets } from "react-native-safe-area-context";
 
 type BooksResponse = {
   success: boolean;
@@ -48,6 +52,7 @@ const filters: { label: string; value: LanguageFilter }[] = [
 
 export default function Home() {
   const { booksRevision } = useRealtime();
+  const insets = useSafeAreaInsets();
   const router = useRouter();
   const [books, setBooks] = useState<Book[]>([]);
   const [featured, setFeatured] = useState<Book[]>([]);
@@ -169,7 +174,7 @@ export default function Home() {
                   <View style={[styles.continueProgressFill, { width: `${percent}%` }]} />
                 </View>
               </View>
-              <Text style={styles.continuePercent}>{percent}%</Text>
+              <View style={styles.continuePlay}><Ionicons name="play" size={16} color="#fff" /></View>
             </Pressable>
           );
         })}
@@ -180,10 +185,14 @@ export default function Home() {
   return (
     <ScrollView
       style={styles.container}
-      contentContainerStyle={styles.content}
+      contentContainerStyle={[styles.content, { paddingTop: insets.top + 16 }]}
       refreshControl={<RefreshControl refreshing={refreshing} onRefresh={refresh} />}
     >
-      <Text style={styles.header}>HappiNotes</Text>
+      <View style={styles.topBar}><View><Text style={styles.greeting}>Good to see you</Text><Text style={styles.header}>HappiNotes</Text></View><Pressable style={styles.avatar} onPress={() => router.push("/(app)/profile")}><Ionicons name="person" size={19} color={Palette.ink} /></Pressable></View>
+      <Pressable style={styles.searchShortcut} onPress={() => router.push("/(app)/search")}>
+        <Ionicons name="search" size={20} color={Palette.muted} />
+        <Text style={styles.searchShortcutText}>Search books and audio</Text><Ionicons name="mic-outline" size={20} color={Palette.coral} />
+      </Pressable>
 
       <ScrollView
         horizontal
@@ -210,13 +219,13 @@ export default function Home() {
           ) : (
             <View style={styles.heroImage} />
           )}
-          <View style={styles.heroShade} />
+          <LinearGradient colors={["transparent", "rgba(42,29,24,.86)"]} style={styles.heroShade} />
           <View style={styles.heroText}>
             <Text style={styles.heroKicker}>{heroBook.accessType.toUpperCase()}</Text>
             <Text style={styles.heroTitle} numberOfLines={2}>
               {heroBook.title}
             </Text>
-            <Text style={styles.heroCta}>Start Listening</Text>
+            <View style={styles.heroAction}><Ionicons name="play" size={17} color="#fff" /><Text style={styles.heroCta}>Start listening</Text></View>
           </View>
         </Pressable>
       ) : null}
@@ -243,46 +252,48 @@ export default function Home() {
 const styles = StyleSheet.create({
   container: {
     flex: 1,
-    backgroundColor: "#FFFFFF",
+    backgroundColor: Palette.canvas,
   },
   content: {
-    padding: 20,
-    paddingTop: 54,
+    paddingHorizontal: 16,
+    paddingTop: 16,
   },
   header: {
-    color: "#181818",
-    fontSize: 28,
-    fontWeight: "800",
-    marginBottom: 16,
+    color: Palette.ink, fontSize: 24, lineHeight: 28, fontWeight: "900",
   },
+  topBar: { alignItems: "center", flexDirection: "row", justifyContent: "space-between", marginBottom: 14 },
+  greeting: { color: Palette.muted, fontSize: 12, fontWeight: "600", marginBottom: 1 },
+  avatar: { alignItems: "center", backgroundColor: Palette.peach, borderRadius: 22, height: 44, justifyContent: "center", width: 44 },
+  searchShortcut: { alignItems: "center", backgroundColor: Palette.paper, borderRadius: 14, flexDirection: "row", gap: 10, marginBottom: 12, paddingHorizontal: 14, paddingVertical: 12 },
+  searchShortcutText: { color: Palette.muted, flex: 1, fontSize: 15 },
   filters: {
     gap: 8,
     paddingBottom: 18,
   },
   filter: {
-    borderColor: "#D0D5DD",
-    borderRadius: 8,
+    borderColor: Palette.line,
+    borderRadius: 18,
     borderWidth: 1,
     paddingHorizontal: 14,
     paddingVertical: 9,
   },
   filterActive: {
-    backgroundColor: "#FF6B4A",
-    borderColor: "#FF6B4A",
+    backgroundColor: Palette.coral,
+    borderColor: Palette.coral,
   },
   filterText: {
-    color: "#344054",
+    color: Palette.ink,
     fontWeight: "700",
   },
   filterTextActive: {
     color: "#FFFFFF",
   },
   hero: {
-    height: 260,
-    borderRadius: 8,
+    height: 230,
+    borderRadius: 16,
     marginBottom: 28,
     overflow: "hidden",
-    backgroundColor: "#EFEFEF",
+    backgroundColor: Palette.paper,
   },
   heroImage: {
     ...StyleSheet.absoluteFillObject,
@@ -311,21 +322,15 @@ const styles = StyleSheet.create({
     marginBottom: 14,
   },
   heroCta: {
-    alignSelf: "flex-start",
-    backgroundColor: "#FF6B4A",
-    borderRadius: 8,
     color: "#FFFFFF",
     fontWeight: "800",
-    paddingHorizontal: 16,
-    paddingVertical: 11,
   },
+  heroAction: { alignItems: "center", alignSelf: "flex-start", backgroundColor: Palette.coral, borderRadius: 24, flexDirection: "row", gap: 7, paddingHorizontal: 16, paddingVertical: 11 },
   section: {
-    marginBottom: 28,
+    marginBottom: 22,
   },
   sectionTitle: {
-    color: "#181818",
-    fontSize: 20,
-    fontWeight: "800",
+    color: Palette.ink, fontSize: 19, fontWeight: "900",
     marginBottom: 14,
   },
   skeletonWrap: {
@@ -336,19 +341,17 @@ const styles = StyleSheet.create({
   skeleton: {
     width: 104,
     height: 154,
-    borderRadius: 8,
-    backgroundColor: "#EAECF0",
+    borderRadius: 18, backgroundColor: Palette.peach,
   },
   emptyShelf: {
     alignItems: "center",
-    backgroundColor: "#F7F7F7",
-    borderRadius: 8,
+    backgroundColor: Palette.paper, borderRadius: 18,
     height: 90,
     justifyContent: "center",
     paddingHorizontal: 30,
   },
   emptyShelfText: {
-    color: "#667085",
+    color: Palette.muted,
   },
   error: {
     color: "#B42318",
@@ -356,16 +359,15 @@ const styles = StyleSheet.create({
   },
   continueCard: {
     alignItems: "center",
-    backgroundColor: "#F7F7F7",
-    borderRadius: 8,
+    backgroundColor: Palette.paper, borderRadius: 18,
     flexDirection: "row",
     gap: 12,
     marginBottom: 10,
     padding: 10,
+    ...Shadows.soft,
   },
   continueCover: {
-    backgroundColor: "#FFE8E1",
-    borderRadius: 6,
+    backgroundColor: Palette.peach, borderRadius: 10,
     height: 58,
     width: 44,
   },
@@ -373,29 +375,26 @@ const styles = StyleSheet.create({
     flex: 1,
   },
   continueTitle: {
-    color: "#181818",
+    color: Palette.ink,
     fontSize: 15,
     fontWeight: "800",
   },
   continueMeta: {
-    color: "#667085",
+    color: Palette.muted,
     fontSize: 12,
     marginTop: 3,
   },
   continueProgressTrack: {
-    backgroundColor: "#EAECF0",
+    backgroundColor: Palette.line,
     borderRadius: 5,
     height: 7,
     marginTop: 9,
     overflow: "hidden",
   },
   continueProgressFill: {
-    backgroundColor: "#FF6B4A",
+    backgroundColor: Palette.coral,
     height: "100%",
   },
-  continuePercent: {
-    color: "#344054",
-    fontSize: 12,
-    fontWeight: "800",
-  },
+  continuePercent: { color: Palette.muted, fontSize: 12, fontWeight: "800" },
+  continuePlay: { alignItems: "center", backgroundColor: Palette.coral, borderRadius: 20, height: 40, justifyContent: "center", width: 40 },
 });

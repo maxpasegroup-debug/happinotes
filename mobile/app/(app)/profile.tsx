@@ -14,6 +14,9 @@ import {
 import { getAuth } from "@/store/authStore";
 import { api } from "@/services/api";
 import i18n from "@/i18n";
+import { Ionicons } from "@expo/vector-icons";
+import { UserPalette as Palette } from "@/constants/theme";
+import { SafeAreaView } from "react-native-safe-area-context";
 
 export default function Profile() {
   const router = useRouter();
@@ -60,12 +63,12 @@ export default function Profile() {
   };
 
   return (
-    <ScrollView style={styles.container}>
+    <SafeAreaView style={styles.safe} edges={["top"]}><ScrollView style={styles.container} contentContainerStyle={styles.content}>
       <Text style={styles.header}>Profile</Text>
 
       <View style={styles.card}>
-        <Text style={styles.email}>{email}</Text>
-        {name ? <Text style={styles.name}>{name}</Text> : null}
+        <View style={styles.avatar}><Text style={styles.avatarText}>{(name || email || "H").slice(0,1).toUpperCase()}</Text></View>
+        {name ? <Text style={styles.name}>{name}</Text> : null}<Text style={styles.email}>{email}</Text>
         <Text style={styles.status}>
           {subscription === "free" ? "Free Member" : `${subscription.toUpperCase()} Member`}
         </Text>
@@ -105,7 +108,7 @@ export default function Profile() {
         style={styles.secondaryButton}
         onPress={() => router.push("/legal")}
       >
-        <Text style={styles.secondaryText}>Legal</Text>
+        <Ionicons name="document-text-outline" size={21} color={Palette.coral} /><Text style={styles.secondaryText}>Legal</Text><Ionicons name="chevron-forward" size={19} color={Palette.muted} />
       </TouchableOpacity>
 
       {/* History Button */}
@@ -113,7 +116,7 @@ export default function Profile() {
         style={styles.secondaryButton}
         onPress={() => router.push("/history")}
       >
-        <Text style={styles.secondaryText}>Subscription History</Text>
+        <Ionicons name="receipt-outline" size={21} color={Palette.coral} /><Text style={styles.secondaryText}>Subscription History</Text><Ionicons name="chevron-forward" size={19} color={Palette.muted} />
       </TouchableOpacity>
 
       {/* Logout Button */}
@@ -121,49 +124,45 @@ export default function Profile() {
         style={styles.logoutButton}
         onPress={handleLogout}
       >
-        <Text style={styles.logoutText}>Logout</Text>
+        <Ionicons name="log-out-outline" size={20} color={Palette.danger} /><Text style={styles.logoutText}>Logout</Text>
       </TouchableOpacity>
-    </ScrollView>
+    </ScrollView></SafeAreaView>
   );
 }
 
 const styles = StyleSheet.create({
-  container: {
-    flex: 1,
-    backgroundColor: "#FFFFFF",
-    padding: 20,
-    paddingTop: 54,
-  },
+  safe: { flex: 1, backgroundColor: Palette.canvas },
+  container: { flex: 1 }, content: { padding: 20, paddingBottom: 120 },
   header: {
-    fontSize: 26,
-    fontWeight: "700",
+    color: Palette.ink, fontSize: 26, fontWeight: "900",
     marginBottom: 20,
   },
   card: {
-    backgroundColor: "#F4F4F4",
+    alignItems: "center", backgroundColor: Palette.paper,
     padding: 20,
     borderRadius: 16,
     marginBottom: 30,
   },
+  avatar: { alignItems: "center", backgroundColor: Palette.peach, borderRadius: 32, height: 64, justifyContent: "center", marginBottom: 12, width: 64 },
+  avatarText: { color: Palette.coralDark, fontSize: 27, fontWeight: "900" },
   email: {
     fontSize: 16,
-    marginBottom: 8,
+    color: Palette.muted, marginTop: 4,
   },
   name: {
-    color: "#667085",
-    marginBottom: 8,
+    color: Palette.ink, fontSize: 20, fontWeight: "800",
   },
   status: {
     fontWeight: "600",
-    color: "#FF6B4A",
+    color: Palette.coralDark, marginTop: 10,
   },
   expiry: {
-    color: "#667085",
+    color: Palette.muted,
     marginTop: 8,
   },
   upgradeButton: {
     alignItems: "center",
-    backgroundColor: "#FF6B4A",
+    backgroundColor: Palette.coral,
     borderRadius: 12,
     marginBottom: 15,
     padding: 16,
@@ -173,13 +172,13 @@ const styles = StyleSheet.create({
     fontWeight: "800",
   },
   secondaryButton: {
-    backgroundColor: "#F4F4F4",
+    alignItems: "center", backgroundColor: Palette.paper, flexDirection: "row", gap: 12,
     padding: 16,
     borderRadius: 12,
     marginBottom: 15,
   },
   sectionLabel: {
-    color: "#181818",
+    color: Palette.ink,
     fontWeight: "900",
     marginBottom: 12,
   },
@@ -189,18 +188,17 @@ const styles = StyleSheet.create({
     gap: 8,
   },
   languageChip: {
-    borderColor: "#D0D5DD",
-    borderRadius: 8,
+    borderColor: Palette.line,
+    borderRadius: 16,
     borderWidth: 1,
     paddingHorizontal: 10,
     paddingVertical: 8,
   },
   languageChipActive: {
-    backgroundColor: "#FF6B4A",
-    borderColor: "#FF6B4A",
+    backgroundColor: Palette.coral, borderColor: Palette.coral,
   },
   languageText: {
-    color: "#344054",
+    color: Palette.ink,
     fontWeight: "800",
     textTransform: "capitalize",
   },
@@ -208,17 +206,17 @@ const styles = StyleSheet.create({
     color: "#FFFFFF",
   },
   secondaryText: {
-    fontWeight: "600",
+    color: Palette.ink, flex: 1, fontWeight: "700",
   },
   logoutButton: {
-    backgroundColor: "#FF3B30",
+    backgroundColor: Palette.paper, borderColor: Palette.line, borderWidth: 1, flexDirection: "row", gap: 8, justifyContent: "center",
     padding: 16,
     borderRadius: 12,
     alignItems: "center",
     marginTop: 20,
   },
   logoutText: {
-    color: "#FFFFFF",
+    color: Palette.danger,
     fontWeight: "700",
     fontSize: 16,
   },

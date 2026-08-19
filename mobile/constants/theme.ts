@@ -5,25 +5,21 @@
 
 import { Platform } from 'react-native';
 
+export const Palette = { canvas: '#FFF9F0', paper: '#FFFFFF', ink: '#2A1D18', muted: '#786A62', coral: '#F25F45', coralDark: '#C94331', saffron: '#F6B91A', peach: '#FFE7D8', sage: '#DCE9DB', line: '#E9DDD2', danger: '#B42318' } as const;
+
+export const UserPalette = { canvas: '#111111', paper: '#1B1B1B', ink: '#F8F5F2', muted: '#AAA39E', coral: '#F25F45', coralDark: '#FF806A', saffron: '#F6B91A', peach: '#30221E', sage: '#263329', line: '#303030', danger: '#FF756A' } as const;
+
+export const Shadows = { soft: { shadowColor: '#543025', shadowOffset: { width: 0, height: 6 }, shadowOpacity: 0.1, shadowRadius: 16, elevation: 4 } };
+
 const tintColorLight = '#0a7ea4';
 const tintColorDark = '#fff';
 
 export const Colors = {
   light: {
-    text: '#11181C',
-    background: '#fff',
-    tint: tintColorLight,
-    icon: '#687076',
-    tabIconDefault: '#687076',
-    tabIconSelected: tintColorLight,
+    text: Palette.ink, background: Palette.canvas, tint: Palette.coral, icon: Palette.muted, tabIconDefault: Palette.muted, tabIconSelected: Palette.coral,
   },
   dark: {
-    text: '#ECEDEE',
-    background: '#151718',
-    tint: tintColorDark,
-    icon: '#9BA1A6',
-    tabIconDefault: '#9BA1A6',
-    tabIconSelected: tintColorDark,
+    text: Palette.ink, background: Palette.canvas, tint: Palette.coral, icon: Palette.muted, tabIconDefault: Palette.muted, tabIconSelected: Palette.coral,
   },
 };
 

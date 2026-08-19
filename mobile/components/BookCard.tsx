@@ -1,6 +1,7 @@
 import { Image } from "expo-image";
 import { Pressable, StyleSheet, Text, View } from "react-native";
 import { Book } from "@/types/book";
+import { UserPalette as Palette } from "@/constants/theme";
 
 type Props = {
   book: Book;
@@ -50,8 +51,9 @@ export function BookCard({ book, onPress, layout = "shelf" }: Props) {
 
 const styles = StyleSheet.create({
   card: {
-    width: 154,
-    marginRight: 14,
+    width: 138,
+    marginRight: 12,
+    backgroundColor: "transparent",
   },
   gridCard: {
     flex: 1,
@@ -59,11 +61,11 @@ const styles = StyleSheet.create({
     width: undefined,
   },
   coverWrap: {
-    width: 154,
-    height: 210,
-    borderRadius: 8,
+    width: "100%",
+    aspectRatio: 154 / 210,
+    borderRadius: 12,
     overflow: "hidden",
-    backgroundColor: "#EFEFEF",
+    backgroundColor: Palette.peach,
   },
   gridCover: {
     aspectRatio: 154 / 210,
@@ -77,10 +79,10 @@ const styles = StyleSheet.create({
   placeholder: {
     alignItems: "center",
     justifyContent: "center",
-    backgroundColor: "#FFE8E1",
+    backgroundColor: Palette.peach,
   },
   placeholderText: {
-    color: "#FF6B4A",
+    color: Palette.coral,
     fontSize: 48,
     fontWeight: "800",
   },
@@ -96,11 +98,11 @@ const styles = StyleSheet.create({
     fontWeight: "800",
   },
   title: {
-    color: "#181818",
+    color: Palette.ink,
     fontSize: 15,
     fontWeight: "700",
     marginTop: 10,
-    minHeight: 38,
+    minHeight: 36,
   },
   badges: {
     flexDirection: "row",
@@ -108,9 +110,9 @@ const styles = StyleSheet.create({
     marginTop: 8,
   },
   language: {
-    backgroundColor: "#F0F2F5",
+    backgroundColor: Palette.sage,
     borderRadius: 4,
-    color: "#344054",
+    color: Palette.ink,
     fontSize: 10,
     fontWeight: "700",
     paddingHorizontal: 6,
@@ -135,7 +137,7 @@ const styles = StyleSheet.create({
     paddingVertical: 4,
   },
   duration: {
-    color: "#667085",
+    color: Palette.muted,
     fontSize: 12,
     marginTop: 7,
   },

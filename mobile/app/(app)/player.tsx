@@ -7,6 +7,7 @@ import { api } from "@/services/api";
 import { PremiumGate } from "@/components/PremiumGate";
 import { usePlayer } from "@/store/playerStore";
 import { Book, Chapter } from "@/types/book";
+import { UserPalette as Palette, Shadows } from "@/constants/theme";
 
 type BookDetailResponse = {
   success: boolean;
@@ -49,7 +50,6 @@ export default function PlayerScreen() {
     playbackError,
     playTrack,
     togglePlayback,
-    stopPlayback,
     seekTo,
     skipToChapter,
     setPlaybackRate,
@@ -61,6 +61,7 @@ export default function PlayerScreen() {
   const [book, setBook] = useState<Book | null>(null);
   const [chapters, setChapters] = useState<Chapter[]>([]);
   const [error, setError] = useState("");
+  const [progressWidth, setProgressWidth] = useState(1);
 
   useEffect(() => {
     const load = async () => {
@@ -176,6 +177,7 @@ export default function PlayerScreen() {
 
   return (
     <ScrollView style={styles.container} contentContainerStyle={styles.content}>
+      <View style={styles.playerBar}><Pressable accessibilityLabel="Close player" style={styles.closeButton} onPress={() => router.back()}><Ionicons name="chevron-down" size={28} color={Palette.ink} /></Pressable><Text style={styles.nowPlaying}>Now Playing</Text><View style={styles.closeButton} /></View>
       <View style={styles.artWrap}>
         {activeBook.coverImageUrl ? (
           <Image source={{ uri: activeBook.coverImageUrl }} style={styles.background} blurRadius={28} />
@@ -194,9 +196,10 @@ export default function PlayerScreen() {
 
       <Pressable
         style={styles.progressTrack}
+        onLayout={(event) => setProgressWidth(event.nativeEvent.layout.width)}
         onPress={(event) => {
           const { locationX } = event.nativeEvent;
-          void seekByPercent(locationX / 320);
+          void seekByPercent(Math.max(0, Math.min(1, locationX / progressWidth)));
         }}
       >
         <View style={[styles.progressFill, { width: `${progressPercent * 100}%` }]} />
@@ -212,21 +215,21 @@ export default function PlayerScreen() {
           disabled={!previousChapter}
           onPress={() => previousChapter && skipToChapter(previousChapter._id)}
         >
-          <Ionicons name="play-skip-back" size={24} color="#344054" />
+          <Ionicons name="play-skip-back" size={24} color={Palette.ink} />
         </Pressable>
         <Pressable
-          accessibilityLabel={isPlaying ? "Stop audio" : "Play audio"}
+          accessibilityLabel={isPlaying ? "Pause audio" : "Play audio"}
           style={styles.playButton}
-          onPress={() => (isPlaying ? stopPlayback() : togglePlayback())}
+          onPress={() => togglePlayback()}
         >
-          <Ionicons name={isPlaying ? "stop" : "play"} size={34} color="#FFFFFF" />
+          <Ionicons name={isPlaying ? "pause" : "play"} size={34} color="#FFFFFF" />
         </Pressable>
         <Pressable
           style={[styles.skipButton, !nextChapter && styles.disabled]}
           disabled={!nextChapter}
           onPress={() => nextChapter && skipToChapter(nextChapter._id)}
         >
-          <Ionicons name="play-skip-forward" size={24} color="#344054" />
+          <Ionicons name="play-skip-forward" size={24} color={Palette.ink} />
         </Pressable>
       </View>
 
@@ -247,7 +250,7 @@ export default function PlayerScreen() {
 
       <Text style={styles.controlLabel}>Volume</Text>
       <View style={styles.volumeRow}>
-        <Ionicons name="volume-low" size={22} color="#667085" />
+        <Ionicons name="volume-low" size={22} color={Palette.muted} />
         {[0.25, 0.5, 0.75, 1].map((level) => (
           <Pressable
             key={level}
@@ -255,7 +258,7 @@ export default function PlayerScreen() {
             onPress={() => setVolumeLevel(level)}
           />
         ))}
-        <Ionicons name="volume-high" size={22} color="#667085" />
+        <Ionicons name="volume-high" size={22} color={Palette.muted} />
       </View>
 
       <Text style={styles.controlLabel}>Sleep Timer</Text>
@@ -289,14 +292,17 @@ export default function PlayerScreen() {
 const styles = StyleSheet.create({
   container: {
     flex: 1,
-    backgroundColor: "#FFFFFF",
+    backgroundColor: Palette.canvas,
   },
   content: {
-    paddingBottom: 160,
+    paddingBottom: 160, paddingTop: 20,
   },
+  playerBar: { alignItems: "center", flexDirection: "row", justifyContent: "space-between", paddingHorizontal: 14 },
+  closeButton: { alignItems: "center", height: 44, justifyContent: "center", width: 44 },
+  nowPlaying: { color: Palette.ink, fontSize: 14, fontWeight: "800" },
   center: {
     alignItems: "center",
-    backgroundColor: "#FFFFFF",
+    backgroundColor: Palette.canvas,
     flex: 1,
     justifyContent: "center",
     padding: 24,
@@ -316,21 +322,19 @@ const styles = StyleSheet.create({
     backgroundColor: "rgba(0,0,0,0.46)",
   },
   cover: {
-    backgroundColor: "#FFE8E1",
-    borderRadius: 8,
+    backgroundColor: Palette.peach, borderRadius: 20, ...Shadows.soft,
     height: 250,
     width: 178,
   },
   chapterTitle: {
-    color: "#181818",
-    fontSize: 25,
+    color: Palette.ink, fontSize: 27,
     fontWeight: "900",
     marginTop: 26,
     paddingHorizontal: 24,
     textAlign: "center",
   },
   bookTitle: {
-    color: "#667085",
+    color: Palette.muted,
     fontSize: 15,
     fontWeight: "700",
     marginTop: 8,
@@ -339,7 +343,7 @@ const styles = StyleSheet.create({
   },
   progressTrack: {
     alignSelf: "center",
-    backgroundColor: "#EAECF0",
+    backgroundColor: Palette.line,
     borderRadius: 6,
     height: 10,
     marginTop: 28,
@@ -349,7 +353,7 @@ const styles = StyleSheet.create({
     width: "86%",
   },
   progressFill: {
-    backgroundColor: "#FF6B4A",
+    backgroundColor: Palette.coral,
     height: "100%",
   },
   timeRow: {
@@ -374,7 +378,7 @@ const styles = StyleSheet.create({
   },
   playButton: {
     alignItems: "center",
-    backgroundColor: "#FF6B4A",
+    backgroundColor: Palette.coral,
     borderRadius: 36,
     height: 72,
     justifyContent: "center",
@@ -382,7 +386,7 @@ const styles = StyleSheet.create({
   },
   skipButton: {
     alignItems: "center",
-    backgroundColor: "#F2F4F7",
+    backgroundColor: Palette.paper, borderColor: Palette.line, borderWidth: 1,
     borderRadius: 26,
     height: 52,
     justifyContent: "center",
@@ -392,7 +396,7 @@ const styles = StyleSheet.create({
     opacity: 0.35,
   },
   controlLabel: {
-    color: "#181818",
+    color: Palette.ink,
     fontSize: 16,
     fontWeight: "900",
     marginBottom: 12,
@@ -406,19 +410,17 @@ const styles = StyleSheet.create({
     paddingHorizontal: 24,
   },
   segment: {
-    borderColor: "#D0D5DD",
-    borderRadius: 8,
+    borderColor: Palette.line, borderRadius: 16,
     borderWidth: 1,
     minWidth: 58,
     paddingHorizontal: 12,
     paddingVertical: 10,
   },
   segmentActive: {
-    backgroundColor: "#FF6B4A",
-    borderColor: "#FF6B4A",
+    backgroundColor: Palette.coral, borderColor: Palette.coral,
   },
   segmentText: {
-    color: "#344054",
+    color: Palette.ink,
     fontWeight: "800",
     textAlign: "center",
   },
@@ -432,13 +434,13 @@ const styles = StyleSheet.create({
     paddingHorizontal: 24,
   },
   volumeStep: {
-    backgroundColor: "#EAECF0",
+    backgroundColor: Palette.line,
     borderRadius: 5,
     flex: 1,
     height: 10,
   },
   volumeStepActive: {
-    backgroundColor: "#FF6B4A",
+    backgroundColor: Palette.coral,
   },
   secondaryButton: {
     borderColor: "#D0D5DD",

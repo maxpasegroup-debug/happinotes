@@ -1,7 +1,7 @@
 import { Stack, useRouter, useSegments } from "expo-router";
 import * as SplashScreen from "expo-splash-screen";
 import { useEffect, useRef, useState } from "react";
-import Toast from "react-native-toast-message";
+import Toast, { BaseToast, type ToastConfig } from "react-native-toast-message";
 import { api } from "@/services/api";
 import "@/i18n";
 import { AuthUser, getAuth, saveAuth } from "@/store/authStore";
@@ -11,6 +11,28 @@ import { RealtimeProvider } from "@/contexts/RealtimeContext";
 import { LaunchSplash } from "@/components/LaunchSplash";
 
 void SplashScreen.preventAutoHideAsync();
+
+const MINIMUM_LAUNCH_SPLASH_MS = 1500;
+
+const toastConfig: ToastConfig = {
+  success: (props) => (
+    <BaseToast
+      {...props}
+      style={{
+        backgroundColor: "#16803C",
+        borderLeftColor: "#16803C",
+        borderRadius: 10,
+        height: 54,
+        minHeight: 54,
+        width: "92%",
+      }}
+      contentContainerStyle={{ paddingHorizontal: 14 }}
+      text1Style={{ color: "#FFFFFF", fontSize: 14, fontWeight: "800" }}
+      text2Style={{ color: "#E9F8EE", fontSize: 12, fontWeight: "600" }}
+      text2NumberOfLines={1}
+    />
+  ),
+};
 
 type MeResponse = {
   success: boolean;
@@ -35,6 +57,9 @@ export default function RootLayout() {
     sessionCheckStarted.current = true;
 
     const checkSession = async () => {
+      const splashDelay = new Promise<void>((resolve) => {
+        setTimeout(resolve, MINIMUM_LAUNCH_SPLASH_MS);
+      });
       const { token, user: cachedUser } = await getAuth();
       const currentGroup = segments[0];
       const authRoute = !currentGroup || currentGroup === "signup" || currentGroup === "forgot-password";
@@ -42,6 +67,7 @@ export default function RootLayout() {
       if (!token) {
         const seenOnboarding = await AsyncStorage.getItem("seen_onboarding");
         if (!authRoute) router.replace(seenOnboarding ? "/" : "/onboarding");
+        await splashDelay;
         setReady(true);
         return;
       }
@@ -62,6 +88,7 @@ export default function RootLayout() {
         }
       }
 
+      await splashDelay;
       setReady(true);
     };
 
@@ -82,7 +109,7 @@ export default function RootLayout() {
         contentStyle: { backgroundColor: "#FFFFFF" },
       }}
     />
-    <Toast />
+    <Toast config={toastConfig} position="bottom" bottomOffset={42} visibilityTime={3500} />
     </RealtimeProvider>
   );
 }

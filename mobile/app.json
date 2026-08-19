@@ -31,7 +31,8 @@
       "permissions": [
         "INTERNET",
         "VIBRATE",
-        "POST_NOTIFICATIONS"
+        "POST_NOTIFICATIONS",
+        "android.permission.MODIFY_AUDIO_SETTINGS"
       ]
     },
     "androidNavigationBar": {
@@ -45,7 +46,6 @@
     "plugins": [
       "expo-router",
       "expo-notifications",
-      "@sentry/react-native",
       [
         "expo-splash-screen",
         {
@@ -65,11 +65,21 @@
           "microphonePermission": false,
           "recordAudioAndroid": false
         }
-      ]
+      ],
+      "expo-font",
+      "expo-localization",
+      "expo-web-browser"
     ],
     "experiments": {
       "typedRoutes": true,
       "reactCompiler": true
-    }
+    },
+    "extra": {
+      "router": {},
+      "eas": {
+        "projectId": "1b12a217-ee92-4a96-96b6-c8457fb55dbe"
+      }
+    },
+    "owner": "yadhukul"
   }
 }

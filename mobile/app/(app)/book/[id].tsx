@@ -13,6 +13,8 @@ import {
 import { api } from "@/services/api";
 import { PremiumGate } from "@/components/PremiumGate";
 import { Book, Chapter } from "@/types/book";
+import { UserPalette as Palette, Shadows } from "@/constants/theme";
+import { SafeAreaView, useSafeAreaInsets } from "react-native-safe-area-context";
 
 type BookDetailResponse = {
   success: boolean;
@@ -37,6 +39,7 @@ const formatDuration = (seconds: number) => {
 
 export default function BookDetail() {
   const router = useRouter();
+  const insets = useSafeAreaInsets();
   const { id } = useLocalSearchParams<{ id: string }>();
   const [book, setBook] = useState<Book | null>(null);
   const [chapters, setChapters] = useState<Chapter[]>([]);
@@ -106,8 +109,10 @@ export default function BookDetail() {
   }
 
   return (
-    <ScrollView style={styles.container} contentContainerStyle={styles.content}>
+    <SafeAreaView style={styles.safe} edges={["top"]}><ScrollView style={styles.container} contentContainerStyle={styles.content}>
+      <View style={styles.appBar}><Pressable accessibilityLabel="Go back" style={styles.backButton} onPress={() => router.back()}><Ionicons name="chevron-back" size={25} color={Palette.ink} /></Pressable><Text style={styles.appBarTitle}>Book details</Text><View style={styles.backButton} /></View>
       <View style={styles.header}>
+        {book.coverImageUrl ? <Image source={{ uri: book.coverImageUrl }} style={styles.heroBackdrop} blurRadius={24} /> : null}<View style={styles.heroShade} />
         {book.coverImageUrl ? (
           <Image source={{ uri: book.coverImageUrl }} style={styles.cover} contentFit="cover" />
         ) : (
@@ -118,16 +123,12 @@ export default function BookDetail() {
         <View style={styles.headerText}>
           <Text style={styles.title}>{book.title}</Text>
           <Text style={styles.meta}>
-            {book.language.toUpperCase()} · {book.category.toUpperCase()}
+            {book.language.toUpperCase()} - {book.category.toUpperCase()}
           </Text>
           <Text style={styles.duration}>{formatDuration(book.totalDurationSeconds)}</Text>
           <View style={styles.actions}>
-            <Pressable style={styles.primaryButton} onPress={startListening}>
-              <Ionicons name="play" size={18} color="#FFFFFF" />
-              <Text style={styles.primaryButtonText}>Start Listening</Text>
-            </Pressable>
             <Pressable style={styles.iconButton} onPress={shareBook}>
-              <Ionicons name="share-outline" size={22} color="#344054" />
+              <Ionicons name="share-outline" size={22} color={Palette.ink} />
             </Pressable>
           </View>
         </View>
@@ -190,64 +191,65 @@ export default function BookDetail() {
           </Pressable>
         );
       })}
-    </ScrollView>
+    </ScrollView><View style={[styles.stickyAction, { bottom: 68 + insets.bottom }]}><Pressable style={styles.stickyButton} onPress={startListening}><Ionicons name="play" size={21} color="#fff" /><Text style={styles.primaryButtonText}>{currentChapterId ? "Resume Listening" : "Start Listening"}</Text></Pressable></View></SafeAreaView>
   );
 }
 
 const styles = StyleSheet.create({
   container: {
     flex: 1,
-    backgroundColor: "#FFFFFF",
+    backgroundColor: Palette.canvas,
   },
+  safe: { flex: 1, backgroundColor: Palette.canvas },
+  appBar: { alignItems: "center", flexDirection: "row", justifyContent: "space-between", marginBottom: 16 },
+  appBarTitle: { color: Palette.ink, fontSize: 17, fontWeight: "800" },
+  backButton: { alignItems: "center", height: 42, justifyContent: "center", width: 42 },
   content: {
     padding: 20,
-    paddingTop: 54,
+    paddingTop: 16, paddingBottom: 120,
   },
   center: {
     alignItems: "center",
-    backgroundColor: "#FFFFFF",
+    backgroundColor: Palette.canvas,
     flex: 1,
     justifyContent: "center",
     padding: 24,
   },
   header: {
-    flexDirection: "row",
-    flexWrap: "wrap",
-    gap: 18,
+    alignItems: "center", borderRadius: 20, gap: 14, minHeight: 390, overflow: "hidden", padding: 22,
   },
+  heroBackdrop: { ...StyleSheet.absoluteFillObject },
+  heroShade: { ...StyleSheet.absoluteFillObject, backgroundColor: "rgba(17,17,17,.72)" },
   cover: {
-    width: 132,
-    height: 186,
-    borderRadius: 8,
-    backgroundColor: "#EFEFEF",
+    width: 164,
+    height: 232,
+    borderRadius: 18, backgroundColor: Palette.peach, ...Shadows.soft,
   },
   placeholder: {
     alignItems: "center",
     justifyContent: "center",
-    backgroundColor: "#FFE8E1",
+    backgroundColor: Palette.peach,
   },
   placeholderText: {
-    color: "#FF6B4A",
+    color: Palette.coral,
     fontSize: 48,
     fontWeight: "900",
   },
   headerText: {
-    flex: 1,
-    minWidth: 130,
+    alignItems: "center", width: "100%",
   },
   title: {
-    color: "#181818",
-    fontSize: 25,
+    color: Palette.ink, fontSize: 24, textAlign: "center",
     fontWeight: "900",
   },
   meta: {
-    color: "#667085",
+    color: Palette.coralDark,
     fontSize: 12,
     fontWeight: "800",
     marginTop: 10,
   },
   duration: {
-    color: "#344054",
+    color: Palette.muted,
     fontSize: 14,
     marginTop: 8,
   },
@@ -257,10 +259,11 @@ const styles = StyleSheet.create({
     gap: 10,
     marginTop: 18,
   },
+  stickyAction: { backgroundColor: Palette.canvas, borderTopColor: Palette.line, borderTopWidth: 1, bottom: 0, left: 0, padding: 12, position: "absolute", right: 0 },
+  stickyButton: { alignItems: "center", backgroundColor: Palette.coral, borderRadius: 16, flexDirection: "row", gap: 9, justifyContent: "center", paddingVertical: 15 },
   primaryButton: {
     alignItems: "center",
-    backgroundColor: "#FF6B4A",
-    borderRadius: 8,
+    backgroundColor: Palette.coral, borderRadius: 22,
     flexDirection: "row",
     gap: 6,
     paddingHorizontal: 14,
@@ -272,41 +275,39 @@ const styles = StyleSheet.create({
   },
   iconButton: {
     alignItems: "center",
-    borderColor: "#D0D5DD",
-    borderRadius: 8,
+    borderColor: Palette.line, borderRadius: 18,
     borderWidth: 1,
     height: 42,
     justifyContent: "center",
     width: 42,
   },
   description: {
-    color: "#344054",
+    color: Palette.muted,
     fontSize: 15,
     lineHeight: 22,
     marginTop: 24,
   },
   intro: {
     alignItems: "center",
-    backgroundColor: "#FFF5F1",
-    borderRadius: 8,
+    backgroundColor: Palette.peach, borderRadius: 18,
     flexDirection: "row",
     gap: 12,
     marginTop: 24,
     padding: 16,
   },
   introTitle: {
-    color: "#181818",
+    color: Palette.ink,
     fontWeight: "800",
   },
   introText: {
-    color: "#667085",
+    color: Palette.muted,
     marginTop: 2,
   },
   gateWrap: {
     marginTop: 18,
   },
   sectionTitle: {
-    color: "#181818",
+    color: Palette.ink,
     fontSize: 20,
     fontWeight: "900",
     marginBottom: 12,
@@ -314,32 +315,31 @@ const styles = StyleSheet.create({
   },
   chapter: {
     alignItems: "center",
-    borderBottomColor: "#EAECF0",
+    borderBottomColor: Palette.line,
     borderBottomWidth: 1,
     flexDirection: "row",
     gap: 12,
     paddingVertical: 14,
   },
   chapterActive: {
-    backgroundColor: "#F6FEF9",
+    backgroundColor: Palette.sage,
   },
   chapterNumber: {
     alignItems: "center",
-    backgroundColor: "#F2F4F7",
-    borderRadius: 8,
+    backgroundColor: Palette.peach, borderRadius: 12,
     height: 38,
     justifyContent: "center",
     width: 38,
   },
   chapterNumberText: {
-    color: "#344054",
+    color: Palette.ink,
     fontWeight: "900",
   },
   chapterText: {
     flex: 1,
   },
   chapterTitle: {
-    color: "#181818",
+    color: Palette.ink,
     fontSize: 15,
     fontWeight: "800",
   },

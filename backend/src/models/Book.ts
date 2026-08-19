@@ -53,10 +53,17 @@ const bookSchema = new Schema<IBook>(
     sortOrder: { type: Number, default: 0 },
     tags: [{ type: String, trim: true }],
   },
-  { timestamps: true }
+  { timestamps: true, autoIndex: false }
 );
 
-bookSchema.index({ title: 'text', description: 'text', tags: 'text' });
+bookSchema.index(
+  { title: 'text', description: 'text', tags: 'text' },
+  {
+    name: 'book_search_text_v2',
+    default_language: 'none',
+    language_override: 'searchIndexLanguage',
+  }
+);
 bookSchema.index({ status: 1, sortOrder: 1, createdAt: -1 });
 
 export const Book = mongoose.model<IBook>('Book', bookSchema);

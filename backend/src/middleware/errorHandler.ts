@@ -2,6 +2,7 @@ import { Request, Response, NextFunction } from 'express';
 import { env } from '../config/env';
 import { AppError } from '../utils/errors';
 import { MongooseError } from 'mongoose';
+import multer from 'multer';
 
 interface ErrorResponse {
   success: false;
@@ -38,6 +39,14 @@ export const errorHandler = (
 
   if (err.name === 'JsonWebTokenError' || err.name === 'TokenExpiredError') {
     res.status(401).json({ success: false, message: 'Invalid or expired token' });
+    return;
+  }
+
+  if (err instanceof multer.MulterError) {
+    const message = err.code === 'LIMIT_FILE_SIZE'
+      ? 'The selected media file is too large'
+      : err.message;
+    res.status(400).json({ success: false, message });
     return;
   }
 
