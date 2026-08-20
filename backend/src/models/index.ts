@@ -1,4 +1,5 @@
 export { User, IUser, UserRole } from './User';
+export { Otp, IOtp } from './Otp';
 export {
   Content,
   IContent,

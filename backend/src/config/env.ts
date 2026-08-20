@@ -31,4 +31,6 @@ export const env = {
   JWT_SECRET: JWT_SECRET_RAW || JWT_SECRET_FALLBACK,
   JWT_EXPIRES_IN: process.env.JWT_EXPIRES_IN || '7d',
   ADMIN_EMAIL: process.env.ADMIN_EMAIL ?? undefined,
+  ADMIN_PHONE_NUMBER: process.env.ADMIN_PHONE_NUMBER || '+918089239823',
+  WHATSAPP_OTP_MODE: process.env.WHATSAPP_OTP_MODE || 'test',
 } as const;

@@ -19,6 +19,15 @@ class AuthRepositoryImpl implements AuthRepository {
   }
 
   @override
+  Future<Map<String, dynamic>> requestSignupOtp(String phoneNumber) async {
+    final r = await client.dio.post(
+      '/auth/request-signup-otp',
+      data: {'phoneNumber': phoneNumber},
+    );
+    return Map<String, dynamic>.from(r.data);
+  }
+
+  @override
   Future<Map<String, dynamic>> requestLoginOtp(String phoneNumber) async {
     final r = await client.dio.post(
       '/auth/request-login-otp',
@@ -34,6 +43,21 @@ class AuthRepositoryImpl implements AuthRepository {
       data: {'phoneNumber': phoneNumber, 'otp': otp},
     );
     return r.data['loginChallenge'].toString();
+  }
+
+  @override
+  Future<User> signup({
+    required String name,
+    required String phoneNumber,
+    required String pin,
+    required String otp,
+  }) async {
+    final r = await client.dio.post(
+      '/auth/signup',
+      data: {'name': name, 'phoneNumber': phoneNumber, 'pin': pin, 'otp': otp},
+    );
+    await client.saveToken(r.data['token'].toString());
+    return UserModel.fromJson(Map<String, dynamic>.from(r.data['user']));
   }
 
   @override

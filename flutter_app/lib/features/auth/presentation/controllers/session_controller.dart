@@ -21,10 +21,23 @@ class SessionController extends ChangeNotifier {
     user = await repository.restoreSession();
   }
 
+  Future<Map<String, dynamic>> requestSignupOtp(String phone) =>
+      repository.requestSignupOtp(phone);
   Future<Map<String, dynamic>> requestLoginOtp(String phone) =>
       repository.requestLoginOtp(phone);
   Future<String> verifyLoginOtp(String phone, String otp) =>
       repository.verifyLoginOtp(phone, otp);
+
+  Future<void> signup(String name, String phone, String pin, String otp) async {
+    user = await repository.signup(
+      name: name,
+      phoneNumber: phone,
+      pin: pin,
+      otp: otp,
+    );
+    notifyListeners();
+  }
+
   Future<void> login(String phone, String pin, String challenge) async {
     user = await repository.login(
       phoneNumber: phone,
