@@ -3,6 +3,7 @@ import { validationResult } from 'express-validator';
 import { User, Content } from '../models';
 import type { ILifebookSection, ILesson } from '../models/Content';
 import { BadRequestError, NotFoundError } from '../utils/errors';
+import { emitCatalogChanged } from '../services/realtime';
 
 const LIFEBOOK_UPDATE_FIELDS = [
   'title',
@@ -133,6 +134,7 @@ export const createBook = async (
       lessons,
       conclusion,
     });
+    emitCatalogChanged('created', book.id, book.contentType);
     res.status(201).json({ success: true, book });
   } catch (err) {
     next(err);
@@ -175,6 +177,7 @@ export const updateBook = async (
       { new: true, runValidators: true }
     );
     if (!book) return next(new NotFoundError('Book not found'));
+    emitCatalogChanged('updated', book.id, book.contentType);
     res.json({ success: true, book });
   } catch (err) {
     next(err);
@@ -190,6 +193,7 @@ export const deleteBook = async (
   try {
     const book = await Content.findByIdAndDelete(req.params.id);
     if (!book) return next(new NotFoundError('Book not found'));
+    emitCatalogChanged('deleted', book.id, book.contentType);
     res.json({ success: true, message: 'Book deleted' });
   } catch (err) {
     next(err);
@@ -217,6 +221,7 @@ export const updateBookStatus = async (
       { new: true, runValidators: true }
     );
     if (!book) return next(new NotFoundError('Book not found'));
+    emitCatalogChanged('updated', book.id, book.contentType);
     res.json({ success: true, book });
   } catch (err) {
     next(err);

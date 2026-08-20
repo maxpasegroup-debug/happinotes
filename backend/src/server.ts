@@ -2,6 +2,9 @@ import app from './app';
 import { connectDB } from './config/database';
 import { ensureAdminUser } from './config/ensureAdmin';
 import { env } from './config/env';
+import { createServer } from 'http';
+import { Server } from 'socket.io';
+import { registerRealtimeServer } from './services/realtime';
 
 if (!process.env.PORT && process.env.NODE_ENV === 'production') {
   throw new Error('PORT is not defined in production');
@@ -20,7 +23,24 @@ const start = async (): Promise<void> => {
 
   await connectDB();
   await ensureAdminUser();
-  app.listen(PORT, () => {
+  const httpServer = createServer(app);
+  const configuredOrigins = (process.env.CORS_ORIGINS || '')
+    .split(',')
+    .map((origin) => origin.trim())
+    .filter(Boolean);
+  const io = new Server(httpServer, {
+    cors: {
+      origin: configuredOrigins.length > 0 ? configuredOrigins : true,
+      methods: ['GET', 'POST'],
+      credentials: true,
+    },
+  });
+  registerRealtimeServer(io);
+  io.on('connection', (socket) => {
+    console.log(`Realtime client connected: ${socket.id}`);
+  });
+
+  httpServer.listen(PORT, () => {
     console.log('PORT ENV:', process.env.PORT);
     console.log(`Server running on port ${PORT}`);
   });

@@ -14,6 +14,7 @@ import '../features/player/presentation/controllers/player_controller.dart';
 import '../features/admin/data/repositories/admin_repository_impl.dart';
 import '../features/admin/domain/repositories/admin_repository.dart';
 import '../features/admin/presentation/controllers/admin_controller.dart';
+import '../core/realtime/realtime_service.dart';
 
 final apiClientProvider = Provider<ApiClient>((ref) => ApiClient());
 final authRepositoryProvider = Provider<AuthRepository>(
@@ -55,6 +56,25 @@ final booksControllerProvider = ChangeNotifierProvider<BooksController>(
     ref.watch(apiClientProvider),
   ),
 );
+final realtimeServiceProvider = Provider<RealtimeService>((ref) {
+  final service = RealtimeService(
+    onCatalogChanged: () {
+      final session = ref.read(sessionControllerProvider);
+      if (!session.isLoggedIn) return;
+      final query = ref.read(searchQueryProvider);
+      final selectedLanguage = ref.read(searchLanguageProvider);
+      ref.read(booksControllerProvider).loadBooks(
+        query: query.isEmpty ? null : query,
+        language: selectedLanguage == 'all' ? null : selectedLanguage,
+      );
+      if (session.user?.role == 'admin') {
+        ref.read(adminControllerProvider).loadAll();
+      }
+    },
+  );
+  ref.onDispose(service.dispose);
+  return service;
+});
 final playerControllerProvider = ChangeNotifierProvider<PlayerController>(
   (ref) => PlayerController(),
 );

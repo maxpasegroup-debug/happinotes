@@ -16,6 +16,7 @@ class HappiNotesApp extends ConsumerWidget {
   const HappiNotesApp({super.key});
   @override
   Widget build(BuildContext context, WidgetRef ref) {
+    ref.watch(realtimeServiceProvider);
     final state = ref.watch(sessionControllerProvider);
     return MaterialApp(
       debugShowCheckedModeBanner: false,

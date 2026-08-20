@@ -5,6 +5,7 @@ import type { ILifebookSection, ILesson } from '../models/Content';
 import type { Multer } from 'multer';
 import { BadRequestError, NotFoundError } from '../utils/errors';
 import { cloudinary } from '../config/cloudinary';
+import { emitCatalogChanged } from '../services/realtime';
 
 const CONTENT_UPDATE_FIELDS = [
   'title',
@@ -365,6 +366,8 @@ export const createContent = async (
         category: contentType === 'silence' ? category || 'General' : undefined,
       });
     }
+    const createdContent = content as { id: string; contentType?: string };
+    emitCatalogChanged('created', createdContent.id, createdContent.contentType);
     res.status(201).json({ success: true, content });
   } catch (err) {
     next(err);
@@ -588,6 +591,7 @@ export const updateContent = async (
       runValidators: true,
     });
     if (!content) return next(new NotFoundError('Content not found'));
+    emitCatalogChanged('updated', content.id, content.contentType);
     res.json({ success: true, content });
   } catch (err) {
     next(err);
@@ -603,6 +607,7 @@ export const deleteContent = async (
   try {
     const content = await Content.findByIdAndDelete(req.params.id);
     if (!content) return next(new NotFoundError('Content not found'));
+    emitCatalogChanged('deleted', content.id, content.contentType);
     res.json({ success: true, message: 'Content deleted' });
   } catch (err) {
     next(err);
@@ -634,6 +639,7 @@ export const updateContentStatus = async (
       { new: true, runValidators: true }
     );
     if (!content) return next(new NotFoundError('Content not found'));
+    emitCatalogChanged('updated', content.id, content.contentType);
     res.json({ success: true, content });
   } catch (err) {
     next(err);
@@ -653,6 +659,7 @@ export const featureContent = async (
       { new: true, runValidators: true }
     );
     if (!content) return next(new NotFoundError('Content not found'));
+    emitCatalogChanged('updated', content.id, content.contentType);
     res.json({ success: true, content });
   } catch (err) {
     next(err);
@@ -672,6 +679,7 @@ export const unfeatureContent = async (
       { new: true, runValidators: true }
     );
     if (!content) return next(new NotFoundError('Content not found'));
+    emitCatalogChanged('updated', content.id, content.contentType);
     res.json({ success: true, content });
   } catch (err) {
     next(err);
