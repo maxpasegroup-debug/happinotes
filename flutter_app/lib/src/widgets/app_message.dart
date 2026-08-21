@@ -3,6 +3,16 @@ import 'package:flutter/material.dart';
 class AppMessage {
   const AppMessage._();
 
+  static final messengerKey = GlobalKey<ScaffoldMessengerState>();
+
+  static void showGlobal(String message, {bool success = true}) {
+    final messenger = messengerKey.currentState;
+    if (messenger == null) return;
+    messenger
+      ..hideCurrentSnackBar()
+      ..showSnackBar(_snackBar(message, success: success));
+  }
+
   static void show(
     BuildContext context,
     String message, {
@@ -11,8 +21,10 @@ class AppMessage {
     final messenger = ScaffoldMessenger.of(context);
     messenger
       ..hideCurrentSnackBar()
-      ..showSnackBar(
-        SnackBar(
+      ..showSnackBar(_snackBar(message, success: success));
+  }
+
+  static SnackBar _snackBar(String message, {required bool success}) => SnackBar(
           behavior: SnackBarBehavior.floating,
           margin: const EdgeInsets.fromLTRB(12, 0, 12, 12),
           padding: const EdgeInsets.symmetric(horizontal: 14, vertical: 9),
@@ -41,8 +53,5 @@ class AppMessage {
                 ),
               ),
             ],
-          ),
-        ),
-      );
-  }
+          );
 }
