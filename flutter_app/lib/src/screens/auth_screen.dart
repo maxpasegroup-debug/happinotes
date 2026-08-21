@@ -46,7 +46,6 @@ class AuthScreen extends ConsumerWidget {
                 if (form.step == AuthStep.details) ...[
                   if (form.isSignup) ...[
                     TextFormField(
-                      key: const ValueKey('signup-full-name'),
                       initialValue: form.name,
                       onChanged: form.setName,
                       textCapitalization: TextCapitalization.words,
@@ -55,7 +54,6 @@ class AuthScreen extends ConsumerWidget {
                     const SizedBox(height: 14),
                   ],
                   TextFormField(
-                    key: ValueKey('auth-phone-${form.isSignup}'),
                     initialValue: form.phone,
                     onChanged: form.setPhone,
                     keyboardType: TextInputType.phone,
