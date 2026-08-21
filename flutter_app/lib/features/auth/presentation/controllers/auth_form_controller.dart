@@ -78,7 +78,6 @@ class AuthFormController extends ChangeNotifier {
           testOtp = result['testOtp']?.toString();
         }
         step = AuthStep.otp;
-        successMessage = 'OTP sent successfully';
       } else if (step == AuthStep.otp) {
         if (otp.length != 6) throw StateError('Enter the 6-digit OTP.');
         if (isSignup) {

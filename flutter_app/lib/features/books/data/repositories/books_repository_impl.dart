@@ -9,33 +9,27 @@ class BooksRepositoryImpl implements BooksRepository {
   @override
   Future<List<Book>> getBooks({String? query, String? language}) async {
     final r = await client.dio.get(
-      '/contents',
+      '/books',
       queryParameters: {
-        'type': 'lifebook',
-        'view': 'mobile',
+        if (query?.isNotEmpty == true) 'query': query,
+        if (language != null && language != 'all') 'language': language,
       },
     );
-    return (r.data['contents'] as List? ?? [])
+    return (r.data['books'] as List? ?? [])
         .map((x) => BookModel.fromJson(Map<String, dynamic>.from(x)))
-        .where((book) => book.status == 'live')
-        .where((book) => language == null || language == 'all' || book.language == language)
-        .where((book) => query?.isNotEmpty != true || book.title.toLowerCase().contains(query!.toLowerCase()))
         .toList();
   }
 
   @override
   Future<List<Book>> getUpcomingBooks({String? language}) async {
     final response = await client.dio.get(
-      '/contents',
+      '/books/upcoming',
       queryParameters: {
-        'type': 'lifebook',
-        'view': 'mobile',
+        if (language != null && language != 'all') 'language': language,
       },
     );
-    return (response.data['contents'] as List? ?? [])
+    return (response.data['books'] as List? ?? [])
         .map((value) => BookModel.fromJson(Map<String, dynamic>.from(value)))
-        .where((book) => book.status == 'coming_soon')
-        .where((book) => language == null || language == 'all' || book.language == language)
         .toList();
   }
 }

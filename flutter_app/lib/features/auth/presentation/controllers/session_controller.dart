@@ -9,7 +9,10 @@ class SessionController extends ChangeNotifier {
   bool initialized = false;
   bool get isLoggedIn => user != null;
   Future<void> initialize() async {
-    await _restore();
+    await Future.wait([
+      _restore(),
+      Future<void>.delayed(const Duration(milliseconds: 1700)),
+    ]);
     initialized = true;
     notifyListeners();
   }

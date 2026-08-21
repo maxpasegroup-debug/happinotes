@@ -6,7 +6,6 @@ import 'src/screens/launch_splash.dart';
 import 'src/screens/main_shell.dart';
 import 'src/screens/admin_screen.dart';
 import 'src/theme.dart';
-import 'src/widgets/app_message.dart';
 
 Future<void> main() async {
   WidgetsFlutterBinding.ensureInitialized();
@@ -21,7 +20,6 @@ class HappiNotesApp extends ConsumerWidget {
     final state = ref.watch(sessionControllerProvider);
     return MaterialApp(
       debugShowCheckedModeBanner: false,
-      scaffoldMessengerKey: AppMessage.messengerKey,
       title: 'HappiNotes',
       theme: buildHappiTheme(),
       home: !state.initialized

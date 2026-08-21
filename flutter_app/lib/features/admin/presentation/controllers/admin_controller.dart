@@ -3,29 +3,14 @@ import 'package:file_picker/file_picker.dart';
 import '../../../../core/network/api_client.dart';
 import '../../domain/repositories/admin_repository.dart';
 
-class EpisodeDraft {
-  EpisodeDraft({required this.title, required this.mediaUrl, this.description = '', this.fileName = ''});
-  String title;
-  String description;
-  String mediaUrl;
-  String fileName;
-
-  factory EpisodeDraft.fromJson(Map<String, dynamic> json) => EpisodeDraft(
-    title: (json['title'] ?? 'Episode').toString(),
-    description: (json['description'] ?? '').toString(),
-    mediaUrl: (json['mediaUrl'] ?? '').toString(),
-    fileName: (json['fileName'] ?? '').toString(),
-  );
-}
-
 class BookDraft {
   String? id;
   String title = '', description = '', language = 'english';
-  String status = 'draft', accessType = 'free';
-  String coverImageUrl = '';
-  String sortOrder = '0';
-  bool featured = false;
-  List<EpisodeDraft> episodes = [];
+  String category = 'happiness', status = 'draft', accessType = 'free';
+  String coverImageUrl = '', coverPublicId = '';
+  String introAudioUrl = '', introAudioPublicId = '', audioFileName = '';
+  String duration = '0', sortOrder = '0', tags = '';
+  bool featured = false, trending = false;
 
   BookDraft();
   BookDraft.fromJson(Map<String, dynamic> j) {
@@ -33,33 +18,38 @@ class BookDraft {
     title = (j['title'] ?? '').toString();
     description = (j['description'] ?? '').toString();
     language = (j['language'] ?? 'english').toString();
+    category = (j['category'] ?? 'happiness').toString();
     status = (j['status'] ?? 'draft').toString();
-    accessType = (j['type'] ?? j['accessType'] ?? 'free').toString();
-    coverImageUrl = (j['thumbnailUrl'] ?? j['coverImageUrl'] ?? '').toString();
-    sortOrder = (j['mobileDisplayOrder'] ?? j['sortOrder'] ?? 0).toString();
-    featured = j['featured'] == true || j['isFeatured'] == true;
-    final raw = (j['lessons'] as List?) ?? const [];
-    episodes = raw.map((e) => EpisodeDraft.fromJson(Map<String, dynamic>.from(e as Map))).toList();
+    accessType = (j['accessType'] ?? 'free').toString();
+    coverImageUrl = (j['coverImageUrl'] ?? '').toString();
+    coverPublicId = (j['coverPublicId'] ?? '').toString();
+    introAudioUrl = (j['introAudioUrl'] ?? '').toString();
+    introAudioPublicId = (j['introAudioPublicId'] ?? '').toString();
+    audioFileName = (j['introAudioFileName'] ?? '').toString();
+    duration = (j['totalDurationSeconds'] ?? 0).toString();
+    sortOrder = (j['sortOrder'] ?? 0).toString();
+    tags = ((j['tags'] as List?) ?? []).join(', ');
+    featured = j['isFeatured'] == true;
+    trending = j['isTrending'] == true;
   }
 
   Map<String, dynamic> toJson() => {
     'title': title.trim(),
     'description': description.trim(),
     'language': language,
-    'contentType': 'lifebook',
+    'category': category,
     'status': status,
-    'type': accessType,
-    'thumbnailUrl': coverImageUrl,
-    'mobileDisplayOrder': int.tryParse(sortOrder) ?? 0,
-    'webDisplayOrder': int.tryParse(sortOrder) ?? 0,
-    'featured': featured,
-    'lessons': episodes.asMap().entries.map((entry) => {
-      'title': entry.value.title.trim(),
-      'description': entry.value.description.trim(),
-      'mediaUrl': entry.value.mediaUrl,
-      'mediaType': 'audio',
-      'order': entry.key,
-    }).toList(),
+    'accessType': accessType,
+    'coverImageUrl': coverImageUrl,
+    'coverPublicId': coverPublicId,
+    'introAudioUrl': introAudioUrl,
+    'introAudioPublicId': introAudioPublicId,
+    'introAudioFileName': audioFileName,
+    'totalDurationSeconds': int.tryParse(duration) ?? 0,
+    'sortOrder': int.tryParse(sortOrder) ?? 0,
+    'tags': tags.split(',').map((e) => e.trim()).where((e) => e.isNotEmpty).toList(),
+    'isFeatured': featured,
+    'isTrending': trending,
   };
 }
 
@@ -92,81 +82,48 @@ class AdminController extends ChangeNotifier {
     loading = false; notifyListeners();
   }
 
-  Future<PlatformFile?> _pick(String kind) async {
+  Future<bool> uploadMedia(String kind) async {
     final result = await FilePicker.platform.pickFiles(
       type: FileType.custom,
       allowedExtensions: kind == 'cover' ? ['jpg', 'jpeg', 'png', 'webp'] : ['mp3'],
     );
-    final file = result?.files.single;
-    final path = file?.path;
-    if (path == null || file == null) return null;
+    final path = result?.files.single.path;
+    if (path == null) return false;
     final maximumBytes = kind == 'cover'
         ? 5 * 1024 * 1024
         : 200 * 1024 * 1024;
-    if (file.size > maximumBytes) {
+    if (result!.files.single.size > maximumBytes) {
       error = kind == 'cover'
           ? 'Cover image must be 5 MB or smaller.'
           : 'MP3 must be 200 MB or smaller.';
       notifyListeners();
-      return null;
+      return false;
     }
-    return file;
-  }
-
-  Future<bool> uploadCover() async {
-    final file = await _pick('cover');
-    if (file?.path == null) return false;
     busy = true; error = null; notifyListeners();
     try {
-      final media = await repository.upload(file!.path!, 'thumbnail');
-      draft.coverImageUrl = media['url']?.toString() ?? '';
-      success = 'Cover uploaded';
+      final media = await repository.upload(path, kind);
+      if (kind == 'cover') {
+        draft.coverImageUrl = media['url']?.toString() ?? '';
+        draft.coverPublicId = media['publicId']?.toString() ?? '';
+      } else {
+        draft.introAudioUrl = media['url']?.toString() ?? '';
+        draft.introAudioPublicId = media['publicId']?.toString() ?? '';
+        draft.audioFileName = result.files.single.name;
+      }
+      success = kind == 'cover' ? 'Cover uploaded' : 'MP3 uploaded';
       return true;
     } catch (e) { error = client.errorMessage(e); return false; }
     finally { busy = false; notifyListeners(); }
-  }
-
-  Future<bool> addEpisode() async {
-    final file = await _pick('audio');
-    if (file?.path == null) return false;
-    busy = true; error = null; notifyListeners();
-    try {
-      final media = await repository.upload(file!.path!, 'lesson');
-      draft.episodes.add(EpisodeDraft(
-        title: 'Episode ${draft.episodes.length + 1}',
-        mediaUrl: media['url']?.toString() ?? '',
-        fileName: file.name,
-      ));
-      success = 'Episode uploaded';
-      return true;
-    } catch (e) { error = client.errorMessage(e); return false; }
-    finally { busy = false; notifyListeners(); }
-  }
-
-  void removeEpisode(int index) { draft.episodes.removeAt(index); notifyListeners(); }
-  void moveEpisode(int index, int delta) {
-    final next = index + delta;
-    if (next < 0 || next >= draft.episodes.length) return;
-    final episode = draft.episodes.removeAt(index);
-    draft.episodes.insert(next, episode);
-    notifyListeners();
   }
 
   Future<bool> saveBook() async {
-    if (draft.title.trim().isEmpty || draft.description.trim().isEmpty || draft.coverImageUrl.isEmpty) {
-      error = 'Title, description and cover image are required.'; notifyListeners(); return false;
-    }
-    if (draft.status == 'live' && draft.episodes.isEmpty) {
-      error = 'Add at least one episode before publishing.'; notifyListeners(); return false;
+    if (draft.title.trim().isEmpty || draft.description.trim().isEmpty) {
+      error = 'Title and description are required.'; notifyListeners(); return false;
     }
     busy = true; error = null; success = null; notifyListeners();
     try {
-      if (draft.id == null) {
-        await repository.createBook(draft.toJson());
-      } else {
-        await repository.updateBook(draft.id!, draft.toJson());
-        await repository.updateBookStatus(draft.id!, draft.status);
-      }
+      if (draft.id == null) await repository.createBook(draft.toJson());
+      else await repository.updateBook(draft.id!, draft.toJson());
       success = draft.id == null ? 'Book created' : 'Book updated';
       await loadAll(); return true;
     } catch (e) { error = client.errorMessage(e); return false; }

@@ -178,7 +178,7 @@ class _Books extends ConsumerWidget {
         separatorBuilder: (_, _) => const SizedBox(height: 8),
         itemBuilder: (context, index) {
           final book = s.books[index];
-          final cover = (book['thumbnailUrl'] ?? book['coverImageUrl'] ?? '').toString();
+          final cover = (book['coverImageUrl'] ?? '').toString();
           return Card(
             child: ListTile(
               contentPadding: const EdgeInsets.all(10),
@@ -189,7 +189,7 @@ class _Books extends ConsumerWidget {
                     : Image.network(cover, width: 54, height: 72, fit: BoxFit.cover),
               ),
               title: Text((book['title'] ?? 'Untitled').toString(), maxLines: 2, overflow: TextOverflow.ellipsis, style: const TextStyle(fontWeight: FontWeight.w800)),
-              subtitle: Text('${book['language']} • ${book['status']} • ${book['type']} • ${(book['lessons'] as List?)?.length ?? 0} episodes'),
+              subtitle: Text('${book['language']}  •  ${book['status']}  •  ${book['accessType']}'),
               trailing: PopupMenuButton<String>(
                 onSelected: (action) async {
                   if (action == 'edit') {
@@ -338,44 +338,22 @@ class AdminBookEditor extends ConsumerWidget {
           input('Title *', d.title, (v) => d.title = v),
           input('Description *', d.description, (v) => d.description = v, lines: 4),
           select('Language', d.language, const ['english', 'malayalam', 'hindi'], (v) => d.language = v),
-          select('Status', d.status, const ['draft', 'coming_soon', 'live'], (v) => d.status = v),
+          select('Category', d.category, const ['health', 'wealth', 'happiness', 'mindfulness'], (v) => d.category = v),
+          select('Status', d.status, const ['draft', 'upcoming', 'live'], (v) => d.status = v),
           select('Access', d.accessType, const ['free', 'premium'], (v) => d.accessType = v),
           const Text('Cover image', style: TextStyle(fontWeight: FontWeight.w800)), const SizedBox(height: 8),
           if (d.coverImageUrl.isNotEmpty) ClipRRect(borderRadius: BorderRadius.circular(10), child: Image.network(d.coverImageUrl, height: 180, fit: BoxFit.contain)),
-          OutlinedButton.icon(onPressed: state.busy ? null : state.uploadCover, icon: const Icon(Icons.image_outlined), label: Text(d.coverImageUrl.isEmpty ? 'Choose image' : 'Replace image')),
+          OutlinedButton.icon(onPressed: state.busy ? null : () => state.uploadMedia('cover'), icon: const Icon(Icons.image_outlined), label: Text(d.coverImageUrl.isEmpty ? 'Choose image' : 'Replace image')),
           const SizedBox(height: 14),
-          Row(children: [
-            const Expanded(child: Text('Episodes', style: TextStyle(fontSize: 18, fontWeight: FontWeight.w900))),
-            FilledButton.icon(onPressed: state.busy ? null : state.addEpisode, icon: const Icon(Icons.add_rounded), label: const Text('Add MP3')),
-          ]),
-          const SizedBox(height: 8),
-          if (d.episodes.isEmpty)
-            const Card(child: Padding(padding: EdgeInsets.all(16), child: Text('No episodes yet. Add each story episode as an MP3.'))),
-          ...d.episodes.asMap().entries.map((entry) {
-            final index = entry.key;
-            final episode = entry.value;
-            return Card(
-              key: ValueKey('${episode.mediaUrl}-$index'),
-              margin: const EdgeInsets.only(bottom: 12),
-              child: Padding(
-                padding: const EdgeInsets.all(12),
-                child: Column(children: [
-                  Row(children: [
-                    CircleAvatar(child: Text('${index + 1}')),
-                    const SizedBox(width: 10),
-                    Expanded(child: Text(episode.fileName.isEmpty ? 'Uploaded episode' : episode.fileName, maxLines: 1, overflow: TextOverflow.ellipsis)),
-                    IconButton(onPressed: index == 0 ? null : () => state.moveEpisode(index, -1), icon: const Icon(Icons.arrow_upward_rounded)),
-                    IconButton(onPressed: index == d.episodes.length - 1 ? null : () => state.moveEpisode(index, 1), icon: const Icon(Icons.arrow_downward_rounded)),
-                    IconButton(onPressed: () => state.removeEpisode(index), icon: const Icon(Icons.delete_outline_rounded), color: Colors.red),
-                  ]),
-                  input('Episode title *', episode.title, (v) => episode.title = v),
-                  input('Episode description', episode.description, (v) => episode.description = v, lines: 2),
-                ]),
-              ),
-            );
-          }),
+          const Text('Main MP3 audio', style: TextStyle(fontWeight: FontWeight.w800)),
+          ListTile(contentPadding: EdgeInsets.zero, leading: const Icon(Icons.audio_file_rounded), title: Text(d.audioFileName.isEmpty ? 'No MP3 selected' : d.audioFileName), subtitle: Text(d.introAudioUrl.isEmpty ? 'Choose an MP3 file' : 'Uploaded and ready')),
+          OutlinedButton.icon(onPressed: state.busy ? null : () => state.uploadMedia('audio'), icon: const Icon(Icons.upload_file_rounded), label: Text(d.introAudioUrl.isEmpty ? 'Choose MP3' : 'Replace MP3')),
+          const SizedBox(height: 14),
+          input('Duration in seconds', d.duration, (v) => d.duration = v, type: TextInputType.number),
           input('Sort order', d.sortOrder, (v) => d.sortOrder = v, type: TextInputType.number),
+          input('Tags separated by commas', d.tags, (v) => d.tags = v),
           SwitchListTile(contentPadding: EdgeInsets.zero, title: const Text('Featured'), value: d.featured, onChanged: (v) { d.featured = v; state.notifyChanged(); }),
+          SwitchListTile(contentPadding: EdgeInsets.zero, title: const Text('Trending'), value: d.trending, onChanged: (v) { d.trending = v; state.notifyChanged(); }),
           if (state.error != null) Padding(padding: const EdgeInsets.only(bottom: 12), child: Text(state.error!, style: const TextStyle(color: Colors.red))),
           FilledButton(
             onPressed: state.busy ? null : () async {
