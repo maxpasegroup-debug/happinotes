@@ -11,10 +11,43 @@ import 'book_detail.dart';
 import 'legal_screen.dart';
 import 'membership_screen.dart';
 
-class MainShell extends ConsumerWidget {
+class MainShell extends ConsumerStatefulWidget {
   const MainShell({super.key});
+
   @override
-  Widget build(BuildContext context, WidgetRef ref) {
+  ConsumerState<MainShell> createState() => _MainShellState();
+}
+
+class _MainShellState extends ConsumerState<MainShell> {
+  bool _membershipPromptShown = false;
+
+  @override
+  void initState() {
+    super.initState();
+    WidgetsBinding.instance.addPostFrameCallback((_) {
+      if (!mounted || _membershipPromptShown) return;
+      final user = ref.read(sessionControllerProvider).user;
+      if (user == null || user.role == 'admin' || user.subscriptionStatus != 'free') {
+        return;
+      }
+      _membershipPromptShown = true;
+      showModalBottomSheet<void>(
+        context: context,
+        isScrollControlled: true,
+        backgroundColor: Colors.transparent,
+        builder: (_) => FractionallySizedBox(
+          heightFactor: .86,
+          child: ClipRRect(
+            borderRadius: const BorderRadius.vertical(top: Radius.circular(24)),
+            child: const MembershipScreen(),
+          ),
+        ),
+      );
+    });
+  }
+
+  @override
+  Widget build(BuildContext context) {
     final index = ref.watch(mainTabIndexProvider);
     final books = ref.watch(booksControllerProvider);
     if (!books.loading &&
