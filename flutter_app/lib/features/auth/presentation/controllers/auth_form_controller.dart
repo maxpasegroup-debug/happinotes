@@ -7,6 +7,12 @@ enum AuthStep { details, otp, pin }
 class AuthFormController extends ChangeNotifier {
   AuthFormController(this.session, this.client);
 
+  bool _disposed = false;
+
+  void _notify() {
+    if (!_disposed) notifyListeners();
+  }
+
   final SessionController session;
   final ApiClient client;
   bool isSignup = false;
@@ -43,7 +49,7 @@ class AuthFormController extends ChangeNotifier {
     testOtp = null;
     error = null;
     successMessage = null;
-    notifyListeners();
+    _notify();
   }
 
   void changeDetails() {
@@ -52,7 +58,7 @@ class AuthFormController extends ChangeNotifier {
     challenge = '';
     testOtp = null;
     error = null;
-    notifyListeners();
+    _notify();
   }
 
   Future<void> submit() async {
@@ -60,11 +66,11 @@ class AuthFormController extends ChangeNotifier {
     successMessage = null;
     if (!RegExp(r'^\+[1-9]\d{7,14}$').hasMatch(phone)) {
       error = 'Enter a valid WhatsApp number with country code.';
-      notifyListeners();
+      _notify();
       return;
     }
     loading = true;
-    notifyListeners();
+    _notify();
     try {
       if (step == AuthStep.details) {
         if (isSignup) {
@@ -97,7 +103,13 @@ class AuthFormController extends ChangeNotifier {
       error = client.errorMessage(exception);
     } finally {
       loading = false;
-      notifyListeners();
+      _notify();
     }
+  }
+
+  @override
+  void dispose() {
+    _disposed = true;
+    super.dispose();
   }
 }
