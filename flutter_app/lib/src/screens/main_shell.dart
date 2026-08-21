@@ -26,6 +26,7 @@ class _MainShellState extends ConsumerState<MainShell> {
     super.initState();
     WidgetsBinding.instance.addPostFrameCallback((_) {
       if (!mounted || _membershipPromptShown) return;
+      ref.read(booksControllerProvider).loadCollection();
       final user = ref.read(sessionControllerProvider).user;
       if (user == null || user.role == 'admin' || user.subscriptionStatus != 'free') {
         return;
@@ -318,22 +319,35 @@ class _FeaturedRailState extends State<FeaturedRail> {
                             shape: BoxShape.circle,
                           ),
                           child: Consumer(
-                            builder: (context, ref, _) => IconButton(
+                            builder: (context, ref, _) {
+                              final saved = ref.watch(booksControllerProvider)
+                                  .library
+                                  .any((item) => item.id == book.id);
+                              return IconButton(
                               visualDensity: VisualDensity.compact,
-                              color: Colors.white,
-                              icon: const Icon(Icons.bookmark_border_rounded),
+                              color: saved ? AppColors.coral : Colors.white,
+                              icon: Icon(
+                                saved
+                                    ? Icons.bookmark_rounded
+                                    : Icons.bookmark_border_rounded,
+                              ),
                               onPressed: () async {
-                                final message = await ref
-                                    .read(booksControllerProvider)
-                                    .addToCollection(book);
+                                final controller = ref.read(booksControllerProvider);
+                                final message = saved
+                                    ? await controller.removeFromCollection(book)
+                                    : await controller.addToCollection(book);
                                 if (!context.mounted) return;
                                 AppMessage.show(
                                   context,
-                                  message ?? 'Added to your library',
+                                  message ??
+                                      (saved
+                                          ? 'Removed from your library'
+                                          : 'Added to your library'),
                                   success: message == null,
                                 );
                               },
-                            ),
+                            );
+                            },
                           ),
                         ),
                       ),
