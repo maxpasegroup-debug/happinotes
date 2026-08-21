@@ -9,7 +9,7 @@ import '../widgets/app_message.dart';
 class AuthScreen extends ConsumerWidget {
   const AuthScreen({super.key});
 
-  Future<void> _submit(BuildContext context, WidgetRef ref) async {
+  Future<void> _submit(WidgetRef ref) async {
     final controller = ref.read(authFormControllerProvider);
     await controller.submit();
     if (controller.successMessage != null || controller.error != null) {
@@ -83,7 +83,7 @@ class AuthScreen extends ConsumerWidget {
                     value: form.otp,
                     onChanged: form.setOtp,
                     enabled: !form.loading,
-                    onCompleted: () => _submit(context, ref),
+                    onCompleted: () => _submit(ref),
                   ),
                 ],
                 if (form.step == AuthStep.pin)
@@ -95,7 +95,7 @@ class AuthScreen extends ConsumerWidget {
                   ),
                 const SizedBox(height: 20),
                 FilledButton(
-                  onPressed: form.loading ? null : () => _submit(context, ref),
+                  onPressed: form.loading ? null : () => _submit(ref),
                   style: FilledButton.styleFrom(backgroundColor: AppColors.coral, padding: const EdgeInsets.all(17)),
                   child: Text(form.loading
                       ? 'Please wait...'
