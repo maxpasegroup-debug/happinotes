@@ -20,9 +20,9 @@ class BookModel extends Book {
     description: (j['description'] ?? '').toString(),
     language: (j['language'] ?? '').toString(),
     category: (j['category'] ?? '').toString(),
-    coverImageUrl: (j['coverImageUrl'] ?? '').toString(),
+    coverImageUrl: (j['coverImageUrl'] ?? j['thumbnailUrl'] ?? '').toString(),
     audioUrl: (j['introAudioUrl'] ?? '').toString(),
-    accessType: (j['accessType'] ?? 'free').toString(),
+    accessType: (j['accessType'] ?? j['type'] ?? 'free').toString(),
     status: (j['status'] ?? 'live').toString(),
     duration: (j['totalDurationSeconds'] as num?)?.toInt() ?? 0,
     episodes: ((j['lessons'] as List?) ?? [])

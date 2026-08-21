@@ -16,6 +16,39 @@ const LIFEBOOK_UPDATE_FIELDS = [
   'conclusion',
 ] as const;
 
+/** GET /admin/stats */
+export const getAdminStats = async (
+  _req: Request,
+  res: Response,
+  next: NextFunction
+): Promise<void> => {
+  try {
+    const [totalUsers, totalBooksPublished, activePremiumSubscribers, books] =
+      await Promise.all([
+        User.countDocuments(),
+        Content.countDocuments({ contentType: 'lifebook', status: 'live' }),
+        User.countDocuments({ subscriptionStatus: 'premium' }),
+        Content.find({ contentType: 'lifebook', status: 'live' })
+          .sort({ listenCount: -1 })
+          .limit(1)
+          .select({ title: 1 })
+          .lean(),
+      ]);
+    res.json({
+      success: true,
+      stats: {
+        totalUsers,
+        totalBooksPublished,
+        activePremiumSubscribers,
+        totalChaptersUploaded: 0,
+        mostListenedBook: books[0]?.title ?? 'Not available',
+      },
+    });
+  } catch (err) {
+    next(err);
+  }
+};
+
 function pickLifebookFields(body: Record<string, unknown>): Record<string, unknown> {
   const out: Record<string, unknown> = {};
   for (const key of LIFEBOOK_UPDATE_FIELDS) {

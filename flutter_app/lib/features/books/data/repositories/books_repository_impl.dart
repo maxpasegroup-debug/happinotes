@@ -9,13 +9,15 @@ class BooksRepositoryImpl implements BooksRepository {
   @override
   Future<List<Book>> getBooks({String? query, String? language}) async {
     final r = await client.dio.get(
-      '/books',
+      '/contents',
       queryParameters: {
+        'type': 'lifebook',
+        'status': 'live',
         if (query?.isNotEmpty == true) 'query': query,
         if (language != null && language != 'all') 'language': language,
       },
     );
-    return (r.data['books'] as List? ?? [])
+    return (r.data['contents'] as List? ?? [])
         .map((x) => BookModel.fromJson(Map<String, dynamic>.from(x)))
         .toList();
   }
@@ -23,12 +25,14 @@ class BooksRepositoryImpl implements BooksRepository {
   @override
   Future<List<Book>> getUpcomingBooks({String? language}) async {
     final response = await client.dio.get(
-      '/books/upcoming',
+      '/contents',
       queryParameters: {
+        'type': 'lifebook',
+        'status': 'coming_soon',
         if (language != null && language != 'all') 'language': language,
       },
     );
-    return (response.data['books'] as List? ?? [])
+    return (response.data['contents'] as List? ?? [])
         .map((value) => BookModel.fromJson(Map<String, dynamic>.from(value)))
         .toList();
   }
