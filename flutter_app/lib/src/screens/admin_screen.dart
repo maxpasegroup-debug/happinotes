@@ -348,6 +348,30 @@ class AdminBookEditor extends ConsumerWidget {
           const Text('Main MP3 audio', style: TextStyle(fontWeight: FontWeight.w800)),
           ListTile(contentPadding: EdgeInsets.zero, leading: const Icon(Icons.audio_file_rounded), title: Text(d.audioFileName.isEmpty ? 'No MP3 selected' : d.audioFileName), subtitle: Text(d.introAudioUrl.isEmpty ? 'Choose an MP3 file' : 'Uploaded and ready')),
           OutlinedButton.icon(onPressed: state.busy ? null : () => state.uploadMedia('audio'), icon: const Icon(Icons.upload_file_rounded), label: Text(d.introAudioUrl.isEmpty ? 'Choose MP3' : 'Replace MP3')),
+          const SizedBox(height: 18),
+          Row(
+            mainAxisAlignment: MainAxisAlignment.spaceBetween,
+            children: [
+              const Text('Story episodes', style: TextStyle(fontWeight: FontWeight.w800)),
+              Text('${d.episodes.length} added', style: const TextStyle(color: AppColors.muted)),
+            ],
+          ),
+          const SizedBox(height: 8),
+          ...d.episodes.asMap().entries.map((entry) => ListTile(
+                contentPadding: EdgeInsets.zero,
+                leading: CircleAvatar(child: Text('${entry.key + 1}')),
+                title: Text(entry.value['title']?.toString() ?? 'Episode ${entry.key + 1}'),
+                subtitle: Text(entry.value['fileName']?.toString() ?? 'MP3 uploaded'),
+                trailing: IconButton(
+                  icon: const Icon(Icons.delete_outline),
+                  onPressed: state.busy ? null : () => state.removeEpisode(entry.key),
+                ),
+              )),
+          OutlinedButton.icon(
+            onPressed: state.busy ? null : state.uploadEpisode,
+            icon: const Icon(Icons.playlist_add_rounded),
+            label: const Text('Add episode MP3'),
+          ),
           const SizedBox(height: 14),
           input('Duration in seconds', d.duration, (v) => d.duration = v, type: TextInputType.number),
           input('Sort order', d.sortOrder, (v) => d.sortOrder = v, type: TextInputType.number),

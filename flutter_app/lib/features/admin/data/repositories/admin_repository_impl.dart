@@ -45,17 +45,21 @@ class AdminRepositoryImpl implements AdminRepository {
         ? 'image/webp'
         : 'image/jpeg';
     final form = FormData.fromMap({
-      'file': await MultipartFile.fromFile(
+      'scope': kind == 'cover' ? 'cover' : 'lesson',
+      'media': await MultipartFile.fromFile(
         path,
         filename: fileName,
         contentType: DioMediaType.parse(mimeType),
       ),
     });
     final response = await client.dio.post(
-      '/admin/uploads/${kind == 'cover' ? 'cover' : 'audio'}',
+      '/admin/contents/upload-media',
       data: form,
     );
-    return _map(response.data['media']);
+    return {
+      'url': response.data['url'],
+      'mediaType': response.data['mediaType'],
+    };
   }
 
   @override

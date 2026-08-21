@@ -127,6 +127,45 @@ class BookDetail extends ConsumerWidget {
                 ),
                 subtitle: Text('${(book.duration / 60).round()} minutes'),
               ),
+              if (book.episodes.isNotEmpty) ...[
+                const SizedBox(height: 18),
+                Text(
+                  '${book.episodes.length} episodes available',
+                  style: const TextStyle(fontSize: 20, fontWeight: FontWeight.w800),
+                ),
+                const SizedBox(height: 8),
+                ...book.episodes.asMap().entries.map((entry) {
+                  final episode = entry.value;
+                  return ListTile(
+                    contentPadding: EdgeInsets.zero,
+                    leading: CircleAvatar(
+                      backgroundColor: AppColors.raised,
+                      child: Text('${entry.key + 1}'),
+                    ),
+                    title: Text(episode.title),
+                    subtitle: episode.description.isEmpty
+                        ? null
+                        : Text(episode.description, maxLines: 2, overflow: TextOverflow.ellipsis),
+                    trailing: IconButton(
+                      icon: Icon(
+                        isPlaying ? Icons.stop_rounded : Icons.play_arrow_rounded,
+                        color: AppColors.coral,
+                      ),
+                      onPressed: () async {
+                        try {
+                          if (isPlaying) {
+                            await player.stop();
+                          } else {
+                            await player.playEpisode(book, episode);
+                          }
+                        } catch (error) {
+                          if (context.mounted) AppMessage.show(context, error.toString(), success: false);
+                        }
+                      },
+                    ),
+                  );
+                }),
+              ],
             ],
           ),
         ),

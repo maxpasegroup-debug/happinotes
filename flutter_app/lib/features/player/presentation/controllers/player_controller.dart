@@ -6,11 +6,19 @@ class PlayerController extends ChangeNotifier {
   final AudioPlayer audioPlayer = AudioPlayer();
   Book? currentBook;
   Future<void> play(Book book) async {
-    if (book.audioUrl.isEmpty) throw StateError('This book has no audio yet.');
+    await playUrl(book, book.audioUrl);
+  }
+
+  Future<void> playEpisode(Book book, BookEpisode episode) async {
+    await playUrl(book, episode.audioUrl);
+  }
+
+  Future<void> playUrl(Book book, String url) async {
+    if (url.isEmpty) throw StateError('This book has no audio yet.');
     if (currentBook?.id != book.id) {
       currentBook = book;
-      await audioPlayer.setUrl(book.audioUrl);
     }
+    await audioPlayer.setUrl(url);
     await audioPlayer.play();
     notifyListeners();
   }

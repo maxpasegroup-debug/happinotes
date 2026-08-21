@@ -11,6 +11,7 @@ class BookDraft {
   String introAudioUrl = '', introAudioPublicId = '', audioFileName = '';
   String duration = '0', sortOrder = '0', tags = '';
   bool featured = false, trending = false;
+  List<Map<String, dynamic>> episodes = [];
 
   BookDraft();
   BookDraft.fromJson(Map<String, dynamic> j) {
@@ -31,6 +32,10 @@ class BookDraft {
     tags = ((j['tags'] as List?) ?? []).join(', ');
     featured = j['isFeatured'] == true;
     trending = j['isTrending'] == true;
+    episodes = ((j['lessons'] as List?) ?? [])
+        .whereType<Map>()
+        .map((lesson) => Map<String, dynamic>.from(lesson))
+        .toList();
   }
 
   Map<String, dynamic> toJson() => {
@@ -50,6 +55,7 @@ class BookDraft {
     'tags': tags.split(',').map((e) => e.trim()).where((e) => e.isNotEmpty).toList(),
     'isFeatured': featured,
     'isTrending': trending,
+    'lessons': episodes,
   };
 }
 
@@ -114,6 +120,54 @@ class AdminController extends ChangeNotifier {
       return true;
     } catch (e) { error = client.errorMessage(e); return false; }
     finally { busy = false; notifyListeners(); }
+  }
+
+  Future<bool> uploadEpisode() async {
+    final result = await FilePicker.platform.pickFiles(
+      type: FileType.custom,
+      allowedExtensions: ['mp3'],
+    );
+    final path = result?.files.single.path;
+    if (path == null) return false;
+    busy = true;
+    error = null;
+    notifyListeners();
+    try {
+      final media = await repository.upload(path, 'audio');
+      episodesAdd(
+        title: 'Episode ${draft.episodes.length + 1}',
+        mediaUrl: media['url']?.toString() ?? '',
+        fileName: result!.files.single.name,
+      );
+      success = 'Episode uploaded';
+      return true;
+    } catch (e) {
+      error = client.errorMessage(e);
+      return false;
+    } finally {
+      busy = false;
+      notifyListeners();
+    }
+  }
+
+  void episodesAdd({required String title, required String mediaUrl, required String fileName}) {
+    draft.episodes.add({
+      'title': title,
+      'description': '',
+      'mediaUrl': mediaUrl,
+      'mediaType': 'audio',
+      'order': draft.episodes.length,
+      'fileName': fileName,
+    });
+    notifyListeners();
+  }
+
+  void removeEpisode(int index) {
+    draft.episodes.removeAt(index);
+    for (var i = 0; i < draft.episodes.length; i++) {
+      draft.episodes[i]['order'] = i;
+    }
+    notifyListeners();
   }
 
   Future<bool> saveBook() async {

@@ -12,6 +12,7 @@ class BookModel extends Book {
     required super.accessType,
     required super.status,
     required super.duration,
+    super.episodes,
   });
   factory BookModel.fromJson(Map<String, dynamic> j) => BookModel(
     id: (j['_id'] ?? '').toString(),
@@ -24,5 +25,15 @@ class BookModel extends Book {
     accessType: (j['accessType'] ?? 'free').toString(),
     status: (j['status'] ?? 'live').toString(),
     duration: (j['totalDurationSeconds'] as num?)?.toInt() ?? 0,
+    episodes: ((j['lessons'] as List?) ?? [])
+        .whereType<Map>()
+        .map((lesson) => BookEpisode(
+          title: (lesson['title'] ?? 'Episode').toString(),
+          description: (lesson['description'] ?? '').toString(),
+          audioUrl: (lesson['mediaUrl'] ?? '').toString(),
+          order: (lesson['order'] as num?)?.toInt() ?? 0,
+        ))
+        .where((episode) => episode.audioUrl.isNotEmpty)
+        .toList(),
   );
 }
