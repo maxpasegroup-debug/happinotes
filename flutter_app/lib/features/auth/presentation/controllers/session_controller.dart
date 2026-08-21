@@ -13,7 +13,7 @@ class SessionController extends ChangeNotifier {
     // avoiding the old fixed 1.7-second startup pause.
     await Future.wait([
       _restore(),
-      Future<void>.delayed(const Duration(milliseconds: 1200)),
+      Future<void>.delayed(const Duration(milliseconds: 700)),
     ]);
     initialized = true;
     notifyListeners();
