@@ -190,7 +190,11 @@ class _Books extends ConsumerWidget {
                     : Image.network(cover, width: 54, height: 72, fit: BoxFit.cover),
               ),
               title: Text((book['title'] ?? 'Untitled').toString(), maxLines: 2, overflow: TextOverflow.ellipsis, style: const TextStyle(fontWeight: FontWeight.w800)),
-              subtitle: Text('${book['language']}  •  ${book['status']}  •  ${book['accessType']}'),
+              subtitle: Text(
+                '${book['language']}  •  ${book['status']}  •  '
+                '${book['accessType'] ?? book['type'] ?? 'free'}  •  '
+                '${((book['lessons'] as List?) ?? const []).length} episodes',
+              ),
               trailing: PopupMenuButton<String>(
                 onSelected: (action) async {
                   if (action == 'edit') {

@@ -22,7 +22,7 @@ class BookDraft {
     category = (j['category'] ?? 'happiness').toString();
     status = (j['status'] ?? 'draft').toString();
     accessType = (j['accessType'] ?? 'free').toString();
-    coverImageUrl = (j['coverImageUrl'] ?? '').toString();
+    coverImageUrl = (j['coverImageUrl'] ?? j['thumbnailUrl'] ?? '').toString();
     coverPublicId = (j['coverPublicId'] ?? '').toString();
     introAudioUrl = (j['introAudioUrl'] ?? '').toString();
     introAudioPublicId = (j['introAudioPublicId'] ?? '').toString();
