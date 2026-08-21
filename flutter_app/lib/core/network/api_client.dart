@@ -34,10 +34,23 @@ class ApiClient {
   Future<String?> readToken() => _storage.read(key: _tokenKey);
   Future<void> clearToken() => _storage.delete(key: _tokenKey);
   String errorMessage(Object error) {
-    if (error is DioException && error.response?.data is Map) {
-      final data = error.response!.data as Map;
-      return (data['message'] ?? data['error'] ?? 'Network request failed')
-          .toString();
+    if (error is DioException) {
+      final response = error.response;
+      if (response?.data is Map) {
+        final data = response!.data as Map;
+        return (data['message'] ?? data['error'] ??
+                'Request failed (${response.statusCode})')
+            .toString();
+      }
+      if (response != null) {
+        return 'Request failed: HTTP ${response.statusCode}';
+      }
+      if (error.type == DioExceptionType.connectionError ||
+          error.type == DioExceptionType.connectionTimeout ||
+          error.type == DioExceptionType.receiveTimeout) {
+        return 'Cannot reach the backend. Check the Railway service and internet connection.';
+      }
+      return 'Request failed: ${error.message ?? error.type.name}';
     }
     return error is StateError ? error.message : 'Network request failed';
   }

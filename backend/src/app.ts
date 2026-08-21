@@ -56,6 +56,9 @@ app.use('/uploads', express.static(mediaStorageDir, {
   maxAge: '1h',
 }));
 
+// Keep the original root API paths for existing clients and expose the
+// versioned /api prefix used by the Flutter application.
+app.use('/api', routes);
 app.use(routes);
 
 app.use(errorHandler);

@@ -104,9 +104,13 @@ export const uploadContentMedia = async (
     if (!file) {
       return next(new BadRequestError('media file is required'));
     }
-    const mediaType = mediaTypeFromMime(file.mimetype);
+    const mediaType = file.mimetype.startsWith('image/')
+      ? 'image'
+      : file.mimetype.startsWith('audio/')
+        ? 'audio'
+        : null;
     if (!mediaType) {
-      return next(new BadRequestError('media must be audio or video'));
+      return next(new BadRequestError('Only image and MP3/audio files are allowed'));
     }
 
     const scope = typeof req.body?.scope === 'string' ? req.body.scope.trim() : '';
