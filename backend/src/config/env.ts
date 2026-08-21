@@ -17,11 +17,6 @@ if (NODE_ENV === 'production') {
       'ADMIN_EMAIL must be set in production. Set ADMIN_EMAIL in your environment.'
     );
   }
-  if (!process.env.GOOGLE_PLAY_SERVICE_ACCOUNT || process.env.GOOGLE_PLAY_SERVICE_ACCOUNT.trim() === '') {
-    throw new Error(
-      'GOOGLE_PLAY_SERVICE_ACCOUNT must be set in production. Set GOOGLE_PLAY_SERVICE_ACCOUNT in your environment.'
-    );
-  }
 }
 
 export const env = {
