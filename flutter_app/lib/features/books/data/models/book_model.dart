@@ -34,6 +34,12 @@ class BookModel extends Book {
           order: (lesson['order'] as num?)?.toInt() ?? 0,
         ))
         .where((episode) => episode.audioUrl.isNotEmpty)
-        .toList(),
+        .toList()
+      ..insertAll(
+        0,
+        ((j['lessons'] as List?) ?? []).isEmpty && (j['introAudioUrl'] ?? '').toString().isNotEmpty
+            ? [BookEpisode(title: 'Episode 1', audioUrl: (j['introAudioUrl'] ?? '').toString(), order: 0)]
+            : const [],
+      ),
   );
 }

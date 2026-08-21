@@ -346,9 +346,9 @@ class AdminBookEditor extends ConsumerWidget {
           if (d.coverImageUrl.isNotEmpty) ClipRRect(borderRadius: BorderRadius.circular(10), child: Image.network(d.coverImageUrl, height: 180, fit: BoxFit.contain)),
           OutlinedButton.icon(onPressed: state.busy ? null : () => state.uploadMedia('cover'), icon: const Icon(Icons.image_outlined), label: Text(d.coverImageUrl.isEmpty ? 'Choose image' : 'Replace image')),
           const SizedBox(height: 14),
-          const Text('Main MP3 audio', style: TextStyle(fontWeight: FontWeight.w800)),
+          const Text('Episode 1 MP3', style: TextStyle(fontWeight: FontWeight.w800)),
           ListTile(contentPadding: EdgeInsets.zero, leading: const Icon(Icons.audio_file_rounded), title: Text(d.audioFileName.isEmpty ? 'No MP3 selected' : d.audioFileName), subtitle: Text(d.introAudioUrl.isEmpty ? 'Choose an MP3 file' : 'Uploaded and ready')),
-          OutlinedButton.icon(onPressed: state.busy ? null : () => state.uploadMedia('audio'), icon: const Icon(Icons.upload_file_rounded), label: Text(d.introAudioUrl.isEmpty ? 'Choose MP3' : 'Replace MP3')),
+          OutlinedButton.icon(onPressed: state.busy ? null : () => state.uploadMedia('audio'), icon: const Icon(Icons.upload_file_rounded), label: Text(d.introAudioUrl.isEmpty ? 'Choose Episode 1 MP3' : 'Replace Episode 1')),
           const SizedBox(height: 18),
           Row(
             mainAxisAlignment: MainAxisAlignment.spaceBetween,

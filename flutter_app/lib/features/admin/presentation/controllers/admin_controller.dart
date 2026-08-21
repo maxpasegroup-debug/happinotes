@@ -36,6 +36,16 @@ class BookDraft {
         .whereType<Map>()
         .map((lesson) => Map<String, dynamic>.from(lesson))
         .toList();
+    if (episodes.isEmpty && introAudioUrl.isNotEmpty) {
+      episodes.add({
+        'title': 'Episode 1',
+        'description': '',
+        'mediaUrl': introAudioUrl,
+        'mediaType': 'audio',
+        'order': 0,
+        'fileName': audioFileName,
+      });
+    }
   }
 
   Map<String, dynamic> toJson() => {
@@ -117,6 +127,19 @@ class AdminController extends ChangeNotifier {
         draft.introAudioUrl = media['url']?.toString() ?? '';
         draft.introAudioPublicId = media['publicId']?.toString() ?? '';
         draft.audioFileName = result.files.single.name;
+        final episode = {
+          'title': 'Episode 1',
+          'description': '',
+          'mediaUrl': draft.introAudioUrl,
+          'mediaType': 'audio',
+          'order': 0,
+          'fileName': draft.audioFileName,
+        };
+        if (draft.episodes.isEmpty) {
+          draft.episodes.add(episode);
+        } else {
+          draft.episodes[0] = episode;
+        }
       }
       success = kind == 'cover' ? 'Cover uploaded' : 'MP3 uploaded';
       return true;
