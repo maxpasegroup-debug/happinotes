@@ -160,11 +160,11 @@ class _OtpBoxesState extends State<OtpBoxes> {
   void _changed(int index, String value) {
     final digits = value.replaceAll(RegExp(r'\D'), '');
     if (digits.length > 1) {
-      final pasted = digits.substring(0, digits.length.clamp(0, 6));
+      final pasted = digits.substring(0, digits.length.clamp(0, 6).toInt());
       for (var i = 0; i < pasted.length && index + i < 6; i++) {
         _controllers[index + i].text = pasted[i];
       }
-      _focusNodes[(index + pasted.length).clamp(0, 5)].requestFocus();
+      _focusNodes[(index + pasted.length).clamp(0, 5).toInt()].requestFocus();
     } else {
       _controllers[index].text = digits;
       _controllers[index].selection = TextSelection.collapsed(offset: digits.length);
