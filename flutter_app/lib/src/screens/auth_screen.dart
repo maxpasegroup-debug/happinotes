@@ -12,10 +12,8 @@ class AuthScreen extends ConsumerWidget {
   Future<void> _submit(BuildContext context, WidgetRef ref) async {
     final controller = ref.read(authFormControllerProvider);
     await controller.submit();
-    if (!context.mounted) return;
     if (controller.successMessage != null || controller.error != null) {
-      AppMessage.show(
-        context,
+      AppMessage.showGlobal(
         controller.successMessage ?? controller.error!,
         success: controller.successMessage != null,
       );
