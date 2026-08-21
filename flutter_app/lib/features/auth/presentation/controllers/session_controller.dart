@@ -9,12 +9,7 @@ class SessionController extends ChangeNotifier {
   bool initialized = false;
   bool get isLoggedIn => user != null;
   Future<void> initialize() async {
-    // Keep the launch animation visible long enough to be perceived, while
-    // avoiding the old fixed 1.7-second startup pause.
-    await Future.wait([
-      _restore(),
-      Future<void>.delayed(const Duration(milliseconds: 700)),
-    ]);
+    await _restore();
     initialized = true;
     notifyListeners();
   }
