@@ -34,6 +34,16 @@ const RAZORPAY_API_BASE = 'https://api.razorpay.com/v1';
 const DEFAULT_MONTHLY_PLAN_INR_PAISE = 49900;
 const DEFAULT_YEARLY_PLAN_INR_PAISE = 499900;
 
+export const getPaymentPlans = (_req: Request, res: Response): void => {
+  res.json({
+    success: true,
+    plans: [
+      { id: 'monthly', name: 'Monthly', price: DEFAULT_MONTHLY_PLAN_INR_PAISE / 100, durationDays: 30 },
+      { id: 'yearly', name: 'Yearly', price: DEFAULT_YEARLY_PLAN_INR_PAISE / 100, durationDays: 365 },
+    ],
+  });
+};
+
 function getRazorpayConfig(): {
   keyId: string;
   keySecret: string;

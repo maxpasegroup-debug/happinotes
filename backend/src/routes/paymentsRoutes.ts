@@ -6,6 +6,7 @@ import {
   createRazorpayOrder,
   verifyRazorpaySubscription,
   verifyAppleSubscription,
+  getPaymentPlans,
 } from '../controllers/paymentsController';
 import { authenticate } from '../middleware';
 
@@ -24,6 +25,7 @@ const verifyLimiter = rateLimit({
 });
 
 router.post('/google/verify', verifyLimiter, authenticate, verifyGoogleSubscription);
+router.get('/plans', getPaymentPlans);
 router.post('/apple/verify', verifyLimiter, authenticate, verifyAppleSubscription);
 router.post('/razorpay/subscription', paymentLimiter, authenticate, createRazorpaySubscription);
 router.post('/razorpay/create-order', paymentLimiter, authenticate, createRazorpayOrder);

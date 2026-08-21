@@ -24,7 +24,7 @@ class MembershipRepositoryImpl implements MembershipRepository {
   @override
   Future<Map<String, dynamic>> createOrder(String id) async {
     final r = await client.dio.post(
-      '/payments/create-order',
+      '/payments/razorpay/create-order',
       data: {'planId': id},
     );
     return Map<String, dynamic>.from(r.data);
@@ -37,7 +37,7 @@ class MembershipRepositoryImpl implements MembershipRepository {
     required String signature,
   }) async {
     final r = await client.dio.post(
-      '/payments/verify',
+      '/payments/razorpay/verify',
       data: {
         'razorpay_order_id': orderId,
         'razorpay_payment_id': paymentId,
