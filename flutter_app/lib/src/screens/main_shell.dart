@@ -514,7 +514,7 @@ class SearchTab extends ConsumerWidget {
           ),
         ],
       ),
-    );
+    ));
   }
 }
 
@@ -568,8 +568,8 @@ class CollectionTab extends ConsumerWidget {
           ],
         ),
         ),
-      ),
-    );
+      );
+    
   }
 }
 
