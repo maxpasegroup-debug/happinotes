@@ -344,7 +344,7 @@ class AdminBookEditor extends ConsumerWidget {
           input('Description *', d.description, (v) => d.description = v, lines: 4),
           select('Language', d.language, const ['english', 'malayalam', 'hindi'], (v) => d.language = v),
           select('Category', d.category, const ['health', 'wealth', 'happiness', 'mindfulness'], (v) => d.category = v),
-          select('Status', d.status, const ['draft', 'upcoming', 'live'], (v) => d.status = v),
+          select('Status', d.status, const ['draft', 'coming_soon', 'live'], (v) => d.status = v),
           select('Access', d.accessType, const ['free', 'premium'], (v) => d.accessType = v),
           const Text('Cover image', style: TextStyle(fontWeight: FontWeight.w800)), const SizedBox(height: 8),
           if (d.coverImageUrl.isNotEmpty) ClipRRect(borderRadius: BorderRadius.circular(10), child: Image.network(d.coverImageUrl, height: 180, fit: BoxFit.contain)),

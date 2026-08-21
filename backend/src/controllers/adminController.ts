@@ -14,6 +14,7 @@ const LIFEBOOK_UPDATE_FIELDS = [
   'intro',
   'lessons',
   'conclusion',
+  'status',
 ] as const;
 
 /** GET /admin/stats */
@@ -156,6 +157,9 @@ export const createBook = async (
       return next(new BadRequestError('Add at least one episode MP3 or an intro audio file'));
     }
 
+    const requestedStatus = body.status === 'live' || body.status === 'coming_soon'
+      ? body.status
+      : 'draft';
     const book = await Content.create({
       contentType: 'lifebook',
       title,
@@ -163,7 +167,7 @@ export const createBook = async (
       thumbnailUrl,
       language,
       type,
-      status: 'draft',
+      status: requestedStatus,
       intro,
       lessons,
       conclusion,
