@@ -119,8 +119,9 @@ export const createBook = async (
     if (!thumbnailUrl) return next(new BadRequestError('thumbnailUrl is required'));
     if (!language) return next(new BadRequestError('language is required'));
     if (!type) return next(new BadRequestError('type must be free or premium'));
-    if (!intro) return next(new BadRequestError('intro is required (title, mediaUrl, mediaType)'));
-    if (!conclusion) return next(new BadRequestError('conclusion is required (title, mediaUrl, mediaType)'));
+    if (!intro && lessons.length === 0) {
+      return next(new BadRequestError('Add at least one episode MP3 or an intro audio file'));
+    }
 
     const book = await Content.create({
       contentType: 'lifebook',
