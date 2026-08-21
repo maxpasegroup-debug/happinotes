@@ -8,9 +8,11 @@ class LaunchSplash extends StatefulWidget {
 }
 
 class _LaunchSplashState extends State<LaunchSplash>
-    with SingleTickerProviderStateMixin {
+    with TickerProviderStateMixin {
   late final AnimationController controller;
+  late final AnimationController breathingController;
   late final Animation<double> scale;
+  late final Animation<double> breathingScale;
   late final Animation<double> opacity;
 
   @override
@@ -18,12 +20,21 @@ class _LaunchSplashState extends State<LaunchSplash>
     super.initState();
     controller = AnimationController(
       vsync: this,
-      duration: const Duration(milliseconds: 950),
+      duration: const Duration(milliseconds: 700),
     );
-    scale = CurvedAnimation(parent: controller, curve: Curves.elasticOut);
+    scale = Tween<double>(begin: .82, end: 1).animate(
+      CurvedAnimation(parent: controller, curve: Curves.easeOutCubic),
+    );
     opacity = CurvedAnimation(
       parent: controller,
-      curve: const Interval(0, .65, curve: Curves.easeOut),
+      curve: Curves.easeOut,
+    );
+    breathingController = AnimationController(
+      vsync: this,
+      duration: const Duration(milliseconds: 2200),
+    )..repeat(reverse: true);
+    breathingScale = Tween<double>(begin: .985, end: 1.015).animate(
+      CurvedAnimation(parent: breathingController, curve: Curves.easeInOut),
     );
     controller.forward();
   }
@@ -31,6 +42,7 @@ class _LaunchSplashState extends State<LaunchSplash>
   @override
   void dispose() {
     controller.dispose();
+    breathingController.dispose();
     super.dispose();
   }
 
@@ -43,26 +55,33 @@ class _LaunchSplashState extends State<LaunchSplash>
         child: Column(
           mainAxisSize: MainAxisSize.min,
           children: [
-            ScaleTransition(
-              scale: scale,
-              child: Stack(
-                alignment: Alignment.center,
-                children: [
-                  Container(
-                    width: 245,
-                    height: 245,
-                    decoration: BoxDecoration(
-                      shape: BoxShape.circle,
-                      color: AppColors.saffron.withValues(alpha: .14),
+            AnimatedBuilder(
+              animation: breathingScale,
+              builder: (context, child) => Transform.scale(
+                scale: breathingScale.value,
+                child: child,
+              ),
+              child: ScaleTransition(
+                scale: scale,
+                child: Stack(
+                  alignment: Alignment.center,
+                  children: [
+                    Container(
+                      width: 245,
+                      height: 245,
+                      decoration: BoxDecoration(
+                        shape: BoxShape.circle,
+                        color: AppColors.saffron.withValues(alpha: .14),
+                      ),
                     ),
-                  ),
-                  Image.asset(
-                    'assets/images/splash-mascot.png',
-                    width: 220,
-                    height: 220,
-                    fit: BoxFit.contain,
-                  ),
-                ],
+                    Image.asset(
+                      'assets/images/splash-mascot.png',
+                      width: 220,
+                      height: 220,
+                      fit: BoxFit.contain,
+                    ),
+                  ],
+                ),
               ),
             ),
             const SizedBox(height: 12),

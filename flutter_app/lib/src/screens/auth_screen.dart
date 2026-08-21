@@ -12,10 +12,8 @@ class AuthScreen extends ConsumerWidget {
   Future<void> _submit(BuildContext context, WidgetRef ref) async {
     final controller = ref.read(authFormControllerProvider);
     await controller.submit();
-    if (!context.mounted) return;
     if (controller.successMessage != null || controller.error != null) {
-      AppMessage.show(
-        context,
+      AppMessage.showGlobal(
         controller.successMessage ?? controller.error!,
         success: controller.successMessage != null,
       );
@@ -81,7 +79,12 @@ class AuthScreen extends ConsumerWidget {
                       decoration: BoxDecoration(color: const Color(0xFF163C27), borderRadius: BorderRadius.circular(12)),
                       child: Text('DEMO OTP: ${form.testOtp}', textAlign: TextAlign.center, style: const TextStyle(color: Color(0xFF8FE4AE), fontWeight: FontWeight.w800)),
                     ),
-                  _PinField(value: form.otp, onChanged: form.setOtp, label: '6-digit OTP', obscure: false),
+                  OtpBoxes(
+                    value: form.otp,
+                    onChanged: form.setOtp,
+                    enabled: !form.loading,
+                    onCompleted: () => _submit(context, ref),
+                  ),
                 ],
                 if (form.step == AuthStep.pin)
                   _PinField(value: form.pin, onChanged: form.setPin, label: '6-digit PIN'),
@@ -116,6 +119,132 @@ class AuthScreen extends ConsumerWidget {
       ),
     );
   }
+}
+
+class OtpBoxes extends StatefulWidget {
+  const OtpBoxes({
+    super.key,
+    required this.value,
+    required this.onChanged,
+    required this.enabled,
+    this.onCompleted,
+  });
+
+  final String value;
+  final ValueChanged<String> onChanged;
+  final bool enabled;
+  final VoidCallback? onCompleted;
+
+  @override
+  State<OtpBoxes> createState() => _OtpBoxesState();
+}
+
+class _OtpBoxesState extends State<OtpBoxes> {
+  late final List<TextEditingController> _controllers;
+  late final List<FocusNode> _focusNodes;
+
+  @override
+  void initState() {
+    super.initState();
+    _controllers = List.generate(6, (index) => TextEditingController(
+      text: index < widget.value.length ? widget.value[index] : '',
+    ));
+    _focusNodes = List.generate(6, (_) => FocusNode());
+  }
+
+  @override
+  void didUpdateWidget(covariant OtpBoxes oldWidget) {
+    super.didUpdateWidget(oldWidget);
+    if (oldWidget.value != widget.value && widget.value != _value) {
+      for (var i = 0; i < 6; i++) {
+        _controllers[i].text = i < widget.value.length ? widget.value[i] : '';
+      }
+    }
+  }
+
+  String get _value => _controllers.map((controller) => controller.text).join();
+
+  void _changed(int index, String value) {
+    final digit = value.replaceAll(RegExp(r'\D'), '');
+    if (digit.length > 1) {
+      final pasted = digit.substring(0, digit.length > 6 ? 6 : digit.length);
+      for (var i = 0; i < pasted.length && index + i < 6; i++) {
+        _controllers[index + i].text = pasted[i];
+      }
+      final next = (index + pasted.length).clamp(0, 5);
+      _focusNodes[next].requestFocus();
+    } else {
+      _controllers[index].text = digit;
+      _controllers[index].selection = TextSelection.collapsed(offset: digit.length);
+      if (digit.isNotEmpty && index < 5) _focusNodes[index + 1].requestFocus();
+    }
+    widget.onChanged(_value);
+    if (_value.length == 6) widget.onCompleted?.call();
+    setState(() {});
+  }
+
+  KeyEventResult _keyEvent(int index, KeyEvent event) {
+    if (event is KeyDownEvent && event.logicalKey == LogicalKeyboardKey.backspace && _controllers[index].text.isEmpty && index > 0) {
+      _controllers[index - 1].clear();
+      _focusNodes[index - 1].requestFocus();
+      widget.onChanged(_value);
+      setState(() {});
+    }
+    return KeyEventResult.ignored;
+  }
+
+  @override
+  void dispose() {
+    for (final controller in _controllers) controller.dispose();
+    for (final node in _focusNodes) node.dispose();
+    super.dispose();
+  }
+
+  @override
+  Widget build(BuildContext context) => LayoutBuilder(
+    builder: (context, constraints) {
+      final gap = constraints.maxWidth < 360 ? 6.0 : 9.0;
+      return Row(
+        children: List.generate(6, (index) => Expanded(
+          child: Padding(
+            padding: EdgeInsets.only(right: index == 5 ? 0 : gap),
+            child: Focus(
+              onKeyEvent: (_, event) => _keyEvent(index, event),
+              child: TextField(
+                controller: _controllers[index],
+                focusNode: _focusNodes[index],
+                enabled: widget.enabled,
+                autofocus: index == 0,
+                maxLength: 1,
+                textAlign: TextAlign.center,
+                keyboardType: TextInputType.number,
+                onChanged: (value) => _changed(index, value),
+                inputFormatters: [FilteringTextInputFormatter.digitsOnly],
+                style: const TextStyle(fontSize: 22, fontWeight: FontWeight.w800),
+                decoration: InputDecoration(
+                  counterText: '',
+                  filled: true,
+                  fillColor: _controllers[index].text.isNotEmpty
+                      ? AppColors.coral.withValues(alpha: .12)
+                      : Theme.of(context).colorScheme.surface,
+                  contentPadding: const EdgeInsets.symmetric(vertical: 15),
+                  border: OutlineInputBorder(borderRadius: BorderRadius.circular(12)),
+                  enabledBorder: OutlineInputBorder(
+                    borderRadius: BorderRadius.circular(12),
+                    borderSide: BorderSide(color: Theme.of(context).colorScheme.outlineVariant),
+                  ),
+                  focusedBorder: OutlineInputBorder(
+                    borderRadius: BorderRadius.circular(12),
+                    borderSide: const BorderSide(color: AppColors.coral, width: 2),
+                  ),
+                ),
+              ),
+            ),
+          ),
+        )),
+      );
+    },
+  );
 }
 
 class _PinField extends StatelessWidget {

@@ -10,13 +10,13 @@ class AdminRepositoryImpl implements AdminRepository {
       Map<String, dynamic>.from(value as Map);
 
   @override
-  Future<Map<String, dynamic>> getStats() async =>
-      _map((await client.dio.get('/admin/stats')).data['stats']);
+  Future<Map<String, dynamic>> getStats() async => <String, dynamic>{};
 
   @override
   Future<List<Map<String, dynamic>>> getBooks() async =>
-      ((await client.dio.get('/admin/books')).data['books'] as List)
+      ((await client.dio.get('/admin/contents')).data['contents'] as List)
           .map(_map)
+          .where((item) => item['contentType'] == 'lifebook')
           .toList();
 
   @override
@@ -34,10 +34,10 @@ class AdminRepositoryImpl implements AdminRepository {
   Future<void> deleteUser(String id) async => client.dio.delete('/admin/users/$id');
 
   @override
-  Future<Map<String, dynamic>> upload(String path, String kind) async {
+  Future<Map<String, dynamic>> upload(String path, String scope) async {
     final fileName = path.split(RegExp(r'[/\\]')).last;
     final extension = fileName.split('.').last.toLowerCase();
-    final mimeType = kind == 'audio'
+    final mimeType = scope != 'thumbnail'
         ? 'audio/mpeg'
         : extension == 'png'
         ? 'image/png'
@@ -45,30 +45,35 @@ class AdminRepositoryImpl implements AdminRepository {
         ? 'image/webp'
         : 'image/jpeg';
     final form = FormData.fromMap({
-      'file': await MultipartFile.fromFile(
+      'media': await MultipartFile.fromFile(
         path,
         filename: fileName,
         contentType: DioMediaType.parse(mimeType),
       ),
+      'scope': scope,
     });
     final response = await client.dio.post(
-      '/admin/uploads/${kind == 'cover' ? 'cover' : 'audio'}',
+      '/admin/contents/upload-media',
       data: form,
     );
-    return _map(response.data['media']);
+    return _map(response.data);
   }
 
   @override
-  Future<void> createBook(Map<String, dynamic> data) async =>
-      client.dio.post('/admin/books', data: data);
+  Future<Map<String, dynamic>> createBook(Map<String, dynamic> data) async =>
+      _map((await client.dio.post('/admin/contents', data: data)).data['content']);
 
   @override
   Future<void> updateBook(String id, Map<String, dynamic> data) async =>
-      client.dio.put('/admin/books/$id', data: data);
+      client.dio.put('/admin/contents/$id', data: data);
+
+  @override
+  Future<void> updateBookStatus(String id, String status) async =>
+      client.dio.patch('/admin/contents/$id/status', data: {'status': status});
 
   @override
   Future<void> deleteBook(String id) async =>
-      client.dio.delete('/admin/books/$id');
+      client.dio.delete('/admin/contents/$id');
 
   @override
   Future<void> sendNotification(

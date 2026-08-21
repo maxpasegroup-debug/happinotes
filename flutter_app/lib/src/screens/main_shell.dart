@@ -10,6 +10,7 @@ import '../widgets/loading_skeleton.dart';
 import 'book_detail.dart';
 import 'legal_screen.dart';
 import 'membership_screen.dart';
+import 'player_screen.dart';
 
 class MainShell extends ConsumerWidget {
   const MainShell({super.key});
@@ -73,65 +74,88 @@ class HomeTab extends StatelessWidget {
     builder: (context, ref, child) {
       final s = ref.watch(booksControllerProvider);
       final books = s.books;
+      final player = ref.watch(playerControllerProvider);
+      final width = MediaQuery.sizeOf(context).width;
       return SafeArea(
         child: RefreshIndicator(
           onRefresh: s.loadBooks,
           child: ListView(
-            padding: const EdgeInsets.fromLTRB(16, 12, 16, 28),
+            padding: const EdgeInsets.only(top: 12, bottom: 28),
             children: [
-              Row(
-                children: [
-                  const CircleAvatar(
-                    backgroundColor: AppColors.coral,
-                    child: Icon(Icons.headphones, color: Colors.white),
-                  ),
-                  const SizedBox(width: 12),
-                  Expanded(
-                    child: Column(
-                      crossAxisAlignment: CrossAxisAlignment.start,
-                      children: [
-                        const Text(
-                          'HappiNotes',
-                          style: TextStyle(
-                            fontSize: 22,
-                            fontWeight: FontWeight.w900,
+              Padding(
+                padding: const EdgeInsets.fromLTRB(18, 8, 18, 0),
+                child: Row(
+                  children: [
+                    Expanded(
+                      child: InkWell(
+                        onTap: () => ref.read(mainTabIndexProvider.notifier).state = 1,
+                        borderRadius: BorderRadius.circular(30),
+                        child: Container(
+                          height: 52,
+                          padding: const EdgeInsets.symmetric(horizontal: 16),
+                          decoration: BoxDecoration(
+                            color: const Color(0xFF161616),
+                            border: Border.all(color: const Color(0xFF383838)),
+                            borderRadius: BorderRadius.circular(28),
+                          ),
+                          child: const Row(
+                            children: [
+                              Icon(Icons.search_rounded, color: AppColors.muted, size: 27),
+                              SizedBox(width: 12),
+                              Expanded(
+                                child: Text(
+                                  'Search your next story',
+                                  maxLines: 1,
+                                  overflow: TextOverflow.ellipsis,
+                                  style: TextStyle(color: AppColors.muted, fontSize: 16),
+                                ),
+                              ),
+                            ],
                           ),
                         ),
-                        Text(
-                          'Listen. Learn. Feel better.',
-                          style: Theme.of(context).textTheme.bodySmall
-                              ?.copyWith(color: AppColors.muted),
-                        ),
-                      ],
+                      ),
                     ),
-                  ),
-                  IconButton(
-                    onPressed: () {},
-                    icon: const Icon(Icons.notifications_none),
-                  ),
-                ],
-              ),
-              const SizedBox(height: 18),
-              Container(
-                padding: const EdgeInsets.symmetric(horizontal: 14),
-                decoration: BoxDecoration(
-                  color: AppColors.raised,
-                  borderRadius: BorderRadius.circular(14),
-                ),
-                child: const TextField(
-                  readOnly: true,
-                  decoration: InputDecoration(
-                    prefixIcon: Icon(Icons.search),
-                    hintText: 'Search books and stories',
-                    fillColor: Colors.transparent,
-                  ),
+                    const SizedBox(width: 12),
+                    Container(
+                      height: 52,
+                      width: 52,
+                      decoration: BoxDecoration(
+                        shape: BoxShape.circle,
+                        border: Border.all(color: const Color(0xFF383838)),
+                      ),
+                      child: IconButton(
+                        tooltip: 'Voice search',
+                        onPressed: () => AppMessage.show(context, 'Voice search coming soon'),
+                        icon: const Icon(Icons.mic_none_rounded),
+                      ),
+                    ),
+                  ],
                 ),
               ),
-              const SizedBox(height: 22),
+              const SizedBox(height: 28),
+              const Padding(
+                padding: EdgeInsets.symmetric(horizontal: 18),
+                child: Row(
+                  children: [
+                    _HomeTabLabel('Popular', active: true),
+                    SizedBox(width: 30),
+                    _HomeTabLabel('Audiobooks'),
+                    SizedBox(width: 30),
+                    _HomeTabLabel('New & Hot'),
+                  ],
+                ),
+              ),
+              const SizedBox(height: 12),
               if (s.loading)
-                const HomeLoadingSkeleton()
+                const Padding(
+                  padding: EdgeInsets.symmetric(horizontal: 18),
+                  child: HomeLoadingSkeleton(),
+                )
               else if (s.error != null)
-                Text(s.error!, style: const TextStyle(color: Colors.redAccent))
+                Padding(
+                  padding: const EdgeInsets.all(28),
+                  child: Text(s.error!, style: const TextStyle(color: Colors.redAccent)),
+                )
               else if (books.isEmpty && s.upcoming.isEmpty)
                 const Padding(
                   padding: EdgeInsets.all(40),
@@ -141,60 +165,68 @@ class HomeTab extends StatelessWidget {
                     style: TextStyle(color: AppColors.muted),
                   ),
                 )
-              else if (books.isNotEmpty) ...[
-                FeaturedBook(book: books.first),
+              else ...[
+                _FeaturedRail(books: books, width: width),
+                const SizedBox(height: 10),
+                if (player.currentBook != null)
+                  _ContinueListening(book: player.currentBook!, player: player)
+                else if (books.isNotEmpty)
+                  _ContinueListening(book: books.first, player: player, fresh: true),
                 const SizedBox(height: 28),
-                const SectionTitle('Recently added'),
+                const Padding(
+                  padding: EdgeInsets.symmetric(horizontal: 18),
+                  child: SectionTitle('Recently added'),
+                ),
                 const SizedBox(height: 12),
                 SizedBox(
                   height: BookCard.shelfHeight(context),
                   child: ListView.separated(
+                    padding: const EdgeInsets.symmetric(horizontal: 18),
                     scrollDirection: Axis.horizontal,
                     itemCount: books.length,
-                    separatorBuilder: (context, index) =>
-                        const SizedBox(width: 12),
-                    itemBuilder: (_, i) => BookCard(
-                      book: books[i],
-                      onTap: () => openBook(context, books[i]),
-                    ),
+                    separatorBuilder: (_, _) => const SizedBox(width: 12),
+                    itemBuilder: (_, i) => BookCard(book: books[i], onTap: () => openBook(context, books[i])),
                   ),
                 ),
-                const SizedBox(height: 24),
-                const SectionTitle('Free to listen'),
+                const SizedBox(height: 28),
+                const Padding(
+                  padding: EdgeInsets.symmetric(horizontal: 18),
+                  child: SectionTitle('Free to listen'),
+                ),
                 const SizedBox(height: 12),
                 SizedBox(
                   height: BookCard.shelfHeight(context),
                   child: ListView.separated(
+                    padding: const EdgeInsets.symmetric(horizontal: 18),
                     scrollDirection: Axis.horizontal,
-                    itemCount: books
-                        .where((b) => b.accessType == 'free')
-                        .length,
-                    separatorBuilder: (context, index) =>
-                        const SizedBox(width: 12),
+                    itemCount: books.where((b) => b.accessType == 'free').length,
+                    separatorBuilder: (_, _) => const SizedBox(width: 12),
                     itemBuilder: (_, i) {
-                      final b = books
-                          .where((x) => x.accessType == 'free')
-                          .elementAt(i);
-                      return BookCard(
-                        book: b,
-                        onTap: () => openBook(context, b),
-                      );
+                      final free = books.where((b) => b.accessType == 'free').toList()[i];
+                      return BookCard(book: free, onTap: () => openBook(context, free));
                     },
                   ),
                 ),
               ],
               if (!s.loading && s.upcoming.isNotEmpty) ...[
-                const SizedBox(height: 24),
-                const SectionTitle('Coming soon'),
+                const SizedBox(height: 28),
+                const Padding(
+                  padding: EdgeInsets.symmetric(horizontal: 18),
+                  child: SectionTitle('Coming soon'),
+                ),
                 const SizedBox(height: 6),
-                const Text(
+                const Padding(
+                  padding: EdgeInsets.symmetric(horizontal: 18),
+                  child: Text(
                   'New audiobooks being prepared for release.',
                   style: TextStyle(color: AppColors.muted),
+                  ),
                 ),
                 const SizedBox(height: 12),
                 SizedBox(
                   height: BookCard.shelfHeight(context),
                   child: ListView.separated(
+                    padding: const EdgeInsets.symmetric(horizontal: 18),
                     scrollDirection: Axis.horizontal,
                     itemCount: s.upcoming.length,
                     separatorBuilder: (_, _) => const SizedBox(width: 12),
@@ -217,6 +249,136 @@ class HomeTab extends StatelessWidget {
       );
     },
   );
+}
+
+class _HomeTabLabel extends StatelessWidget {
+  const _HomeTabLabel(this.label, {this.active = false});
+  final String label;
+  final bool active;
+
+  @override
+  Widget build(BuildContext context) => Column(
+    crossAxisAlignment: CrossAxisAlignment.start,
+    children: [
+      Text(label, style: TextStyle(fontSize: 17, fontWeight: active ? FontWeight.w800 : FontWeight.w600, color: active ? AppColors.text : AppColors.muted)),
+      const SizedBox(height: 10),
+      AnimatedContainer(duration: const Duration(milliseconds: 180), width: active ? 64 : 0, height: 3, color: AppColors.coral),
+    ],
+  );
+}
+
+class _FeaturedRail extends StatelessWidget {
+  const _FeaturedRail({required this.books, required this.width});
+  final List<Book> books;
+  final double width;
+
+  @override
+  Widget build(BuildContext context) => Column(
+    children: [
+      SizedBox(
+        height: 382,
+        child: ListView.separated(
+          padding: const EdgeInsets.only(left: 18, right: 8),
+          scrollDirection: Axis.horizontal,
+          itemCount: books.length.clamp(1, 8).toInt(),
+          separatorBuilder: (_, _) => const SizedBox(width: 14),
+          itemBuilder: (_, index) {
+            final book = books[index];
+            return SizedBox(
+              width: (width * .78).clamp(270.0, 330.0),
+              child: InkWell(
+                onTap: () => openBook(context, book),
+                borderRadius: BorderRadius.circular(22),
+                child: Stack(
+                  fit: StackFit.expand,
+                  children: [
+                    ClipRRect(
+                      borderRadius: BorderRadius.circular(22),
+                      child: book.coverImageUrl.isEmpty
+                          ? const ColoredBox(color: AppColors.raised)
+                          : Image.network(book.coverImageUrl, fit: BoxFit.cover, errorBuilder: (_, _, _) => const ColoredBox(color: AppColors.raised)),
+                    ),
+                    DecoratedBox(
+                      decoration: BoxDecoration(
+                        borderRadius: BorderRadius.circular(22),
+                        gradient: const LinearGradient(begin: Alignment.topCenter, end: Alignment.bottomCenter, colors: [Colors.transparent, Color(0xE6000000)]),
+                      ),
+                    ),
+                    Positioned(
+                      top: 14,
+                      right: 14,
+                      child: DecoratedBox(
+                        decoration: BoxDecoration(color: Colors.black.withValues(alpha: .48), shape: BoxShape.circle),
+                        child: const Padding(padding: EdgeInsets.all(9), child: Icon(Icons.bookmark_border_rounded, color: Colors.white, size: 22)),
+                      ),
+                    ),
+                    Positioned(
+                      left: 18,
+                      right: 18,
+                      bottom: 20,
+                      child: Column(crossAxisAlignment: CrossAxisAlignment.start, children: [
+                        const Text('FEATURED AUDIOBOOK', style: TextStyle(color: AppColors.saffron, fontSize: 10, fontWeight: FontWeight.w800, letterSpacing: 1.1)),
+                        const SizedBox(height: 8),
+                        Text(book.title, maxLines: 2, overflow: TextOverflow.ellipsis, style: const TextStyle(fontSize: 25, height: 1.05, fontWeight: FontWeight.w900, color: Colors.white)),
+                        const SizedBox(height: 6),
+                        Text(book.language.toUpperCase(), style: const TextStyle(color: Colors.white70, fontSize: 11, fontWeight: FontWeight.w700)),
+                      ]),
+                    ),
+                  ],
+                ),
+              ),
+            );
+          },
+        ),
+      ),
+      const SizedBox(height: 12),
+      Row(mainAxisAlignment: MainAxisAlignment.center, children: [
+        Container(width: 38, height: 8, decoration: BoxDecoration(color: AppColors.text, borderRadius: BorderRadius.circular(8))),
+        ...List.generate(books.length.clamp(2, 5).toInt() - 1, (_) => const Padding(padding: EdgeInsets.only(left: 7), child: CircleAvatar(radius: 4, backgroundColor: Color(0xFF565656)))),
+      ]),
+    ],
+  );
+}
+
+class _ContinueListening extends ConsumerWidget {
+  const _ContinueListening({required this.book, required this.player, this.fresh = false});
+  final Book book;
+  final dynamic player;
+  final bool fresh;
+
+  @override
+  Widget build(BuildContext context, WidgetRef ref) {
+    final episode = player.currentEpisode ?? (book.episodes.isEmpty ? null : book.episodes.first);
+    return Container(
+      margin: const EdgeInsets.only(top: 14),
+      padding: const EdgeInsets.fromLTRB(18, 18, 12, 12),
+      decoration: const BoxDecoration(
+        color: Color(0xFF710706),
+        borderRadius: BorderRadius.only(topRight: Radius.circular(30), bottomRight: Radius.circular(30)),
+      ),
+      child: Column(crossAxisAlignment: CrossAxisAlignment.start, children: [
+        const Text('Continue Listening', style: TextStyle(fontSize: 21, fontWeight: FontWeight.w900)),
+        const SizedBox(height: 15),
+        Row(children: [
+          ClipRRect(borderRadius: BorderRadius.circular(8), child: book.coverImageUrl.isEmpty ? const SizedBox(width: 70, height: 82, child: ColoredBox(color: AppColors.raised)) : Image.network(book.coverImageUrl, width: 70, height: 82, fit: BoxFit.cover, errorBuilder: (_, _, _) => const SizedBox(width: 70, height: 82, child: ColoredBox(color: AppColors.raised)))),
+          const SizedBox(width: 12),
+          Expanded(child: Column(crossAxisAlignment: CrossAxisAlignment.start, children: [
+            Text(book.title, maxLines: 1, overflow: TextOverflow.ellipsis, style: const TextStyle(fontSize: 17, fontWeight: FontWeight.w800)),
+            const SizedBox(height: 6),
+            Text(fresh ? 'Start listening now' : (episode?.title ?? 'Continue your story'), maxLines: 1, overflow: TextOverflow.ellipsis, style: const TextStyle(color: Colors.white70)),
+            const SizedBox(height: 10),
+            ClipRRect(borderRadius: BorderRadius.circular(4), child: const LinearProgressIndicator(value: .28, minHeight: 4, backgroundColor: Color(0x66FFFFFF), color: AppColors.coral)),
+          ])),
+          const SizedBox(width: 6),
+          IconButton.filled(onPressed: () async {
+            if (episode == null) { openBook(context, book); return; }
+            await ref.read(playerControllerProvider).playEpisode(book, episode);
+            if (context.mounted) Navigator.of(context).push(MaterialPageRoute(builder: (_) => const PlayerScreen()));
+          }, style: IconButton.styleFrom(backgroundColor: Colors.white, foregroundColor: Colors.black), icon: const Icon(Icons.play_arrow_rounded)),
+        ]),
+      ]),
+    );
+  }
 }
 
 class FeaturedBook extends StatelessWidget {
@@ -561,7 +723,9 @@ class MiniPlayer extends ConsumerWidget {
                 height: 52,
                 fit: BoxFit.cover,
               ),
-        title: Text(b.title, maxLines: 1, overflow: TextOverflow.ellipsis),
+        title: Text(s.currentEpisode?.title ?? b.title, maxLines: 1, overflow: TextOverflow.ellipsis),
+        subtitle: Text(b.title, maxLines: 1, overflow: TextOverflow.ellipsis),
+        onTap: () => Navigator.of(context).push(MaterialPageRoute(builder: (_) => const PlayerScreen())),
         trailing: StreamBuilder<bool>(
           stream: s.audioPlayer.playingStream,
           builder: (_, snap) => IconButton(

@@ -123,14 +123,16 @@ export const uploadContentMedia = async (
     if (!file) {
       return next(new BadRequestError('media file is required'));
     }
-    const mediaType = mediaTypeFromMime(file.mimetype);
-    if (!mediaType) {
-      return next(new BadRequestError('media must be audio or video'));
-    }
-
     const scope = typeof req.body?.scope === 'string' ? req.body.scope.trim() : '';
+    const isThumbnail = scope === 'thumbnail';
+    const mediaType = mediaTypeFromMime(file.mimetype);
+    if (!mediaType && !(isThumbnail && file.mimetype.startsWith('image/'))) {
+      return next(new BadRequestError(isThumbnail ? 'thumbnail must be an image' : 'media must be audio or video'));
+    }
     const folder =
-      scope === 'intro'
+      scope === 'thumbnail'
+        ? 'happinotes/thumbnails'
+        : scope === 'intro'
         ? 'happinotes/intro'
         : scope === 'conclusion'
           ? 'happinotes/conclusion'
@@ -146,7 +148,7 @@ export const uploadContentMedia = async (
     res.status(201).json({
       success: true,
       url: uploaded.url,
-      mediaType,
+      mediaType: mediaType ?? 'image',
     });
   } catch (err) {
     next(err);
@@ -212,22 +214,22 @@ export const createContent = async (
     }
 
     const thumbnailFile = files?.thumbnail?.[0];
+    const suppliedThumbnailUrl = typeof body.thumbnailUrl === 'string' ? body.thumbnailUrl.trim() : '';
     const introFile = files?.introMedia?.[0];
     const conclusionFile = files?.conclusionMedia?.[0];
     const lessonFiles = files?.lessonMedia ?? [];
     const mediaFile = files?.media?.[0];
 
-    if (!thumbnailFile) {
-      return next(new BadRequestError('thumbnail file is required'));
+    if (!thumbnailFile && !suppliedThumbnailUrl) {
+      return next(new BadRequestError('thumbnail file or thumbnailUrl is required'));
     }
     if (contentType !== 'lifebook' && status === 'live' && !mediaFile) {
       return next(new BadRequestError('media file is required for live note/silence'));
     }
 
-    const thumbnailUpload = await uploadToCloudinary(
-      thumbnailFile,
-      'happinotes/thumbnails'
-    );
+    const thumbnailUrl = thumbnailFile
+      ? (await uploadToCloudinary(thumbnailFile, 'happinotes/thumbnails')).url
+      : suppliedThumbnailUrl;
     let content: unknown;
     if (contentType === 'lifebook') {
       const rawIntro =
@@ -316,7 +318,7 @@ export const createContent = async (
         contentType: 'lifebook',
         title,
         description: description || '',
-        thumbnailUrl: thumbnailUpload.url,
+        thumbnailUrl,
         language,
         type,
         status,
@@ -354,7 +356,7 @@ export const createContent = async (
         contentType,
         title,
         description: description || '',
-        thumbnailUrl: thumbnailUpload.url,
+        thumbnailUrl,
         language,
         type,
         status,

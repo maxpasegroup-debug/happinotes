@@ -1,3 +1,4 @@
+import 'dart:async';
 import 'package:flutter/foundation.dart';
 import 'package:just_audio/just_audio.dart';
 import '../../../books/domain/entities/book.dart';
@@ -5,13 +6,20 @@ import '../../../books/domain/entities/book.dart';
 class PlayerController extends ChangeNotifier {
   final AudioPlayer audioPlayer = AudioPlayer();
   Book? currentBook;
+  Episode? currentEpisode;
   Future<void> play(Book book) async {
-    if (book.audioUrl.isEmpty) throw StateError('This book has no audio yet.');
-    if (currentBook?.id != book.id) {
+    if (book.episodes.isEmpty) throw StateError('This book has no episodes yet.');
+    await playEpisode(book, book.episodes.first);
+  }
+
+  Future<void> playEpisode(Book book, Episode episode) async {
+    if (episode.audioUrl.isEmpty) throw StateError('This episode has no audio yet.');
+    if (currentBook?.id != book.id || currentEpisode?.id != episode.id) {
       currentBook = book;
-      await audioPlayer.setUrl(book.audioUrl);
+      currentEpisode = episode;
+      await audioPlayer.setUrl(episode.audioUrl);
     }
-    await audioPlayer.play();
+    unawaited(audioPlayer.play());
     notifyListeners();
   }
 
@@ -27,6 +35,7 @@ class PlayerController extends ChangeNotifier {
   Future<void> stop() async {
     await audioPlayer.stop();
     currentBook = null;
+    currentEpisode = null;
     notifyListeners();
   }
 
