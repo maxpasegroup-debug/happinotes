@@ -8,6 +8,9 @@ import { errorHandler } from './middleware';
 import path from 'path';
 
 const app = express();
+// Railway sits behind one reverse proxy and forwards the client address in
+// X-Forwarded-For. Trust that proxy so express-rate-limit can identify users.
+app.set('trust proxy', 1);
 const configuredOrigins = (process.env.CORS_ORIGINS || '')
   .split(',')
   .map((x) => x.trim())
