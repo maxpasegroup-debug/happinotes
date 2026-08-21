@@ -5,6 +5,7 @@ import rateLimit from 'express-rate-limit';
 import routes from './routes';
 import { handleRazorpayWebhook } from './controllers/paymentsController';
 import { errorHandler } from './middleware';
+import path from 'path';
 
 const app = express();
 const configuredOrigins = (process.env.CORS_ORIGINS || '')
@@ -48,6 +49,12 @@ app.use(express.urlencoded({ extended: true }));
 app.get('/health', (_req, res) => {
   res.json({ success: true, message: 'Happinotes Backend is running' });
 });
+
+const mediaStorageDir = process.env.MEDIA_STORAGE_DIR || path.join(process.cwd(), 'uploads');
+app.use('/uploads', express.static(mediaStorageDir, {
+  fallthrough: true,
+  maxAge: '1h',
+}));
 
 app.use(routes);
 

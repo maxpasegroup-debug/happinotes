@@ -1,10 +1,12 @@
 import { Request, Response, NextFunction } from 'express';
+import { mkdir, writeFile } from 'fs/promises';
+import path from 'path';
+import crypto from 'crypto';
 import { validationResult } from 'express-validator';
 import { Content } from '../models';
 import type { ILifebookSection, ILesson } from '../models/Content';
 import type { Multer } from 'multer';
 import { BadRequestError, NotFoundError } from '../utils/errors';
-import { cloudinary } from '../config/cloudinary';
 import { emitCatalogChanged } from '../services/realtime';
 
 const CONTENT_UPDATE_FIELDS = [
@@ -78,38 +80,17 @@ async function uploadToCloudinary(
   file: UploadedFile,
   folder: string
 ): Promise<{ url: string; resourceType: string }> {
-  if (
-    !process.env.CLOUDINARY_CLOUD_NAME ||
-    !process.env.CLOUDINARY_API_KEY ||
-    !process.env.CLOUDINARY_API_SECRET
-  ) {
-    throw new BadRequestError(
-      'Cloudinary is not configured. Set CLOUDINARY_CLOUD_NAME, CLOUDINARY_API_KEY, CLOUDINARY_API_SECRET.'
-    );
-  }
-  return await new Promise((resolve, reject) => {
-    const stream = cloudinary.uploader.upload_stream(
-      {
-        folder,
-        resource_type: 'auto',
-      },
-      (error, result) => {
-        if (error || !result) {
-          reject(
-            new BadRequestError(
-              `Cloudinary upload failed${error?.message ? `: ${error.message}` : ''}`
-            )
-          );
-          return;
-        }
-        resolve({
-          url: result.secure_url,
-          resourceType: result.resource_type,
-        });
-      }
-    );
-    stream.end(file.buffer);
-  });
+  const storageDir = process.env.MEDIA_STORAGE_DIR || path.join(process.cwd(), 'uploads');
+  await mkdir(storageDir, { recursive: true });
+  const extension = path.extname(file.originalname).toLowerCase() ||
+    (file.mimetype === 'image/png' ? '.png' : file.mimetype.startsWith('image/') ? '.jpg' : '.mp3');
+  const filename = `${crypto.randomUUID()}${extension}`;
+  await writeFile(path.join(storageDir, filename), file.buffer);
+  const publicBase = (process.env.MEDIA_PUBLIC_URL || '/uploads').replace(/\/$/, '');
+  return {
+    url: `${publicBase}/${filename}`,
+    resourceType: file.mimetype.startsWith('image/') ? 'image' : 'audio',
+  };
 }
 
 /** POST /admin/contents/upload-media — upload single audio/video file and return URL */
