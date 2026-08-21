@@ -82,15 +82,6 @@ class BooksController extends ChangeNotifier {
     'type': book.accessType,
     'status': book.status,
     'totalDurationSeconds': book.duration,
-    'lessons': book.episodes
-        .map((episode) => {
-          'title': episode.title,
-          'description': episode.description,
-          'mediaUrl': episode.audioUrl,
-          'mediaType': 'audio',
-          'order': episode.order,
-        })
-        .toList(),
   };
 
   List<Book> _decodeBooks(dynamic value) => (value as List? ?? [])
