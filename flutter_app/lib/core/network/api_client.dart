@@ -24,9 +24,8 @@ class ApiClient {
             ),
           );
   }
-  // The Railway service mounts routes at /contents, /auth, etc.
-  // There is no /api prefix on the deployed server.
-  static const baseUrl = 'https://happinotes-production-6b44.up.railway.app';
+  static const baseUrl =
+      'https://happinotes-production-6b44.up.railway.app/api';
   static const _tokenKey = 'jwt_token';
   final FlutterSecureStorage _storage;
   late final Dio dio;
