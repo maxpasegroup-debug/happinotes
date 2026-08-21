@@ -175,7 +175,7 @@ class HomeTab extends StatelessWidget {
                   ),
                 )
               else if (books.isNotEmpty) ...[
-                FeaturedBook(book: books.first),
+                FeaturedRail(books: books),
                 const SizedBox(height: 28),
                 const SectionTitle('Recently added'),
                 const SizedBox(height: 12),
@@ -252,69 +252,143 @@ class HomeTab extends StatelessWidget {
   );
 }
 
-class FeaturedBook extends StatelessWidget {
-  const FeaturedBook({super.key, required this.book});
-  final Book book;
+class FeaturedRail extends StatefulWidget {
+  const FeaturedRail({super.key, required this.books});
+  final List<Book> books;
+
   @override
-  Widget build(BuildContext context) => InkWell(
-    onTap: () => openBook(context, book),
-    child: Container(
-      height: 210,
-      padding: const EdgeInsets.all(20),
-      decoration: BoxDecoration(
-        borderRadius: BorderRadius.circular(22),
-        gradient: const LinearGradient(
-          colors: [Color(0xFF5B2118), Color(0xFF201513)],
+  State<FeaturedRail> createState() => _FeaturedRailState();
+}
+
+class _FeaturedRailState extends State<FeaturedRail> {
+  late final PageController _controller;
+  int _index = 0;
+
+  @override
+  void initState() {
+    super.initState();
+    _controller = PageController(viewportFraction: .73);
+  }
+
+  @override
+  void dispose() {
+    _controller.dispose();
+    super.dispose();
+  }
+
+  @override
+  Widget build(BuildContext context) => Column(
+    children: [
+      SizedBox(
+        height: 374,
+        child: PageView.builder(
+          controller: _controller,
+          itemCount: widget.books.length,
+          onPageChanged: (value) => setState(() => _index = value),
+          itemBuilder: (context, index) {
+            final book = widget.books[index];
+            return Padding(
+              padding: const EdgeInsets.symmetric(horizontal: 6),
+              child: InkWell(
+                borderRadius: BorderRadius.circular(24),
+                onTap: () => openBook(context, book),
+                child: ClipRRect(
+                  borderRadius: BorderRadius.circular(24),
+                  child: Stack(
+                    fit: StackFit.expand,
+                    children: [
+                      _cover(book),
+                      const DecoratedBox(
+                        decoration: BoxDecoration(
+                          gradient: LinearGradient(
+                            begin: Alignment.topCenter,
+                            end: Alignment.bottomCenter,
+                            colors: [Colors.transparent, Color(0xE6000000)],
+                            stops: [.5, 1],
+                          ),
+                        ),
+                      ),
+                      Positioned(
+                        top: 14,
+                        right: 14,
+                        child: DecoratedBox(
+                          decoration: BoxDecoration(
+                            color: Colors.black.withValues(alpha: .45),
+                            shape: BoxShape.circle,
+                          ),
+                          child: IconButton(
+                            visualDensity: VisualDensity.compact,
+                            color: Colors.white,
+                            icon: const Icon(Icons.bookmark_border_rounded),
+                            onPressed: () => AppMessage.show(context, 'Added to your library'),
+                          ),
+                        ),
+                      ),
+                      Positioned(
+                        left: 18,
+                        right: 18,
+                        bottom: 18,
+                        child: Text(
+                          book.title,
+                          maxLines: 2,
+                          overflow: TextOverflow.ellipsis,
+                          style: const TextStyle(
+                            fontSize: 24,
+                            height: 1.05,
+                            fontWeight: FontWeight.w900,
+                            color: Colors.white,
+                          ),
+                        ),
+                      ),
+                    ],
+                  ),
+                ),
+              ),
+            );
+          },
         ),
       ),
-      child: Row(
-        children: [
-          Expanded(
-            child: Column(
-              crossAxisAlignment: CrossAxisAlignment.start,
-              mainAxisAlignment: MainAxisAlignment.center,
-              children: [
-                const Text(
-                  'FEATURED',
-                  style: TextStyle(
-                    color: AppColors.saffron,
-                    fontSize: 11,
-                    fontWeight: FontWeight.w900,
-                    letterSpacing: 1.2,
-                  ),
-                ),
-                const SizedBox(height: 10),
-                Text(
-                  book.title,
-                  maxLines: 3,
-                  overflow: TextOverflow.ellipsis,
-                  style: const TextStyle(
-                    fontSize: 25,
-                    fontWeight: FontWeight.w900,
-                  ),
-                ),
-                const SizedBox(height: 16),
-                const CircleAvatar(
-                  backgroundColor: AppColors.coral,
-                  child: Icon(Icons.play_arrow, color: Colors.white),
-                ),
-              ],
+      const SizedBox(height: 12),
+      Row(
+        mainAxisAlignment: MainAxisAlignment.center,
+        children: List.generate(widget.books.length.clamp(1, 6).toInt(), (dot) {
+          final active = dot == _index.clamp(0, 5).toInt();
+          return AnimatedContainer(
+            duration: const Duration(milliseconds: 180),
+            width: active ? 42 : 8,
+            height: 8,
+            margin: const EdgeInsets.symmetric(horizontal: 4),
+            decoration: BoxDecoration(
+              color: active ? Colors.white : const Color(0xFF5A5A5A),
+              borderRadius: BorderRadius.circular(10),
             ),
-          ),
-          if (book.coverImageUrl.isNotEmpty)
-            ClipRRect(
-              borderRadius: BorderRadius.circular(12),
-              child: Image.network(
-                book.coverImageUrl,
-                width: 112,
-                height: 160,
-                fit: BoxFit.cover,
-              ),
-            ),
-        ],
+          );
+        }),
       ),
-    ),
+    ],
   );
+
+  Widget _cover(Book book) {
+    if (book.coverImageUrl.isEmpty) {
+      return const DecoratedBox(
+        decoration: BoxDecoration(
+          gradient: LinearGradient(
+            colors: [Color(0xFF5B2118), Color(0xFF151515)],
+            begin: Alignment.topCenter,
+            end: Alignment.bottomCenter,
+          ),
+        ),
+      );
+    }
+    return Image.network(
+      book.coverImageUrl,
+      fit: BoxFit.cover,
+      errorBuilder: (_, _, _) => const DecoratedBox(
+        decoration: BoxDecoration(color: AppColors.raised),
+        child: Icon(Icons.menu_book_rounded, size: 72, color: AppColors.muted),
+      ),
+    );
+  }
 }
 
 class SearchTab extends ConsumerWidget {
