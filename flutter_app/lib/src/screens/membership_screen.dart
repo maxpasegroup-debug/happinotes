@@ -20,14 +20,7 @@ class MembershipScreen extends ConsumerWidget {
       },
     );
     return Scaffold(
-      appBar: AppBar(
-        title: const Text('Choose your plan'),
-        leading: IconButton(
-          icon: const Icon(Icons.close_rounded),
-          tooltip: 'Close',
-          onPressed: () => Navigator.of(context).pop(),
-        ),
-      ),
+      appBar: AppBar(title: const Text('Membership')),
       body: state.loading
           ? const DashboardLoadingSkeleton()
           : ListView(
