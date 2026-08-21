@@ -425,8 +425,16 @@ class SearchTab extends ConsumerWidget {
     final s = ref.watch(booksControllerProvider);
     final query = ref.watch(searchQueryProvider);
     final language = ref.watch(searchLanguageProvider);
-    return SafeArea(
-      child: Column(
+    return Scaffold(
+      appBar: AppBar(
+        title: const Text('Search'),
+        leading: IconButton(
+          icon: const Icon(Icons.arrow_back_rounded),
+          onPressed: () => Navigator.of(context).pop(),
+        ),
+      ),
+      body: SafeArea(
+        child: Column(
         children: [
           Padding(
             padding: const EdgeInsets.all(16),
@@ -439,10 +447,11 @@ class SearchTab extends ConsumerWidget {
                 ),
                 const SizedBox(height: 14),
                 TextFormField(
-                  key: ValueKey('search-$query'),
                   initialValue: query,
-                  onChanged: (value) =>
-                      ref.read(searchQueryProvider.notifier).state = value,
+                  onChanged: (value) {
+                    ref.read(searchQueryProvider.notifier).state = value;
+                    s.loadBooks(query: value, language: language);
+                  },
                   onFieldSubmitted: (v) =>
                       s.loadBooks(query: v, language: language),
                   decoration: InputDecoration(
@@ -557,6 +566,7 @@ class CollectionTab extends ConsumerWidget {
                 ),
               ),
           ],
+        ),
         ),
       ),
     );
