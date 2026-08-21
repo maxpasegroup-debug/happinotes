@@ -66,6 +66,7 @@ final realtimeServiceProvider = Provider<RealtimeService>((ref) {
       ref.read(booksControllerProvider).loadBooks(
         query: query.isEmpty ? null : query,
         language: selectedLanguage == 'all' ? null : selectedLanguage,
+        forceRefresh: true,
       );
       if (session.user?.role == 'admin') {
         ref.read(adminControllerProvider).loadAll();

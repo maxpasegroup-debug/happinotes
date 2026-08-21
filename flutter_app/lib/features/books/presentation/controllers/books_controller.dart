@@ -1,7 +1,10 @@
 import 'package:flutter/foundation.dart';
+import 'dart:convert';
+import 'package:shared_preferences/shared_preferences.dart';
 import '../../../../core/network/api_client.dart';
 import '../../domain/entities/book.dart';
 import '../../domain/repositories/books_repository.dart';
+import '../../data/models/book_model.dart';
 
 class BooksController extends ChangeNotifier {
   BooksController(this.repository, this.client);
@@ -13,7 +16,10 @@ class BooksController extends ChangeNotifier {
   bool collectionLoading = false;
   bool loading = false;
   String? error;
-  Future<void> loadBooks({String? query, String? language}) async {
+  Future<void> loadBooks({String? query, String? language, bool forceRefresh = false}) async {
+    final canUseCache = query?.isEmpty != false &&
+        (language == null || language == 'all');
+    if (!forceRefresh && canUseCache && await _restoreCacheIfFresh()) return;
     loading = true;
     error = null;
     notifyListeners();
@@ -24,12 +30,72 @@ class BooksController extends ChangeNotifier {
       ]);
       books = result[0];
       upcoming = result[1];
+      if (canUseCache) await _saveCache();
     } catch (e) {
       error = client.errorMessage(e);
     }
     loading = false;
     notifyListeners();
   }
+
+  Future<bool> _restoreCacheIfFresh() async {
+    final preferences = await SharedPreferences.getInstance();
+    final savedAt = preferences.getInt('books_cache_saved_at');
+    final rawBooks = preferences.getString('books_cache');
+    if (savedAt == null || rawBooks == null) return false;
+    final age = DateTime.now().millisecondsSinceEpoch - savedAt;
+    if (age > const Duration(minutes: 10).inMilliseconds) return false;
+    try {
+      final data = jsonDecode(rawBooks) as Map<String, dynamic>;
+      books = _decodeBooks(data['books']);
+      upcoming = _decodeBooks(data['upcoming']);
+      notifyListeners();
+      return true;
+    } catch (_) {
+      return false;
+    }
+  }
+
+  Future<void> _saveCache() async {
+    final preferences = await SharedPreferences.getInstance();
+    await preferences.setString(
+      'books_cache',
+      jsonEncode({
+        'books': books.map(_encodeBook).toList(),
+        'upcoming': upcoming.map(_encodeBook).toList(),
+      }),
+    );
+    await preferences.setInt(
+      'books_cache_saved_at',
+      DateTime.now().millisecondsSinceEpoch,
+    );
+  }
+
+  Map<String, dynamic> _encodeBook(Book book) => {
+    '_id': book.id,
+    'title': book.title,
+    'description': book.description,
+    'language': book.language,
+    'category': book.category,
+    'thumbnailUrl': book.coverImageUrl,
+    'introAudioUrl': book.audioUrl,
+    'type': book.accessType,
+    'status': book.status,
+    'totalDurationSeconds': book.duration,
+    'lessons': book.episodes
+        .map((episode) => {
+          'title': episode.title,
+          'description': episode.description,
+          'mediaUrl': episode.audioUrl,
+          'mediaType': 'audio',
+          'order': episode.order,
+        })
+        .toList(),
+  };
+
+  List<Book> _decodeBooks(dynamic value) => (value as List? ?? [])
+      .map((item) => BookModel.fromJson(Map<String, dynamic>.from(item)))
+      .toList();
 
   Future<void> loadCollection() async {
     if (collectionLoading) return;

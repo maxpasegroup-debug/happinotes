@@ -107,7 +107,7 @@ class HomeTab extends StatelessWidget {
       final books = s.books;
       return SafeArea(
         child: RefreshIndicator(
-          onRefresh: s.loadBooks,
+          onRefresh: () => s.loadBooks(forceRefresh: true),
           child: ListView(
             padding: const EdgeInsets.fromLTRB(16, 12, 16, 28),
             children: [
