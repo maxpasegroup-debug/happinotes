@@ -25,7 +25,7 @@ class ApiClient {
           );
   }
   static const baseUrl =
-      'https://happinotes-production-6b44.up.railway.app/api';
+      'https://happinotes-production-6b44.up.railway.app';
   static const _tokenKey = 'jwt_token';
   final FlutterSecureStorage _storage;
   late final Dio dio;
