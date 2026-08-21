@@ -9,6 +9,8 @@ class BooksController extends ChangeNotifier {
   final ApiClient client;
   List<Book> books = const [];
   List<Book> upcoming = const [];
+  List<Book> library = const [];
+  bool collectionLoading = false;
   bool loading = false;
   String? error;
   Future<void> loadBooks({String? query, String? language}) async {
@@ -27,5 +29,41 @@ class BooksController extends ChangeNotifier {
     }
     loading = false;
     notifyListeners();
+  }
+
+  Future<void> loadCollection() async {
+    if (collectionLoading) return;
+    collectionLoading = true;
+    notifyListeners();
+    try {
+      library = await repository.getCollection();
+    } catch (e) {
+      error = client.errorMessage(e);
+    } finally {
+      collectionLoading = false;
+      notifyListeners();
+    }
+  }
+
+  Future<String?> addToCollection(Book book) async {
+    try {
+      await repository.addToCollection(book.id);
+      if (!library.any((item) => item.id == book.id)) library = [...library, book];
+      notifyListeners();
+      return null;
+    } catch (e) {
+      return client.errorMessage(e);
+    }
+  }
+
+  Future<String?> removeFromCollection(Book book) async {
+    try {
+      await repository.removeFromCollection(book.id);
+      library = library.where((item) => item.id != book.id).toList();
+      notifyListeners();
+      return null;
+    } catch (e) {
+      return client.errorMessage(e);
+    }
   }
 }

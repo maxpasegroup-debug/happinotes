@@ -58,7 +58,6 @@ class _MainShellState extends ConsumerState<MainShell> {
     }
     final pages = [
       const HomeTab(),
-      const SearchTab(),
       const CollectionTab(),
       const ProfileTab(),
     ];
@@ -80,7 +79,6 @@ class _MainShellState extends ConsumerState<MainShell> {
                 selectedIcon: Icon(Icons.home_rounded),
                 label: 'Home',
               ),
-              NavigationDestination(icon: Icon(Icons.search), label: 'Search'),
               NavigationDestination(
                 icon: Icon(Icons.bookmark_outline),
                 selectedIcon: Icon(Icons.bookmark),
@@ -151,8 +149,11 @@ class HomeTab extends StatelessWidget {
                   color: AppColors.raised,
                   borderRadius: BorderRadius.circular(14),
                 ),
-                child: const TextField(
+                child: TextField(
                   readOnly: true,
+                  onTap: () => Navigator.of(context).push(
+                    MaterialPageRoute(builder: (_) => const SearchTab()),
+                  ),
                   decoration: InputDecoration(
                     prefixIcon: Icon(Icons.search),
                     hintText: 'Search books and stories',
@@ -316,11 +317,23 @@ class _FeaturedRailState extends State<FeaturedRail> {
                             color: Colors.black.withValues(alpha: .45),
                             shape: BoxShape.circle,
                           ),
-                          child: IconButton(
-                            visualDensity: VisualDensity.compact,
-                            color: Colors.white,
-                            icon: const Icon(Icons.bookmark_border_rounded),
-                            onPressed: () => AppMessage.show(context, 'Added to your library'),
+                          child: Consumer(
+                            builder: (context, ref, _) => IconButton(
+                              visualDensity: VisualDensity.compact,
+                              color: Colors.white,
+                              icon: const Icon(Icons.bookmark_border_rounded),
+                              onPressed: () async {
+                                final message = await ref
+                                    .read(booksControllerProvider)
+                                    .addToCollection(book);
+                                if (!context.mounted) return;
+                                AppMessage.show(
+                                  context,
+                                  message ?? 'Added to your library',
+                                  success: message == null,
+                                );
+                              },
+                            ),
                           ),
                         ),
                       ),
@@ -482,37 +495,58 @@ class SearchTab extends ConsumerWidget {
   }
 }
 
-class CollectionTab extends StatelessWidget {
+class CollectionTab extends ConsumerWidget {
   const CollectionTab({super.key});
   @override
-  Widget build(BuildContext context) => const SafeArea(
-    child: Padding(
-      padding: EdgeInsets.all(20),
-      child: Column(
-        crossAxisAlignment: CrossAxisAlignment.start,
-        children: [
-          Text(
-            'My Library',
-            style: TextStyle(fontSize: 28, fontWeight: FontWeight.w900),
-          ),
-          Spacer(),
-          Center(
-            child: Column(
-              children: [
-                Icon(Icons.bookmark_border, size: 58, color: AppColors.muted),
-                SizedBox(height: 14),
-                Text(
-                  'Your saved books will appear here.',
-                  style: TextStyle(color: AppColors.muted),
+  Widget build(BuildContext context, WidgetRef ref) {
+    final state = ref.watch(booksControllerProvider);
+    if (state.library.isEmpty && !state.collectionLoading) {
+      Future.microtask(() => ref.read(booksControllerProvider).loadCollection());
+    }
+    return SafeArea(
+      child: Padding(
+        padding: const EdgeInsets.all(20),
+        child: Column(
+          crossAxisAlignment: CrossAxisAlignment.start,
+          children: [
+            const Text('My Library', style: TextStyle(fontSize: 28, fontWeight: FontWeight.w900)),
+            const SizedBox(height: 16),
+            if (state.collectionLoading)
+              const Expanded(child: Center(child: CircularProgressIndicator()))
+            else if (state.library.isEmpty)
+              const Expanded(
+                child: Center(
+                  child: Column(
+                    mainAxisSize: MainAxisSize.min,
+                    children: [
+                      Icon(Icons.bookmark_border, size: 58, color: AppColors.muted),
+                      SizedBox(height: 14),
+                      Text('Your saved books will appear here.', style: TextStyle(color: AppColors.muted)),
+                    ],
+                  ),
                 ),
-              ],
-            ),
-          ),
-          Spacer(),
-        ],
+              )
+            else
+              Expanded(
+                child: GridView.builder(
+                  gridDelegate: const SliverGridDelegateWithFixedCrossAxisCount(
+                    crossAxisCount: 2,
+                    childAspectRatio: .66,
+                    crossAxisSpacing: 14,
+                    mainAxisSpacing: 18,
+                  ),
+                  itemCount: state.library.length,
+                  itemBuilder: (_, index) {
+                    final book = state.library[index];
+                    return BookCard(book: book, onTap: () => openBook(context, book));
+                  },
+                ),
+              ),
+          ],
+        ),
       ),
-    ),
-  );
+    );
+  }
 }
 
 class ProfileTab extends ConsumerWidget {

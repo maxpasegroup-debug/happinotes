@@ -32,4 +32,22 @@ class BooksRepositoryImpl implements BooksRepository {
         .map((value) => BookModel.fromJson(Map<String, dynamic>.from(value)))
         .toList();
   }
+
+  @override
+  Future<List<Book>> getCollection() async {
+    final response = await client.dio.get('/collection');
+    return (response.data['collection'] as List? ?? [])
+        .map((value) => BookModel.fromJson(Map<String, dynamic>.from(value)))
+        .toList();
+  }
+
+  @override
+  Future<void> addToCollection(String bookId) async {
+    await client.dio.post('/collection/$bookId');
+  }
+
+  @override
+  Future<void> removeFromCollection(String bookId) async {
+    await client.dio.delete('/collection/$bookId');
+  }
 }
