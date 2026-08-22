@@ -21,15 +21,40 @@ class MembershipController extends ChangeNotifier {
   String? selected, error;
   bool loading = true, paying = false;
   int activationCount = 0;
+
+  // These mirror the backend defaults. They keep the membership UI useful if
+  // the plans request is temporarily unavailable; checkout still uses the
+  // backend and will report an error until the service is reachable.
+  static const _defaultPlans = <MembershipPlan>[
+    MembershipPlan(
+      id: 'monthly',
+      name: 'Monthly',
+      price: 499,
+      durationDays: 30,
+    ),
+    MembershipPlan(
+      id: 'yearly',
+      name: 'Yearly',
+      price: 4999,
+      durationDays: 365,
+    ),
+  ];
+
   Future<void> load() async {
     try {
       plans = await repository.getPlans();
+      if (plans.isEmpty) {
+        plans = _defaultPlans;
+        error = 'Membership plans are temporarily unavailable. Please try again.';
+      }
       if (plans.isNotEmpty) {
         selected = plans.any((p) => p.id == 'yearly')
             ? 'yearly'
             : plans.first.id;
       }
     } catch (e) {
+      plans = _defaultPlans;
+      selected = 'yearly';
       error = client.errorMessage(e);
     }
     loading = false;

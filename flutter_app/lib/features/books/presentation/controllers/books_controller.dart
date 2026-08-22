@@ -14,6 +14,7 @@ class BooksController extends ChangeNotifier {
   List<Book> upcoming = const [];
   List<Book> library = const [];
   bool collectionLoading = false;
+  bool collectionLoaded = false;
   bool loading = false;
   String? error;
   Future<void> loadBooks({String? query, String? language, bool forceRefresh = false}) async {
@@ -89,7 +90,7 @@ class BooksController extends ChangeNotifier {
       .toList();
 
   Future<void> loadCollection() async {
-    if (collectionLoading) return;
+    if (collectionLoading || collectionLoaded) return;
     collectionLoading = true;
     notifyListeners();
     try {
@@ -98,6 +99,7 @@ class BooksController extends ChangeNotifier {
       error = client.errorMessage(e);
     } finally {
       collectionLoading = false;
+      collectionLoaded = true;
       notifyListeners();
     }
   }

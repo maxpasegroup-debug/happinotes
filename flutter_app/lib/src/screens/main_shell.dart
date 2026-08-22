@@ -8,6 +8,7 @@ import '../widgets/app_message.dart';
 import '../widgets/book_card.dart';
 import '../widgets/loading_skeleton.dart';
 import 'book_detail.dart';
+import 'episode_player_screen.dart';
 import 'legal_screen.dart';
 import 'membership_screen.dart';
 
@@ -138,7 +139,12 @@ class HomeTab extends StatelessWidget {
                     ),
                   ),
                   IconButton(
-                    onPressed: () {},
+                    onPressed: () => showModalBottomSheet<void>(
+                      context: context,
+                      isScrollControlled: true,
+                      backgroundColor: Colors.transparent,
+                      builder: (_) => const _DemoNotificationsSheet(),
+                    ),
                     icon: const Icon(Icons.notifications_none),
                   ),
                 ],
@@ -523,7 +529,7 @@ class CollectionTab extends ConsumerWidget {
   @override
   Widget build(BuildContext context, WidgetRef ref) {
     final state = ref.watch(booksControllerProvider);
-    if (state.library.isEmpty && !state.collectionLoading) {
+    if (!state.collectionLoaded && !state.collectionLoading) {
       Future.microtask(() => ref.read(booksControllerProvider).loadCollection());
     }
     return SafeArea(
@@ -718,6 +724,23 @@ class MiniPlayer extends ConsumerWidget {
     return Material(
       color: AppColors.raised,
       child: ListTile(
+        onTap: () {
+          // Open the full player when the mini-player itself is tapped.
+          // The play/pause button remains an independent control.
+          final episode = s.currentEpisode ??
+              (b.episodes.isNotEmpty ? b.episodes.first : null);
+          if (episode != null) {
+            Navigator.of(context).push(
+              _slideUpRoute(
+                EpisodePlayerScreen(book: b, episode: episode),
+              ),
+            );
+          } else {
+            Navigator.of(context).push(
+              _slideUpRoute(BookDetail(book: b)),
+            );
+          }
+        },
         leading: b.coverImageUrl.isEmpty
             ? const Icon(Icons.audio_file)
             : Image.network(
@@ -745,6 +768,19 @@ class MiniPlayer extends ConsumerWidget {
   }
 }
 
+Route<void> _slideUpRoute(Widget page) => PageRouteBuilder<void>(
+  pageBuilder: (_, __, ___) => page,
+  transitionDuration: const Duration(milliseconds: 320),
+  reverseTransitionDuration: const Duration(milliseconds: 260),
+  transitionsBuilder: (_, animation, __, child) => SlideTransition(
+    position: Tween<Offset>(
+      begin: const Offset(0, 1),
+      end: Offset.zero,
+    ).chain(CurveTween(curve: Curves.easeOutCubic)).animate(animation),
+    child: child,
+  ),
+);
+
 class SectionTitle extends StatelessWidget {
   const SectionTitle(this.text, {super.key});
   final String text;
@@ -752,6 +788,93 @@ class SectionTitle extends StatelessWidget {
   Widget build(BuildContext context) => Text(
     text,
     style: const TextStyle(fontSize: 20, fontWeight: FontWeight.w900),
+  );
+}
+
+class _DemoNotificationsSheet extends StatelessWidget {
+  const _DemoNotificationsSheet();
+
+  @override
+  Widget build(BuildContext context) => SafeArea(
+    child: Container(
+      constraints: const BoxConstraints(maxHeight: 520),
+      decoration: const BoxDecoration(
+        color: AppColors.surface,
+        borderRadius: BorderRadius.vertical(top: Radius.circular(24)),
+      ),
+      padding: const EdgeInsets.fromLTRB(20, 12, 20, 20),
+      child: Column(
+        crossAxisAlignment: CrossAxisAlignment.stretch,
+        children: [
+          Center(
+            child: Container(
+              width: 42,
+              height: 4,
+              decoration: BoxDecoration(
+                color: AppColors.muted,
+                borderRadius: BorderRadius.circular(4),
+              ),
+            ),
+          ),
+          const SizedBox(height: 18),
+          const Text(
+            'Notifications',
+            style: TextStyle(fontSize: 22, fontWeight: FontWeight.w900),
+          ),
+          const SizedBox(height: 12),
+          Expanded(
+            child: ListView(
+              children: const [
+                _DemoNotificationTile(
+                  icon: Icons.auto_awesome,
+                  title: 'New story available',
+                  message: 'A fresh Malayalam story is ready to listen.',
+                  time: 'Just now',
+                ),
+                _DemoNotificationTile(
+                  icon: Icons.headphones,
+                  title: 'Continue listening',
+                  message: 'Your saved episode is waiting for you.',
+                  time: 'Today',
+                ),
+                _DemoNotificationTile(
+                  icon: Icons.card_membership,
+                  title: 'Explore HappiNotes Premium',
+                  message: 'Unlock more stories and listen without limits.',
+                  time: 'Yesterday',
+                ),
+              ],
+            ),
+          ),
+        ],
+      ),
+    ),
+  );
+}
+
+class _DemoNotificationTile extends StatelessWidget {
+  const _DemoNotificationTile({
+    required this.icon,
+    required this.title,
+    required this.message,
+    required this.time,
+  });
+
+  final IconData icon;
+  final String title;
+  final String message;
+  final String time;
+
+  @override
+  Widget build(BuildContext context) => ListTile(
+    contentPadding: const EdgeInsets.symmetric(vertical: 6),
+    leading: CircleAvatar(
+      backgroundColor: AppColors.coral.withValues(alpha: .16),
+      child: Icon(icon, color: AppColors.coral),
+    ),
+    title: Text(title, style: const TextStyle(fontWeight: FontWeight.w800)),
+    subtitle: Text('$message\n$time'),
+    isThreeLine: true,
   );
 }
 

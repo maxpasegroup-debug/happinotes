@@ -110,7 +110,8 @@ class AdminController extends ChangeNotifier {
     final maximumBytes = kind == 'cover'
         ? 5 * 1024 * 1024
         : 200 * 1024 * 1024;
-    if (result!.files.single.size > maximumBytes) {
+    final fileSize = result!.files.single.size;
+    if (fileSize > maximumBytes) {
       error = kind == 'cover'
           ? 'Cover image must be 5 MB or smaller.'
           : 'MP3 must be 200 MB or smaller.';
