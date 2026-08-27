@@ -38,7 +38,7 @@ class _MainShellState extends ConsumerState<MainShell> {
         isScrollControlled: true,
         backgroundColor: Colors.transparent,
         builder: (_) => FractionallySizedBox(
-          heightFactor: .86,
+          heightFactor: .5,
           child: ClipRRect(
             borderRadius: const BorderRadius.vertical(top: Radius.circular(24)),
             child: const MembershipScreen(),

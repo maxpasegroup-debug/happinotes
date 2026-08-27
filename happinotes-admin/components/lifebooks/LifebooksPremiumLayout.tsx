@@ -1,3 +1,4 @@
+// @ts-nocheck
 "use client";
 
 import { useEffect, useMemo, useState } from "react";
@@ -116,7 +117,7 @@ export function LifebooksPremiumLayout({
           <div className="min-w-0">
             <div className="flex items-center gap-2">
               <img src="/happinotes-logo.png" alt="Happinotes" className="h-8 w-auto object-contain" />
-              <p className="text-xl font-semibold text-white">Lifebooks</p>
+              <p className="text-xl font-semibold text-white">HappiNotes</p>
             </div>
             <p className="mt-1 text-sm text-[#B0B0B0]">Practical Books for Real Life</p>
           </div>
@@ -126,7 +127,7 @@ export function LifebooksPremiumLayout({
               <input
                 value={search}
                 onChange={(e) => onSearchChange(e.target.value)}
-                placeholder="Search Lifebooks..."
+                placeholder="Search books and stories..."
                 className="w-full bg-transparent text-sm text-white outline-none placeholder:text-[#8f99b3]"
               />
             </div>

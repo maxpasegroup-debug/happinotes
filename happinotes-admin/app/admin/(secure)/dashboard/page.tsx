@@ -11,6 +11,7 @@ type Content = {
   title: string;
   description?: string;
   thumbnailUrl?: string;
+  coverImageUrl?: string;
   contentType: Kind;
   type: "free" | "premium";
   status: Status;
@@ -19,6 +20,28 @@ type Content = {
   mobileDisplayOrder?: number;
   createdAt?: string;
 };
+
+function BookCover({ item }: { item: Pick<Content, "title" | "thumbnailUrl" | "coverImageUrl"> }) {
+  const [failed, setFailed] = useState(false);
+  const src = item.thumbnailUrl || item.coverImageUrl;
+
+  if (!src || failed) {
+    return (
+      <div className="flex h-[260px] w-full items-center justify-center bg-gradient-to-br from-[#171923] to-[#0b0c10] px-4 text-center text-sm text-[#a1a1aa]">
+        <span>Book image unavailable</span>
+      </div>
+    );
+  }
+
+  return (
+    <img
+      src={src}
+      alt={item.title}
+      className="h-[260px] w-full bg-[#0b0c10] object-cover"
+      onError={() => setFailed(true)}
+    />
+  );
+}
 
 type User = {
   id?: string;
@@ -81,11 +104,24 @@ type ContentForm = {
 
 type Step = 1 | 2 | 3 | 4;
 
+const MEDIA_API_BASE = process.env.NEXT_PUBLIC_API_BASE_URL || "https://happinotes-production-6b44.up.railway.app";
+
+function mediaUrl(value?: string): string | undefined {
+  if (!value?.trim()) return undefined;
+  const url = value.trim();
+  if (url.startsWith("/")) return `${MEDIA_API_BASE}${url}`;
+  if (url.startsWith("uploads/")) return `${MEDIA_API_BASE}/${url}`;
+  if (url.startsWith("//")) return `https:${url}`;
+  if (/^http:\/\//i.test(url) && /railway\.app\//i.test(url)) return url.replace(/^http:/i, "https:");
+  if (!/^https?:\/\//i.test(url) && /railway\.app\//i.test(url)) return `https://${url}`;
+  return url;
+}
+
 function emptyForm(): ContentForm {
   return {
     title: "",
     description: "",
-    status: "coming_soon",
+    status: "live",
     type: "free",
     language: "English",
     category: "General",
@@ -98,7 +134,7 @@ function emptyForm(): ContentForm {
     introMediaUrl: "",
     introMediaType: undefined,
     introUploading: false,
-    chapters: [{ title: "Chapter 1", file: null, mediaUrl: "", mediaType: undefined, uploading: false }],
+    chapters: [{ title: "Episode 1", file: null, mediaUrl: "", mediaType: undefined, uploading: false }],
     mediaUploadedUrl: "",
     mediaUploadedType: undefined,
     mediaUploading: false,
@@ -130,7 +166,7 @@ export default function AdminDashboardPage() {
     const fd = new FormData();
     fd.append("media", file);
     fd.append("scope", scope);
-    const response = await fetch(`${process.env.NEXT_PUBLIC_API_BASE_URL || "https://happinotes-production.up.railway.app"}/admin/contents/upload-media`, {
+    const response = await fetch(`${process.env.NEXT_PUBLIC_API_BASE_URL || "https://happinotes-production-6b44.up.railway.app"}/admin/contents/upload-media`, {
       method: "POST",
       headers: { Authorization: `Bearer ${token}` },
       body: fd,
@@ -148,7 +184,13 @@ export default function AdminDashboardPage() {
       apiRequest<{ contents: Content[] }>("/admin/contents", "GET", undefined, token),
       apiRequest<{ users: User[] }>("/admin/users", "GET", undefined, token),
     ]);
-    setContents(c.contents || []);
+    setContents((c.contents || []).map((item) => ({
+      ...item,
+      // Older book records use coverImageUrl; keep one canonical field for
+      // both the cards and the edit dialog.
+      thumbnailUrl: mediaUrl(item.thumbnailUrl || item.coverImageUrl),
+      coverImageUrl: mediaUrl(item.coverImageUrl),
+    })));
     setUsers(u.users || []);
   }
 
@@ -209,9 +251,14 @@ export default function AdminDashboardPage() {
     if (item.contentType === "silence") next.category = "General";
 
     const token = window.localStorage.getItem("admin_token") || "";
-    const details = await apiRequest<DetailResponse>(`/contents/${item._id}`, "GET", undefined, token).catch(
-      () => ({ content: undefined })
-    );
+    // The admin collection already contains the full episode list. Prefer it
+    // here so premium episodes are not hidden by the public catalogue shaping.
+    const inlineDetail = item as Content & DetailResponse["content"];
+    const details = inlineDetail.lessons || inlineDetail.intro || inlineDetail.conclusion
+      ? { content: inlineDetail }
+      : await apiRequest<DetailResponse>(`/contents/${item._id}`, "GET", undefined, token).catch(
+          () => ({ content: undefined })
+        );
     const detail = details.content;
     if (detail?.intro) {
       next.introTitle = detail.intro.title || "Introduction";
@@ -272,10 +319,7 @@ export default function AdminDashboardPage() {
     if (!token) return setMessage("Admin token missing");
     if (!form.title.trim()) return setMessage("Title is required");
     if (!form.thumbnail) return setMessage("Thumbnail is required");
-    if (form.status === "live" && createKind === "lifebook") {
-      if (!form.introMediaUrl && !form.introMedia) return setMessage("Live lifebook requires intro audio");
-      if (!form.chapters[0]?.mediaUrl && !form.chapters[0]?.file) return setMessage("Live lifebook requires Chapter 1 audio");
-    }
+    if (form.status === "live" && createKind === "lifebook" && !form.chapters[0]?.mediaUrl && !form.chapters[0]?.file) return setMessage("Add at least one episode MP3");
     if (form.status === "live" && createKind !== "lifebook" && !form.media && !form.mediaUploadedUrl) {
       return setMessage("Live note/happiness requires media audio");
     }
@@ -362,7 +406,7 @@ export default function AdminDashboardPage() {
     fd.append("featured", String(form.featured));
     if (form.thumbnail) fd.append("thumbnail", form.thumbnail);
 
-    if (editing.contentType === "lifebook" && form.status === "live") {
+    if (editing.contentType === "lifebook") {
       if (form.introMedia || form.introMediaUrl || form.introTitle.trim()) {
         fd.append(
           "intro",
@@ -582,11 +626,7 @@ export default function AdminDashboardPage() {
                 key={item._id}
                 className="overflow-hidden rounded-2xl border border-white/10 bg-[#101014] shadow-[0_8px_20px_rgba(0,0,0,0.3)]"
               >
-                <img
-                  src={item.thumbnailUrl || "https://via.placeholder.com/600x800?text=Content"}
-                  alt={item.title}
-                  className="h-[260px] w-full object-cover bg-[#0b0c10]"
-                />
+                <BookCover item={item} />
                 <div className="space-y-3 p-3">
                   <div className="line-clamp-2 text-sm font-semibold text-white">{item.title}</div>
                   <div className="flex flex-wrap gap-2">
@@ -878,15 +918,15 @@ export default function AdminDashboardPage() {
         <div className="fixed inset-0 z-50 overflow-y-auto bg-black/70 p-4">
           <div className="mx-auto mt-6 max-w-3xl rounded-2xl border border-white/10 bg-[#101014] p-5">
             <h3 className="m-0 text-xl font-semibold text-white">
-              {createOpen ? `Create ${createKind === "lifebook" ? "Lifebook" : createKind === "note" ? "Note" : "Happiness"}` : "Edit Content"}
+              {createOpen ? `Add ${createKind === "lifebook" ? "New Book" : createKind === "note" ? "Note" : "Happiness"}` : "Edit Content"}
             </h3>
             <p className="mt-2 text-sm text-[#a1a1aa]">
               {isLifebookFlow && isLiveFlow
-                ? "Guided live flow: Basic -> Intro -> Chapters -> Review"
+                ? "Add the book details, cover image, and as many episode MP3 files as you need."
                 : "Simple content flow: fill details and save"}
             </p>
 
-            {isLifebookFlow && isLiveFlow ? (
+            {false && isLifebookFlow && isLiveFlow ? (
               <div className="mt-4 grid grid-cols-2 gap-2 sm:grid-cols-4">
                 {[1, 2, 3, 4].map((n) => (
                   <button
@@ -906,7 +946,7 @@ export default function AdminDashboardPage() {
             ) : null}
 
             <div className="mt-4 grid gap-3">
-              {(step === 1 || !isLifebookFlow || !isLiveFlow) && (
+              {(createOpen || editOpen) && (
                 <>
                   <div className="grid grid-cols-1 gap-3 md:grid-cols-2">
                     <label className="grid gap-1 text-sm text-[#d4d4d8]">
@@ -972,13 +1012,15 @@ export default function AdminDashboardPage() {
                     </label>
                   </div>
                   <label className="grid gap-1 text-sm text-[#d4d4d8]">
-                    Thumbnail
+                    Book Image
                     <input
                       type="file"
                       accept="image/*"
                       onChange={(e) => setForm((prev) => ({ ...prev, thumbnail: e.target.files?.[0] || null }))}
                       className="rounded-lg border border-white/10 bg-[#12131a] px-3 py-2 text-white outline-none"
                     />
+                    <p className="text-xs text-[#a1a1aa]">{form.thumbnail?.name || (editing?.thumbnailUrl || editing?.coverImageUrl ? "Saved cover image attached" : "Choose a cover image")}</p>
+                    {form.thumbnail ? <img src={URL.createObjectURL(form.thumbnail)} alt="Selected cover preview" className="mt-1 h-28 w-20 rounded-lg object-cover" /> : (editing?.thumbnailUrl || editing?.coverImageUrl) ? <img src={editing.thumbnailUrl || editing.coverImageUrl} alt="Saved cover preview" className="mt-1 h-28 w-20 rounded-lg object-cover" /> : null}
                   </label>
                   {(createOpen ? createKind : editing?.contentType) === "silence" ? (
                     <label className="grid gap-1 text-sm text-[#d4d4d8]">
@@ -994,7 +1036,7 @@ export default function AdminDashboardPage() {
                 </>
               )}
 
-              {isLifebookFlow && isLiveFlow && step === 2 ? (
+              {false && isLifebookFlow && isLiveFlow && step === 2 ? (
                 <>
                   <label className="grid gap-1 text-sm text-[#d4d4d8]">
                     Intro Title
@@ -1052,11 +1094,11 @@ export default function AdminDashboardPage() {
                 </>
               ) : null}
 
-              {isLifebookFlow && isLiveFlow && step === 3 ? (
+              {isLifebookFlow && isLiveFlow ? (
                 <>
                   {form.chapters.map((chapter, index) => (
                     <div key={index} className="rounded-xl border border-white/10 bg-[#12131a] p-3">
-                      <p className="mb-2 text-xs font-semibold text-[#a1a1aa]">Chapter {index + 1}</p>
+                      <p className="mb-2 text-xs font-semibold text-[#a1a1aa]">Episode {index + 1}</p>
                       <div className="grid gap-2">
                         <input
                           value={chapter.title}
@@ -1066,12 +1108,16 @@ export default function AdminDashboardPage() {
                               chapters: prev.chapters.map((x, i) => (i === index ? { ...x, title: e.target.value } : x)),
                             }))
                           }
-                          placeholder={`Chapter ${index + 1} title`}
+                          placeholder={`Episode ${index + 1} title`}
                           className="rounded-lg border border-white/10 bg-[#0f1016] px-3 py-2 text-white outline-none"
                         />
+                        <p className="text-xs text-[#a1a1aa]">
+                          {chapter.file?.name || (chapter.mediaUrl ? (chapter.mediaUrl.split("/").pop() || "Saved MP3 attached") : "Choose an MP3 file")}
+                        </p>
+                        {chapter.file || chapter.mediaUrl ? <audio controls preload="metadata" src={chapter.file ? URL.createObjectURL(chapter.file) : chapter.mediaUrl} className="w-full" /> : null}
                         <input
                           type="file"
-                          accept="audio/*,video/*"
+                          accept="audio/*,.mp3,audio/mpeg"
                           onChange={(e) =>
                             setForm((prev) => ({
                               ...prev,
@@ -1117,7 +1163,7 @@ export default function AdminDashboardPage() {
                                       : x
                                   ),
                                 }));
-                                setMessage(`Chapter ${index + 1} uploaded.`);
+                                setMessage(`Episode ${index + 1} uploaded.`);
                               } catch (err) {
                                 setForm((prev) => ({
                                   ...prev,
@@ -1130,9 +1176,9 @@ export default function AdminDashboardPage() {
                             }}
                             className="rounded-md border border-blue-400/30 px-3 py-1.5 text-xs text-blue-200 hover:bg-blue-500/10 disabled:opacity-60"
                           >
-                            {chapter.uploading ? "Uploading..." : "Upload Chapter"}
+                            {chapter.uploading ? "Uploading..." : "Upload MP3"}
                           </button>
-                          {chapter.mediaUrl ? <p className="text-xs text-emerald-300">Chapter ready.</p> : null}
+                          {chapter.mediaUrl ? <p className="text-xs text-emerald-300">Episode ready.</p> : null}
                         </div>
                         <button
                           type="button"
@@ -1144,7 +1190,7 @@ export default function AdminDashboardPage() {
                           }
                           className="w-fit rounded-md border border-rose-400/30 px-3 py-1 text-xs text-rose-200 hover:bg-rose-500/10"
                         >
-                          Remove Chapter
+                          Remove Episode
                         </button>
                       </div>
                     </div>
@@ -1159,17 +1205,17 @@ export default function AdminDashboardPage() {
                     }
                     className="w-fit rounded-md border border-white/20 px-3 py-2 text-xs text-white hover:bg-white/5"
                   >
-                    + Add Chapter
+                    + Add Episode MP3
                   </button>
                 </>
               ) : null}
 
-              {isLifebookFlow && isLiveFlow && step === 4 ? (
+              {false && isLifebookFlow && isLiveFlow && step === 4 ? (
                 <div className="rounded-xl border border-white/10 bg-[#12131a] p-4 text-sm text-[#d4d4d8]">
                   <p><strong>Title:</strong> {form.title || "-"}</p>
                   <p><strong>Status:</strong> {form.status}</p>
                   <p><strong>Type:</strong> {form.type}</p>
-                  <p><strong>Intro File:</strong> {form.introMedia ? form.introMedia.name : form.introMediaUrl ? "Using existing intro media" : "Not attached"}</p>
+                  <p><strong>Intro File:</strong> {form.introMedia?.name || (form.introMediaUrl ? "Using existing intro media" : "Not attached")}</p>
                   <p><strong>Chapters:</strong> {form.chapters.length}</p>
                 </div>
               ) : null}
@@ -1242,7 +1288,7 @@ export default function AdminDashboardPage() {
                 >
                   Close
                 </button>
-                {isLifebookFlow && isLiveFlow && step > 1 ? (
+                {false && isLifebookFlow && isLiveFlow && step > 1 ? (
                   <button
                     onClick={() => setStep((prev) => (Math.max(1, prev - 1) as Step))}
                     className="rounded-lg border border-white/20 px-4 py-2 text-sm text-white hover:bg-white/5"
@@ -1250,7 +1296,7 @@ export default function AdminDashboardPage() {
                     Previous
                   </button>
                 ) : null}
-                {isLifebookFlow && isLiveFlow && step < 4 ? (
+                {false && isLifebookFlow && isLiveFlow && step < 4 ? (
                   <button
                     onClick={() => setStep((prev) => (Math.min(4, prev + 1) as Step))}
                     className="rounded-lg border border-white/20 px-4 py-2 text-sm text-white hover:bg-white/5"

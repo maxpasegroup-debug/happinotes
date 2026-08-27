@@ -4,8 +4,8 @@ import Link from "next/link";
 import { usePathname } from "next/navigation";
 
 const tabs = [
-  { label: "Lifebooks", href: "/" },
-  { label: "Favourites", href: "/favourites" },
+  { label: "Home", href: "/" },
+  { label: "Library", href: "/favourites" },
   { label: "Profile", href: "/profile" },
 ];
 
@@ -34,7 +34,7 @@ export function BottomNav() {
                     : "text-[#7d879f]"
                 }`}
               >
-                {tab.label === "Lifebooks" ? (
+                {tab.label === "Home" ? (
                   <svg
                     width="20"
                     height="20"
@@ -64,7 +64,7 @@ export function BottomNav() {
                       strokeLinecap="round"
                     />
                   </svg>
-                ) : tab.label === "Favourites" ? (
+                ) : tab.label === "Library" ? (
                   <svg
                     width="20"
                     height="20"

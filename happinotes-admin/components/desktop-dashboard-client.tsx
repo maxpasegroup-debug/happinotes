@@ -4,6 +4,7 @@ import { useEffect, useMemo, useState } from "react";
 import { useRouter } from "next/navigation";
 import type { LifebookItem } from "@/lib/content-api";
 import { AuthModal } from "@/components/auth-modal";
+import { AuthRequired } from "@/components/auth-required";
 import { apiRequest } from "@/lib/api";
 import { getStoredUser, getUserToken } from "@/lib/user-session";
 import { startRazorpaySubscriptionFlow } from "@/lib/razorpay";
@@ -25,9 +26,14 @@ export function DesktopDashboardClient({ initialLifebooks }: { initialLifebooks:
   const [comingSoonPreview, setComingSoonPreview] = useState<LifebookItem | null>(null);
   const [selected, setSelected] = useState<LifebookItem | null>(null);
   const [subError, setSubError] = useState("");
+  const [sessionChecked, setSessionChecked] = useState(false);
+  const [authenticated, setAuthenticated] = useState(false);
+  const [authMode, setAuthMode] = useState<"login" | "signup">("login");
 
   useEffect(() => {
     if (typeof window !== "undefined") {
+      setAuthenticated(Boolean(window.localStorage.getItem("user_token") || window.localStorage.getItem("admin_token")));
+      setSessionChecked(true);
       const rawFav = window.localStorage.getItem(FAV_KEY);
       if (rawFav) {
         try {
@@ -144,6 +150,10 @@ export function DesktopDashboardClient({ initialLifebooks }: { initialLifebooks:
     [initialLifebooks]
   );
 
+  if (!sessionChecked || !authenticated) {
+    return <><AuthRequired onLogin={() => { setAuthMode("login"); setAuthOpen(true); }} onCreateAccount={() => { setAuthMode("signup"); setAuthOpen(true); }} /><AuthModal open={authOpen} initialMode={authMode} onClose={() => setAuthOpen(false)} onSuccess={() => { const user = getStoredUser(); if (user?.role === "admin") { router.replace("/admin/dashboard"); return; } setAuthenticated(true); }} /></>;
+  }
+
   return (
     <div className="min-h-screen bg-gradient-to-br from-[#0F0F1B] to-[#1A1A2E] text-white">
       <main className="mx-auto max-w-7xl px-6 py-6">
@@ -167,8 +177,10 @@ export function DesktopDashboardClient({ initialLifebooks }: { initialLifebooks:
 
       <AuthModal
         open={authOpen}
+        initialMode={authMode}
         onClose={() => setAuthOpen(false)}
         onSuccess={() => {
+          setAuthenticated(true);
           if (selected) {
             const user = getStoredUser();
             if (selected.type === "premium" && !user?.subscriptionActive) {

@@ -4,7 +4,9 @@ import { NotFoundError } from '../utils/errors';
 import { hasActiveSubscription } from '../utils/subscription';
 
 function canAccessPremiumContent(req: Request): boolean {
-  return hasActiveSubscription(req.user ?? null);
+  // Administrators need the complete catalogue when reviewing or editing
+  // books, including premium episode media.
+  return req.user?.role === 'admin' || hasActiveSubscription(req.user ?? null);
 }
 
 const COMING_SOON_KEYS = [

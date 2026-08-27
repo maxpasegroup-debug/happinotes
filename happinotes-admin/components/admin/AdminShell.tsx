@@ -41,6 +41,8 @@ export default function AdminShell({ children }: { children: ReactNode }) {
             type="button"
             onClick={() => {
               window.localStorage.removeItem("admin_token");
+              window.localStorage.removeItem("user_token");
+              window.localStorage.removeItem("user_profile");
               router.replace("/admin/login");
             }}
             style={{

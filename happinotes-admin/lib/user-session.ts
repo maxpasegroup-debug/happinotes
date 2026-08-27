@@ -19,6 +19,11 @@ export function setUserSession(token: string, user: WebUser): void {
   if (typeof window === "undefined") return;
   window.localStorage.setItem(TOKEN_KEY, token);
   window.localStorage.setItem(USER_KEY, JSON.stringify(user));
+  if (user.role === "admin") {
+    window.localStorage.setItem("admin_token", token);
+  } else {
+    window.localStorage.removeItem("admin_token");
+  }
 }
 
 export function getStoredUser(): WebUser | null {
@@ -36,4 +41,5 @@ export function clearUserSession(): void {
   if (typeof window === "undefined") return;
   window.localStorage.removeItem(TOKEN_KEY);
   window.localStorage.removeItem(USER_KEY);
+  window.localStorage.removeItem("admin_token");
 }

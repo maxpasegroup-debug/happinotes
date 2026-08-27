@@ -22,7 +22,14 @@ const staticOrigins = [
 ];
 const allowedOrigins = new Set([...staticOrigins, ...configuredOrigins]);
 
-app.use(helmet());
+// Media is served from this API and rendered by the separate admin web app
+// (and the mobile client). Helmet's default same-origin resource policy would
+// make those image/audio responses unusable cross-origin in a browser.
+app.use(
+  helmet({
+    crossOriginResourcePolicy: { policy: 'cross-origin' },
+  })
+);
 app.use(
   cors({
     origin: (origin, callback) => {
