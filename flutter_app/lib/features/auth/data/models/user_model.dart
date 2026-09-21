@@ -23,7 +23,7 @@ class UserModel extends User {
     subscriptionStatus: active ? 'premium' : 'free',
     languagePreference: (json['languagePreference'] ?? 'all').toString(),
     subscriptionExpiry: expiry,
-    subscriptionPlan: json['subscriptionPlan']?.toString(),
+    subscriptionPlan: active ? json['subscriptionPlan']?.toString() : null,
     );
   }
 }

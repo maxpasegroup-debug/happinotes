@@ -4,6 +4,7 @@ import { User, Content } from '../models';
 import type { ILifebookSection, ILesson } from '../models/Content';
 import { BadRequestError, NotFoundError } from '../utils/errors';
 import { emitCatalogChanged } from '../services/realtime';
+import { computeSubscriptionExpiry, parseSubscriptionPlan, subscriptionDays } from '../utils/subscription';
 
 const LIFEBOOK_UPDATE_FIELDS = [
   'title',
@@ -85,7 +86,7 @@ function normalizeLessons(v: unknown): ILesson[] {
   return out.sort((a, b) => a.order - b.order);
 }
 
-const USER_ADMIN_KEYS = ['_id', 'name', 'email', 'role', 'subscriptionActive', 'subscriptionExpiry', 'blocked', 'createdAt'] as const;
+const USER_ADMIN_KEYS = ['_id', 'name', 'email', 'role', 'subscriptionActive', 'subscriptionPlan', 'subscriptionExpiry', 'blocked', 'createdAt'] as const;
 
 function formatUserForAdmin(doc: Record<string, unknown>): Record<string, unknown> {
   const out: Record<string, unknown> = {};
@@ -266,8 +267,6 @@ export const updateBookStatus = async (
   }
 };
 
-const SUBSCRIPTION_DAYS = 30;
-
 /** PATCH /admin/users/:id/activate — set subscriptionActive=true, subscriptionExpiry=now+30 days; return updated user */
 export const activateUserSubscription = async (
   req: Request,
@@ -278,10 +277,12 @@ export const activateUserSubscription = async (
     const targetUser = await User.findById(req.params.id);
     if (!targetUser) return next(new NotFoundError('User not found'));
 
-    const expiry = new Date();
-    expiry.setDate(expiry.getDate() + SUBSCRIPTION_DAYS);
+    const plan = parseSubscriptionPlan(req.body?.plan ?? 'monthly');
+    if (!plan) return next(new BadRequestError('plan must be monthly or yearly'));
+    const expiry = computeSubscriptionExpiry(subscriptionDays(plan));
 
     targetUser.subscriptionActive = true;
+    targetUser.subscriptionPlan = plan;
     targetUser.subscriptionExpiry = expiry;
     await targetUser.save();
 

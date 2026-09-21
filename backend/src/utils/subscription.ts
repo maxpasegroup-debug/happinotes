@@ -1,6 +1,16 @@
 import type { IUser } from '../models/User';
 
 const DEFAULT_SUBSCRIPTION_DAYS = 30;
+export type SubscriptionPlan = 'monthly' | 'yearly';
+
+export function parseSubscriptionPlan(value: unknown): SubscriptionPlan | null {
+  const plan = String(value ?? '').trim().toLowerCase();
+  return plan === 'monthly' || plan === 'yearly' ? plan : null;
+}
+
+export function subscriptionDays(plan: SubscriptionPlan): number {
+  return plan === 'yearly' ? 365 : DEFAULT_SUBSCRIPTION_DAYS;
+}
 
 /**
  * Subscription is active when:
@@ -23,7 +33,7 @@ export function computeSubscriptionExpiry(days = DEFAULT_SUBSCRIPTION_DAYS): Dat
 export async function activateSubscriptionForUser(params: {
   user: IUser;
   expiry?: Date;
-  plan?: string | null;
+  plan?: SubscriptionPlan | null;
   razorpaySubscriptionId?: string | null;
 }): Promise<IUser> {
   const { user, expiry, razorpaySubscriptionId, plan } = params;

@@ -4,7 +4,7 @@ import { google } from 'googleapis';
 import crypto from 'crypto';
 import { BadRequestError } from '../utils/errors';
 import { PaymentWebhookEvent, User } from '../models';
-import { activateSubscriptionForUser, computeSubscriptionExpiry } from '../utils/subscription';
+import { activateSubscriptionForUser, computeSubscriptionExpiry, parseSubscriptionPlan, subscriptionDays } from '../utils/subscription';
 
 const PACKAGE_NAME = 'com.happinotes.app';
 const ANDROID_PUBLISHER_SCOPE = 'https://www.googleapis.com/auth/androidpublisher';
@@ -62,8 +62,12 @@ export const activateTestSubscription = async (
       next(new BadRequestError('Authentication required'));
       return;
     }
-    const plan = (req.body?.plan ?? 'monthly').toString().trim().toLowerCase();
-    const days = plan === 'yearly' ? 365 : 30;
+    const plan = parseSubscriptionPlan(req.body?.plan);
+    if (!plan) {
+      next(new BadRequestError('plan must be monthly or yearly'));
+      return;
+    }
+    const days = subscriptionDays(plan);
     const expiry = computeSubscriptionExpiry(days);
     await activateSubscriptionForUser({ user: req.user, expiry, plan });
     res.json({
@@ -149,6 +153,12 @@ export const verifyGoogleSubscription = async (
       return;
     }
 
+    const plan = parseSubscriptionPlan(productId);
+    if (!plan) {
+      next(new BadRequestError('productId must be monthly or yearly'));
+      return;
+    }
+
     const rawCredentials = process.env.GOOGLE_PLAY_SERVICE_ACCOUNT;
     if (!rawCredentials || typeof rawCredentials !== 'string') {
       next(new BadRequestError('Google Play service account not configured'));
@@ -209,6 +219,7 @@ export const verifyGoogleSubscription = async (
     await activateSubscriptionForUser({
       user: req.user,
       expiry: new Date(expiryMs),
+      plan,
     });
 
     void res.json({
@@ -220,6 +231,7 @@ export const verifyGoogleSubscription = async (
         role: req.user.role,
         subscriptionActive: req.user.subscriptionActive,
         subscriptionExpiry: req.user.subscriptionExpiry,
+        subscriptionPlan: req.user.subscriptionPlan,
       },
     });
     return;
@@ -251,7 +263,11 @@ export const createRazorpaySubscription = async (
       return;
     }
 
-    const plan = (req.body?.plan ?? 'monthly').toString().trim().toLowerCase();
+    const plan = parseSubscriptionPlan(req.body?.plan ?? 'monthly');
+    if (!plan) {
+      next(new BadRequestError('plan must be monthly or yearly'));
+      return;
+    }
     const planId =
       plan === 'yearly'
         ? (config.yearlyPlanId || config.monthlyPlanId)
@@ -410,6 +426,7 @@ export const handleRazorpayWebhook = async (req: Request, res: Response): Promis
   if (deactivateEvents.has(event)) {
     user.subscriptionActive = false;
     user.subscriptionExpiry = null;
+    user.subscriptionPlan = null;
     await user.save();
     res.status(200).json({ success: true });
     return;
@@ -422,6 +439,7 @@ export const handleRazorpayWebhook = async (req: Request, res: Response): Promis
     await activateSubscriptionForUser({
       user,
       expiry: new Date(expiryMs),
+      plan: parseSubscriptionPlan(subscription?.notes?.plan),
       razorpaySubscriptionId: subscriptionId,
     });
   }
@@ -502,7 +520,7 @@ export const verifyRazorpaySubscription = async (
     await activateSubscriptionForUser({
       user: req.user,
       expiry: new Date(expiryMs),
-      plan: details.notes?.plan ?? null,
+      plan: parseSubscriptionPlan(details.notes?.plan),
       razorpaySubscriptionId: details.id,
     });
 

@@ -24,6 +24,7 @@ async function expireSubscriptionIfNeeded(user: IUser): Promise<void> {
     user.subscriptionExpiry <= new Date()
   ) {
     user.subscriptionActive = false;
+    user.subscriptionPlan = null;
     await user.save();
   }
 }

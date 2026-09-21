@@ -38,7 +38,6 @@ export function HeroLifebook({
             src={item.thumbnailUrl || FALLBACK_IMAGE}
             alt={item.title}
             className="aspect-[3/4] w-full object-cover"
-            priority
             onError={(event) => { event.currentTarget.src = FALLBACK_IMAGE; }}
           />
         </div>

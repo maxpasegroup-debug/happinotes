@@ -4,6 +4,7 @@ import { FormEvent, useState } from "react";
 import { useRouter } from "next/navigation";
 
 const BASE_URL = process.env.NEXT_PUBLIC_API_BASE_URL || "https://happinotes-production-6b44.up.railway.app";
+const ADMIN_PHONE_NUMBER = "+918089239823";
 type Step = "details" | "otp";
 type Payload = { loginChallenge?: string; testOtp?: string; token?: string; user?: { role?: string }; message?: string };
 
@@ -25,6 +26,7 @@ export default function AdminLoginPage() {
     try {
       if (step === "details") {
         if (!/^\+[1-9]\d{7,14}$/.test(clean())) throw new Error("Enter the admin WhatsApp number with country code.");
+        if (clean() !== ADMIN_PHONE_NUMBER) throw new Error("Only the configured admin number can access this website.");
         const res = await fetch(`${BASE_URL}/auth/request-login-otp`, { method: "POST", headers: { "Content-Type": "application/json" }, body: JSON.stringify({ phoneNumber: clean() }) });
         const data = await res.json().catch(() => ({})) as Payload; if (!res.ok) throw new Error(data.message || "Could not send OTP.");
         setTestOtp(data.testOtp || ""); setStep("otp"); return;
