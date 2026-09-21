@@ -60,13 +60,13 @@ class EpisodePlayerScreen extends ConsumerWidget {
               StreamBuilder<bool>(
                 stream: player.audioPlayer.playingStream,
                 initialData: player.audioPlayer.playing,
-                builder: (_, playing) => Row(mainAxisAlignment: MainAxisAlignment.spaceEvenly, children: [
+                builder: (_, playing) => Wrap(alignment: WrapAlignment.center, spacing: 28, children: [
                   IconButton(iconSize: 34, onPressed: player.playPrevious, icon: const Icon(Icons.skip_previous_rounded)),
                   IconButton(iconSize: 64, onPressed: player.togglePlayback, icon: Icon(playing.data == true ? Icons.pause_circle_filled : Icons.play_circle_filled, color: AppColors.coral)),
                   IconButton(iconSize: 34, onPressed: player.playNext, icon: const Icon(Icons.skip_next_rounded)),
                 ]),
               ),
-              Row(mainAxisAlignment: MainAxisAlignment.spaceAround, children: [
+              Wrap(alignment: WrapAlignment.spaceEvenly, spacing: 18, runSpacing: 8, children: [
                 const _Action(icon: Icons.timer_outlined, label: 'Timer'),
                 _Action(
                   icon: saved ? Icons.bookmark : Icons.bookmark_border,

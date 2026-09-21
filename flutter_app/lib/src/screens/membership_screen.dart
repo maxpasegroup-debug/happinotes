@@ -2,23 +2,14 @@ import 'package:flutter/material.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
 import '../../app/providers.dart';
 import '../theme.dart';
-import '../widgets/app_message.dart';
 import '../widgets/loading_skeleton.dart';
+import 'membership_checkout_screen.dart';
 
 class MembershipScreen extends ConsumerWidget {
   const MembershipScreen({super.key});
   @override
   Widget build(BuildContext context, WidgetRef ref) {
     final state = ref.watch(membershipControllerProvider);
-    ref.listen<int>(
-      membershipControllerProvider.select((value) => value.activationCount),
-      (previous, next) {
-        if (next > (previous ?? 0)) {
-          AppMessage.show(context, 'Premium activated');
-          Navigator.pop(context);
-        }
-      },
-    );
     return Scaffold(
       appBar: AppBar(
         title: const Text('Membership plans'),
@@ -45,8 +36,14 @@ class MembershipScreen extends ConsumerWidget {
                 const SizedBox(height: 24),
                 ...state.plans.map((plan) {
                   final active = state.selected == plan.id;
+                  final scheme = Theme.of(context).colorScheme;
                   return Card(
-                    color: active ? const Color(0xFF3A201C) : AppColors.surface,
+                    color: active
+                        ? Color.alphaBlend(
+                            AppColors.coral.withValues(alpha: .14),
+                            scheme.surface,
+                          )
+                        : scheme.surface,
                     shape: RoundedRectangleBorder(
                       side: BorderSide(
                         color: active ? AppColors.coral : Colors.transparent,
@@ -87,19 +84,27 @@ class MembershipScreen extends ConsumerWidget {
                       style: const TextStyle(color: Colors.redAccent),
                     ),
                   ),
+                const SizedBox(height: 8),
                 FilledButton(
-                  onPressed: state.paying
+                  onPressed: state.selected == null
                       ? null
-                      : () => ref.read(membershipControllerProvider).pay(),
+                      : () {
+                          final selectedPlan = state.plans.firstWhere(
+                            (plan) => plan.id == state.selected,
+                          );
+                          Navigator.of(context).push(
+                            MaterialPageRoute(
+                              builder: (_) => MembershipCheckoutScreen(
+                                plan: selectedPlan,
+                              ),
+                            ),
+                          );
+                        },
                   style: FilledButton.styleFrom(
                     backgroundColor: AppColors.coral,
                     padding: const EdgeInsets.all(17),
                   ),
-                  child: Text(
-                    state.paying
-                        ? 'Opening checkout...'
-                        : 'Continue to payment',
-                  ),
+                  child: const Text('Continue'),
                 ),
               ],
             ),

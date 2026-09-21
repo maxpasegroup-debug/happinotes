@@ -25,21 +25,27 @@ class MembershipRepositoryImpl implements MembershipRepository {
   Future<Map<String, dynamic>> createOrder(String id) async {
     final r = await client.dio.post(
       '/payments/razorpay/create-order',
-      data: {'planId': id},
+      data: {'plan': id},
     );
     return Map<String, dynamic>.from(r.data);
   }
 
   @override
+  Future<User> activateTestSubscription(String id) async {
+    final r = await client.dio.post('/payments/test/activate', data: {'plan': id});
+    return UserModel.fromJson(Map<String, dynamic>.from(r.data['user']));
+  }
+
+  @override
   Future<User> verifyPayment({
-    required String orderId,
+    required String subscriptionId,
     required String paymentId,
     required String signature,
   }) async {
     final r = await client.dio.post(
       '/payments/razorpay/verify',
       data: {
-        'razorpay_order_id': orderId,
+        'razorpay_subscription_id': subscriptionId,
         'razorpay_payment_id': paymentId,
         'razorpay_signature': signature,
       },

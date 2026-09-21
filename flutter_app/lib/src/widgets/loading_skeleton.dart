@@ -15,19 +15,24 @@ class SkeletonBox extends StatelessWidget {
   final double radius;
 
   @override
-  Widget build(BuildContext context) => Shimmer.fromColors(
-    baseColor: AppColors.raised,
-    highlightColor: const Color(0xFF3A3A3A),
+  Widget build(BuildContext context) {
+    final scheme = Theme.of(context).colorScheme;
+    final base = scheme.surfaceContainerHighest;
+    final highlight = Color.alphaBlend(Colors.white.withValues(alpha: .18), base);
+    return Shimmer.fromColors(
+    baseColor: base,
+    highlightColor: highlight,
     period: const Duration(milliseconds: 1200),
     child: Container(
       width: width,
       height: height,
       decoration: BoxDecoration(
-        color: AppColors.raised,
+        color: base,
         borderRadius: BorderRadius.circular(radius),
       ),
     ),
   );
+  }
 }
 
 class HomeLoadingSkeleton extends StatelessWidget {

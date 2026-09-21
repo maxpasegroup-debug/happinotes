@@ -42,7 +42,6 @@ dependencies:
   socket_io_client: ^3.1.6
   cached_network_image: ^3.4.1
   intl: ^0.20.3
-  razorpay_flutter: ^1.4.5
   flutter_riverpod: ^2.6.1
   file_picker: 10.3.10
   shimmer: ^3.0.0

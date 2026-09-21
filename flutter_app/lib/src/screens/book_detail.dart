@@ -61,26 +61,32 @@ class BookDetail extends ConsumerWidget {
                 Center(
                   child: Hero(
                     tag: 'book-${book.id}',
-                    child: Container(
-                      width: 175,
-                      height: 245,
-                      decoration: BoxDecoration(
-                        borderRadius: BorderRadius.circular(14),
-                        boxShadow: const [
-                          BoxShadow(color: Colors.black54, blurRadius: 24),
-                        ],
-                      ),
-                      clipBehavior: Clip.antiAlias,
-                      child: book.coverImageUrl.isEmpty
-                          ? const ColoredBox(color: AppColors.raised)
-                          : CachedNetworkImage(
-                              imageUrl: book.coverImageUrl,
-                              fit: BoxFit.cover,
-                              placeholder: (_, _) => const SkeletonBox(
-                                height: double.infinity,
-                                radius: 14,
-                              ),
-                            ),
+                    child: LayoutBuilder(
+                      builder: (context, constraints) {
+                        final coverWidth = (MediaQuery.sizeOf(context).width * .42)
+                            .clamp(128.0, 175.0);
+                        return Container(
+                          width: coverWidth,
+                          height: coverWidth * 1.4,
+                          decoration: BoxDecoration(
+                            borderRadius: BorderRadius.circular(14),
+                            boxShadow: const [
+                              BoxShadow(color: Colors.black54, blurRadius: 24),
+                            ],
+                          ),
+                          clipBehavior: Clip.antiAlias,
+                          child: book.coverImageUrl.isEmpty
+                              ? const ColoredBox(color: AppColors.raised)
+                              : CachedNetworkImage(
+                                  imageUrl: book.coverImageUrl,
+                                  fit: BoxFit.cover,
+                                  placeholder: (_, _) => const SkeletonBox(
+                                    height: double.infinity,
+                                    radius: 14,
+                                  ),
+                                ),
+                        );
+                      },
                     ),
                   ),
                 ),

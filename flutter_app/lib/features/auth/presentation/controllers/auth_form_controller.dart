@@ -19,7 +19,9 @@ class AuthFormController extends ChangeNotifier {
   bool loading = false;
   AuthStep step = AuthStep.details;
   String name = '';
-  String phone = '+91';
+  // Keep the field empty; the country-code format is shown as a hint instead
+  // of accidentally appearing in the name/phone input on signup.
+  String phone = '';
   String otp = '';
   String pin = '';
   String confirmPin = '';

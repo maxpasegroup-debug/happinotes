@@ -7,18 +7,41 @@ class SessionController extends ChangeNotifier {
   final AuthRepository repository;
   User? user;
   bool initialized = false;
+  bool _disposed = false;
   bool get isLoggedIn => user != null;
   Future<void> initialize() async {
     await Future.wait([
       _restore(),
       Future<void>.delayed(const Duration(milliseconds: 1700)),
     ]);
-    initialized = true;
-    notifyListeners();
+    if (!_disposed) {
+      initialized = true;
+      notifyListeners();
+    }
   }
 
   Future<void> _restore() async {
-    user = await repository.restoreSession();
+    try {
+      final restoredUser = await repository.restoreSession();
+      if (!_disposed) {
+        user = restoredUser;
+        // Notify while the splash is still visible so dependent data can
+        // begin loading before the first home frame is shown.
+        notifyListeners();
+      }
+    } catch (_) {
+      // Storage failures must not leave startup stuck on the splash screen.
+      if (!_disposed) {
+        user = null;
+        notifyListeners();
+      }
+    }
+  }
+
+  @override
+  void dispose() {
+    _disposed = true;
+    super.dispose();
   }
 
   Future<Map<String, dynamic>> requestSignupOtp(String phone) =>

@@ -44,6 +44,47 @@ export const getPaymentPlans = (_req: Request, res: Response): void => {
   });
 };
 
+/** POST /payments/test/activate (test builds only) */
+export const activateTestSubscription = async (
+  req: Request,
+  res: Response,
+  next: NextFunction,
+): Promise<void> => {
+  try {
+    if (process.env.PAYMENTS_TEST_MODE?.trim().toLowerCase() !== 'true') {
+      res.status(503).json({
+        success: false,
+        message: 'Test payments are disabled. Set PAYMENTS_TEST_MODE=true and redeploy the backend.',
+      });
+      return;
+    }
+    if (!req.user) {
+      next(new BadRequestError('Authentication required'));
+      return;
+    }
+    const plan = (req.body?.plan ?? 'monthly').toString().trim().toLowerCase();
+    const days = plan === 'yearly' ? 365 : 30;
+    const expiry = computeSubscriptionExpiry(days);
+    await activateSubscriptionForUser({ user: req.user, expiry });
+    res.json({
+      success: true,
+      testPayment: true,
+      user: {
+        id: req.user._id,
+        name: req.user.name,
+        email: req.user.email,
+        phoneNumber: req.user.phoneNumber,
+        role: req.user.role,
+        subscriptionActive: true,
+        subscriptionStatus: 'premium',
+        subscriptionExpiry: req.user.subscriptionExpiry,
+      },
+    });
+  } catch (err) {
+    next(err);
+  }
+};
+
 function getRazorpayConfig(): {
   keyId: string;
   keySecret: string;

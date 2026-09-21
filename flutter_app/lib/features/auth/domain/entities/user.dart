@@ -5,11 +5,16 @@ class User {
     required this.role,
     this.phoneNumber,
     this.subscriptionStatus = 'free',
+    this.subscriptionExpiry,
     this.languagePreference = 'all',
   });
   final String id, name, role, subscriptionStatus, languagePreference;
   final String? phoneNumber;
-  User copyWith({String? subscriptionStatus, String? languagePreference}) =>
+  final DateTime? subscriptionExpiry;
+  bool get hasActiveSubscription =>
+      subscriptionStatus == 'premium' &&
+      (subscriptionExpiry == null || subscriptionExpiry!.isAfter(DateTime.now()));
+  User copyWith({String? subscriptionStatus, String? languagePreference, DateTime? subscriptionExpiry}) =>
       User(
         id: id,
         name: name,
@@ -17,5 +22,6 @@ class User {
         phoneNumber: phoneNumber,
         subscriptionStatus: subscriptionStatus ?? this.subscriptionStatus,
         languagePreference: languagePreference ?? this.languagePreference,
+        subscriptionExpiry: subscriptionExpiry ?? this.subscriptionExpiry,
       );
 }

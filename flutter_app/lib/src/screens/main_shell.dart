@@ -29,7 +29,7 @@ class _MainShellState extends ConsumerState<MainShell> {
       if (!mounted || _membershipPromptShown) return;
       ref.read(booksControllerProvider).loadCollection();
       final user = ref.read(sessionControllerProvider).user;
-      if (user == null || user.role == 'admin' || user.subscriptionStatus != 'free') {
+      if (user == null || user.role == 'admin' || user.hasActiveSubscription) {
         return;
       }
       _membershipPromptShown = true;
@@ -73,7 +73,7 @@ class _MainShellState extends ConsumerState<MainShell> {
             selectedIndex: index,
             onDestinationSelected: (value) =>
                 ref.read(mainTabIndexProvider.notifier).state = value,
-            backgroundColor: AppColors.surface,
+            backgroundColor: Theme.of(context).colorScheme.surface,
             indicatorColor: AppColors.coral.withValues(alpha: .2),
             destinations: const [
               NavigationDestination(
@@ -153,7 +153,7 @@ class HomeTab extends StatelessWidget {
               Container(
                 padding: const EdgeInsets.symmetric(horizontal: 14),
                 decoration: BoxDecoration(
-                  color: AppColors.raised,
+                  color: Theme.of(context).colorScheme.surfaceContainerHighest,
                   borderRadius: BorderRadius.circular(14),
                 ),
                 child: TextField(
@@ -285,10 +285,13 @@ class _FeaturedRailState extends State<FeaturedRail> {
   }
 
   @override
-  Widget build(BuildContext context) => Column(
+  Widget build(BuildContext context) {
+    final viewport = MediaQuery.sizeOf(context);
+    final railHeight = (viewport.width * .95).clamp(300.0, 374.0);
+    return Column(
     children: [
       SizedBox(
-        height: 374,
+        height: railHeight,
         child: PageView.builder(
           controller: _controller,
           itemCount: widget.books.length,
@@ -400,6 +403,7 @@ class _FeaturedRailState extends State<FeaturedRail> {
       ),
     ],
   );
+  }
 
   Widget _cover(Book book) {
     if (book.coverImageUrl.isEmpty) {
@@ -416,8 +420,8 @@ class _FeaturedRailState extends State<FeaturedRail> {
     return Image.network(
       book.coverImageUrl,
       fit: BoxFit.cover,
-      errorBuilder: (_, _, _) => const DecoratedBox(
-        decoration: BoxDecoration(color: AppColors.raised),
+      errorBuilder: (_, _, _) => DecoratedBox(
+        decoration: BoxDecoration(color: Theme.of(context).colorScheme.surfaceContainerHighest),
         child: Icon(Icons.menu_book_rounded, size: 72, color: AppColors.muted),
       ),
     );
@@ -558,11 +562,13 @@ class CollectionTab extends ConsumerWidget {
             else
               Expanded(
                 child: GridView.builder(
-                  gridDelegate: const SliverGridDelegateWithFixedCrossAxisCount(
+                  gridDelegate: SliverGridDelegateWithFixedCrossAxisCount(
                     crossAxisCount: 2,
-                    childAspectRatio: .66,
                     crossAxisSpacing: 14,
                     mainAxisSpacing: 18,
+                    // Leave room for text metrics and larger system font
+                    // settings so cards never overflow at the bottom.
+                    mainAxisExtent: BookCard.shelfHeight(context) + 14,
                   ),
                   itemCount: state.library.length,
                   itemBuilder: (_, index) {
@@ -584,6 +590,7 @@ class ProfileTab extends ConsumerWidget {
   @override
   Widget build(BuildContext context, WidgetRef ref) {
     final s = ref.watch(sessionControllerProvider);
+    final theme = ref.watch(themeControllerProvider);
     return SafeArea(
       child: ListView(
         padding: const EdgeInsets.all(20),
@@ -620,10 +627,20 @@ class ProfileTab extends ConsumerWidget {
           ),
           const SizedBox(height: 28),
           ListTile(
+            leading: Icon(theme.mode == ThemeMode.dark ? Icons.dark_mode : Icons.light_mode),
+            title: const Text('Appearance'),
+            subtitle: Text(theme.mode == ThemeMode.dark ? 'Dark mode' : 'Light mode'),
+            trailing: Switch(
+              value: theme.mode == ThemeMode.dark,
+              onChanged: (_) => ref.read(themeControllerProvider).toggle(),
+            ),
+          ),
+          const Divider(),
+          ListTile(
             leading: const Icon(Icons.workspace_premium_outlined),
             title: const Text('Membership'),
             subtitle: Text(
-              s.user?.subscriptionStatus == 'free'
+              !(s.user?.hasActiveSubscription ?? false)
                   ? 'View premium plans'
                   : '${s.user?.subscriptionStatus.toUpperCase()} member',
             ),
@@ -673,7 +690,7 @@ Future<void> showLanguagePicker(
 ) async {
   final selected = await showModalBottomSheet<String>(
     context: context,
-    backgroundColor: AppColors.surface,
+    backgroundColor: Theme.of(context).colorScheme.surface,
     showDragHandle: true,
     builder: (sheetContext) => SafeArea(
       child: Column(
@@ -722,7 +739,7 @@ class MiniPlayer extends ConsumerWidget {
     final b = s.currentBook;
     if (b == null) return const SizedBox.shrink();
     return Material(
-      color: AppColors.raised,
+      color: Theme.of(context).colorScheme.surfaceContainerHighest,
       child: ListTile(
         onTap: () {
           // Open the full player when the mini-player itself is tapped.
@@ -798,8 +815,8 @@ class _DemoNotificationsSheet extends StatelessWidget {
   Widget build(BuildContext context) => SafeArea(
     child: Container(
       constraints: const BoxConstraints(maxHeight: 520),
-      decoration: const BoxDecoration(
-        color: AppColors.surface,
+      decoration: BoxDecoration(
+        color: Theme.of(context).colorScheme.surface,
         borderRadius: BorderRadius.vertical(top: Radius.circular(24)),
       ),
       padding: const EdgeInsets.fromLTRB(20, 12, 20, 20),

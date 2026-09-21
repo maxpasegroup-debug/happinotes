@@ -19,11 +19,28 @@ class HappiNotesApp extends ConsumerWidget {
   Widget build(BuildContext context, WidgetRef ref) {
     ref.watch(realtimeServiceProvider);
     final state = ref.watch(sessionControllerProvider);
+    final theme = ref.watch(themeControllerProvider);
+    ref.listen(sessionControllerProvider, (previous, next) {
+      // Never reopen the app on a stale tab from the previous session.
+      if (next.user == null || previous?.user == null) {
+        ref.read(mainTabIndexProvider.notifier).state = 0;
+      }
+      if (next.user != null && previous?.user == null) {
+        // Start the feed request as soon as a saved session is restored,
+        // while LaunchSplash is still on screen.
+        ref.read(booksControllerProvider).loadBooks();
+        if (next.user?.role != 'admin') {
+          ref.read(booksControllerProvider).loadCollection();
+        }
+      }
+    });
     return MaterialApp(
       debugShowCheckedModeBanner: false,
       scaffoldMessengerKey: AppMessage.messengerKey,
       title: 'HappiNotes',
       theme: buildHappiTheme(),
+      darkTheme: buildHappiTheme(Brightness.dark),
+      themeMode: theme.mode,
       home: !state.initialized
           ? const LaunchSplash()
           : state.isLoggedIn

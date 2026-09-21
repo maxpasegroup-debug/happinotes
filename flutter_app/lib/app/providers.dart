@@ -15,8 +15,12 @@ import '../features/admin/data/repositories/admin_repository_impl.dart';
 import '../features/admin/domain/repositories/admin_repository.dart';
 import '../features/admin/presentation/controllers/admin_controller.dart';
 import '../core/realtime/realtime_service.dart';
+import 'theme_controller.dart';
 
 final apiClientProvider = Provider<ApiClient>((ref) => ApiClient());
+final themeControllerProvider = ChangeNotifierProvider<ThemeController>(
+  (ref) => ThemeController()..initialize(),
+);
 final authRepositoryProvider = Provider<AuthRepository>(
   (ref) => AuthRepositoryImpl(ref.watch(apiClientProvider)),
 );
