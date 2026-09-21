@@ -301,7 +301,7 @@ export const deactivateUserSubscription = async (
   try {
     const user = await User.findByIdAndUpdate(
       req.params.id,
-      { subscriptionActive: false, subscriptionExpiry: null },
+      { subscriptionActive: false, subscriptionExpiry: null, subscriptionPlan: null },
       { new: true }
     )
       .select('-password')

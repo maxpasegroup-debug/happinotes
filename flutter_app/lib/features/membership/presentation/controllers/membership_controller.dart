@@ -12,7 +12,7 @@ class MembershipController extends ChangeNotifier {
   final SessionController session;
   final ApiClient client;
   List<MembershipPlan> plans = [];
-  String? selected, error;
+  String? selected, error, successMessage;
   bool loading = true, paying = false;
   int activationCount = 0;
 
@@ -64,14 +64,17 @@ class MembershipController extends ChangeNotifier {
     if (selected == null) return;
     paying = true;
     error = null;
+    successMessage = null;
     notifyListeners();
     try {
       final user = await repository.activateTestSubscription(selected!);
       session.replaceUser(user);
+      successMessage = 'Payment successful. Premium subscription enabled.';
       activationCount++;
     } catch (e) {
-      paying = false;
       error = client.errorMessage(e);
+    } finally {
+      paying = false;
       notifyListeners();
     }
   }

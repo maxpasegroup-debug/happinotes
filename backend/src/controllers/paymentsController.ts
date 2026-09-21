@@ -65,7 +65,7 @@ export const activateTestSubscription = async (
     const plan = (req.body?.plan ?? 'monthly').toString().trim().toLowerCase();
     const days = plan === 'yearly' ? 365 : 30;
     const expiry = computeSubscriptionExpiry(days);
-    await activateSubscriptionForUser({ user: req.user, expiry });
+    await activateSubscriptionForUser({ user: req.user, expiry, plan });
     res.json({
       success: true,
       testPayment: true,
@@ -77,6 +77,7 @@ export const activateTestSubscription = async (
         role: req.user.role,
         subscriptionActive: true,
         subscriptionStatus: 'premium',
+        subscriptionPlan: plan,
         subscriptionExpiry: req.user.subscriptionExpiry,
       },
     });
@@ -501,6 +502,7 @@ export const verifyRazorpaySubscription = async (
     await activateSubscriptionForUser({
       user: req.user,
       expiry: new Date(expiryMs),
+      plan: details.notes?.plan ?? null,
       razorpaySubscriptionId: details.id,
     });
 
@@ -518,6 +520,7 @@ export const verifyRazorpaySubscription = async (
         role: req.user.role,
         subscriptionActive: req.user.subscriptionActive,
         subscriptionExpiry: req.user.subscriptionExpiry,
+        subscriptionPlan: req.user.subscriptionPlan,
       },
     });
   } catch (err) {

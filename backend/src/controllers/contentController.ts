@@ -77,7 +77,15 @@ function shapeContentForPublic(
   }
 
   if (contentType === 'lifebook') {
-    delete out.lessons;
+    if (Array.isArray(out.lessons)) {
+      out.lessons = (out.lessons as Record<string, unknown>[]).map((lesson) => ({
+        title: lesson.title,
+        description: lesson.description,
+        order: lesson.order,
+        mediaType: lesson.mediaType,
+        mediaUrl: '',
+      }));
+    }
     delete out.conclusion;
     return out;
   }

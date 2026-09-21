@@ -8,6 +8,7 @@ class UserModel extends User {
     super.phoneNumber,
     super.subscriptionStatus,
     super.subscriptionExpiry,
+    super.subscriptionPlan,
     super.languagePreference,
   });
   factory UserModel.fromJson(Map<String, dynamic> json) {
@@ -22,6 +23,7 @@ class UserModel extends User {
     subscriptionStatus: active ? 'premium' : 'free',
     languagePreference: (json['languagePreference'] ?? 'all').toString(),
     subscriptionExpiry: expiry,
+    subscriptionPlan: json['subscriptionPlan']?.toString(),
     );
   }
 }

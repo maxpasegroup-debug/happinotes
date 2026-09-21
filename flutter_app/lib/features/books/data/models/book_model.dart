@@ -33,7 +33,6 @@ class BookModel extends Book {
           audioUrl: (lesson['mediaUrl'] ?? '').toString(),
           order: (lesson['order'] as num?)?.toInt() ?? 0,
         ))
-        .where((episode) => episode.audioUrl.isNotEmpty)
         .toList()
       ..insertAll(
         0,

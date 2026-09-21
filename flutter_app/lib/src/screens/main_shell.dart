@@ -637,14 +637,23 @@ class ProfileTab extends ConsumerWidget {
           ),
           const Divider(),
           ListTile(
-            leading: const Icon(Icons.workspace_premium_outlined),
+            leading: Icon(
+              Icons.workspace_premium_outlined,
+              color: s.user?.hasActiveSubscription == true
+                  ? const Color(0xFF2EAF62)
+                  : null,
+            ),
             title: const Text('Membership'),
             subtitle: Text(
               !(s.user?.hasActiveSubscription ?? false)
                   ? 'View premium plans'
-                  : '${s.user?.subscriptionStatus.toUpperCase()} member',
+                  : s.user?.subscriptionExpiry == null
+                  ? 'PREMIUM enabled'
+                  : 'PREMIUM enabled • Expires ${_membershipDate(s.user!.subscriptionExpiry!)}',
             ),
-            trailing: const Icon(Icons.chevron_right),
+            trailing: s.user?.hasActiveSubscription == true
+                ? const Icon(Icons.verified_rounded, color: Color(0xFF2EAF62))
+                : const Icon(Icons.chevron_right),
             onTap: () => Navigator.push(
               context,
               MaterialPageRoute(builder: (_) => const MembershipScreen()),
@@ -783,6 +792,11 @@ class MiniPlayer extends ConsumerWidget {
       ),
     );
   }
+}
+
+String _membershipDate(DateTime date) {
+  final local = date.toLocal();
+  return '${local.day.toString().padLeft(2, '0')}/${local.month.toString().padLeft(2, '0')}/${local.year}';
 }
 
 Route<void> _slideUpRoute(Widget page) => PageRouteBuilder<void>(

@@ -8,6 +8,7 @@ import { PasswordResetToken } from '../models/passwordResetToken';
 import { env } from '../config/env';
 import { sendOTPEmail } from '../services/emailService';
 import { BadRequestError, UnauthorizedError } from '../utils/errors';
+import { hasActiveSubscription } from '../utils/subscription';
 
 const OTP_EXPIRY_MINUTES = 10;
 const PRIMARY_ADMIN_EMAIL = 'admin@happinotes.in';
@@ -24,10 +25,11 @@ const userResponse = (user: typeof User.prototype) => ({
   email: user.email,
   phoneNumber: user.phoneNumber,
   role: user.role,
-  isPremium: user.subscriptionActive,
-  subscriptionActive: user.subscriptionActive,
-  subscriptionStatus: user.subscriptionActive ? 'premium' : 'free',
+  isPremium: hasActiveSubscription(user),
+  subscriptionActive: hasActiveSubscription(user),
+  subscriptionStatus: hasActiveSubscription(user) ? 'premium' : 'free',
   subscriptionExpiry: user.subscriptionExpiry,
+  subscriptionPlan: user.subscriptionPlan,
 });
 
 const createPhoneOtp = async (phoneNumber: string, purpose: 'signup' | 'login') => {
@@ -107,9 +109,10 @@ export const signup = async (
         name: user.name,
         email: user.email,
         role: user.role,
-        isPremium: user.subscriptionActive,
-        subscriptionActive: user.subscriptionActive,
+        isPremium: hasActiveSubscription(user),
+        subscriptionActive: hasActiveSubscription(user),
         subscriptionExpiry: user.subscriptionExpiry,
+        subscriptionPlan: user.subscriptionPlan,
       },
     });
   } catch (err) {
@@ -175,9 +178,10 @@ export const login = async (
         name: user.name,
         email: user.email,
         role: user.role,
-        isPremium: user.subscriptionActive,
-        subscriptionActive: user.subscriptionActive,
+        isPremium: hasActiveSubscription(user),
+        subscriptionActive: hasActiveSubscription(user),
         subscriptionExpiry: user.subscriptionExpiry,
+        subscriptionPlan: user.subscriptionPlan,
       },
     });
   } catch (err) {
@@ -255,7 +259,10 @@ export const getMe = async (
       delete u.bookCollection;
     }
     if (u) {
-      u.isPremium = Boolean(u.subscriptionActive);
+      u.isPremium = Boolean(u.subscriptionActive) &&
+        (u.subscriptionExpiry == null || new Date(String(u.subscriptionExpiry)) > new Date());
+      u.subscriptionActive = u.isPremium;
+      u.subscriptionStatus = u.isPremium ? 'premium' : 'free';
     }
     res.json({ success: true, user: u || user });
   } catch (err) {

@@ -14,6 +14,8 @@ class BookDetail extends ConsumerWidget {
   @override
   Widget build(BuildContext context, WidgetRef ref) {
     final player = ref.watch(playerControllerProvider);
+    final user = ref.watch(sessionControllerProvider).user;
+    final locked = book.accessType == 'premium' && !(user?.hasActiveSubscription ?? false);
 
     return StreamBuilder<bool>(
       stream: player.audioPlayer.playingStream,
@@ -23,6 +25,10 @@ class BookDetail extends ConsumerWidget {
             player.currentBook?.id == book.id && (snapshot.data ?? false);
 
         Future<void> handlePlayback() async {
+          if (locked) {
+            AppMessage.show(context, 'Premium subscription required to listen to this story.', success: false);
+            return;
+          }
           try {
             if (isPlaying) {
               await player.stop();
@@ -125,6 +131,10 @@ class BookDetail extends ConsumerWidget {
                   return ListTile(
                     contentPadding: EdgeInsets.zero,
                     onTap: () async {
+                      if (locked || episode.audioUrl.isEmpty) {
+                        AppMessage.show(context, 'This premium episode is locked. Subscribe to listen.', success: false);
+                        return;
+                      }
                       try {
                         if (!context.mounted) return;
                         Navigator.of(context).push(MaterialPageRoute(builder: (_) => EpisodePlayerScreen(book: book, episode: episode)));
@@ -146,12 +156,20 @@ class BookDetail extends ConsumerWidget {
                             : Text(episode.description, maxLines: 2, overflow: TextOverflow.ellipsis)),
                     trailing: IconButton(
                       icon: Icon(
-                        isPlaying && player.currentEpisode == episode
+                        locked || episode.audioUrl.isEmpty
+                            ? Icons.lock_rounded
+                            : isPlaying && player.currentEpisode == episode
                             ? Icons.stop_rounded
                             : Icons.play_arrow_rounded,
-                        color: AppColors.coral,
+                        color: locked || episode.audioUrl.isEmpty
+                            ? AppColors.muted
+                            : AppColors.coral,
                       ),
                       onPressed: () async {
+                        if (locked || episode.audioUrl.isEmpty) {
+                          AppMessage.show(context, 'This premium episode is locked. Subscribe to listen.', success: false);
+                          return;
+                        }
                         try {
                           if (isPlaying && player.currentEpisode == episode) {
                             await player.stop();
@@ -174,13 +192,15 @@ class BookDetail extends ConsumerWidget {
     bottomNavigationBar: SafeArea(
       minimum: const EdgeInsets.all(16),
       child: FilledButton.icon(
-        onPressed: (book.audioUrl.isEmpty && book.episodes.isEmpty)
+        onPressed: locked
+            ? handlePlayback
+            : (book.audioUrl.isEmpty && book.episodes.isEmpty)
             ? null
             : handlePlayback,
         icon: Icon(
           isPlaying ? Icons.stop_rounded : Icons.play_arrow_rounded,
         ),
-        label: Text(isPlaying ? 'Stop listening' : 'Start listening'),
+        label: Text(locked ? 'Premium locked' : (isPlaying ? 'Stop listening' : 'Start listening')),
         style: FilledButton.styleFrom(
           backgroundColor: AppColors.coral,
           padding: const EdgeInsets.all(17),

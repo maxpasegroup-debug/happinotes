@@ -23,11 +23,13 @@ export function computeSubscriptionExpiry(days = DEFAULT_SUBSCRIPTION_DAYS): Dat
 export async function activateSubscriptionForUser(params: {
   user: IUser;
   expiry?: Date;
+  plan?: string | null;
   razorpaySubscriptionId?: string | null;
 }): Promise<IUser> {
-  const { user, expiry, razorpaySubscriptionId } = params;
+  const { user, expiry, razorpaySubscriptionId, plan } = params;
   user.subscriptionActive = true;
   user.subscriptionExpiry = expiry ?? computeSubscriptionExpiry();
+  if (plan) user.subscriptionPlan = plan;
   if (razorpaySubscriptionId) {
     user.razorpaySubscriptionId = razorpaySubscriptionId;
   }

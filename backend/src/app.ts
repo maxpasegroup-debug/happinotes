@@ -18,6 +18,7 @@ const configuredOrigins = (process.env.CORS_ORIGINS || '')
 const staticOrigins = [
   'http://localhost:8081',
   'http://localhost:3000',
+  'http://localhost:3001',
   'https://happinotes-production.up.railway.app',
 ];
 const allowedOrigins = new Set([...staticOrigins, ...configuredOrigins]);
