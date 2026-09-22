@@ -61,7 +61,7 @@ class AuthScreen extends ConsumerWidget {
                     decoration: const InputDecoration(
                       labelText: 'WhatsApp number',
                       prefixText: '+91 ',
-                      prefixStyle: TextStyle(color: Colors.black, fontWeight: FontWeight.w600),
+                      prefixStyle: TextStyle(color: Colors.black, fontSize: 16, height: 1.2, fontWeight: FontWeight.w600),
                       hintText: '9876543210',
                     ),
                   ),
