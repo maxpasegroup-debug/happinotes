@@ -13,6 +13,7 @@ import {
   requestResetPinOtp,
   resetPin,
   verifyLoginOtp,
+  updateLanguage,
 } from '../controllers/authController';
 import { authenticate } from '../middleware';
 
@@ -97,5 +98,6 @@ router.post('/forgot-password', authRateLimiter, forgotPasswordValidation, forgo
 router.post('/verify-otp', authRateLimiter, verifyOTPValidation, verifyOTP);
 router.post('/reset-password', resetPasswordValidation, resetPassword);
 router.get('/me', authenticate, getMe);
+router.put('/me', authenticate, updateLanguage);
 
 export default router;

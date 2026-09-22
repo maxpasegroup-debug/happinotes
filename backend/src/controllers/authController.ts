@@ -30,7 +30,21 @@ const userResponse = (user: typeof User.prototype) => ({
   subscriptionStatus: hasActiveSubscription(user) ? 'premium' : 'free',
   subscriptionExpiry: user.subscriptionExpiry,
   subscriptionPlan: user.subscriptionPlan,
+  languagePreference: user.languagePreference ?? 'all',
 });
+
+export const updateLanguage = async (req: Request, res: Response, next: NextFunction): Promise<void> => {
+  try {
+    if (!req.user) return next(new UnauthorizedError('Not authenticated'));
+    const language = req.body?.languagePreference;
+    if (!['all', 'english', 'malayalam', 'hindi'].includes(language)) {
+      return next(new BadRequestError('languagePreference must be all, english, malayalam, or hindi'));
+    }
+    req.user.languagePreference = language;
+    await req.user.save();
+    res.json({ success: true, user: userResponse(req.user) });
+  } catch (err) { next(err); }
+};
 
 const createPhoneOtp = async (phoneNumber: string, purpose: 'signup' | 'login' | 'reset-pin') => {
   const otp = Math.floor(100000 + Math.random() * 900000).toString();

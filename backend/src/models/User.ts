@@ -11,6 +11,7 @@ export interface IUser extends Document {
   subscriptionActive: boolean;
   subscriptionExpiry: Date | null;
   subscriptionPlan: string | null;
+  languagePreference: 'all' | 'english' | 'malayalam' | 'hindi';
   razorpaySubscriptionId: string | null;
   bookCollection: mongoose.Types.ObjectId[];
   favourites: { contentId: mongoose.Types.ObjectId; contentType: string }[];
@@ -29,6 +30,7 @@ const userSchema = new Schema<IUser>(
     subscriptionActive: { type: Boolean, default: false },
     subscriptionExpiry: { type: Date, default: null },
     subscriptionPlan: { type: String, enum: ['monthly', 'yearly', null], default: null },
+    languagePreference: { type: String, enum: ['all', 'english', 'malayalam', 'hindi'], default: 'all' },
     razorpaySubscriptionId: { type: String, default: null },
     bookCollection: [{ type: Schema.Types.ObjectId, ref: 'Content', default: [] }],
     favourites: {
