@@ -67,8 +67,14 @@ class MembershipController extends ChangeNotifier {
     successMessage = null;
     notifyListeners();
     try {
-      final user = await repository.activateTestSubscription(selected!);
-      session.replaceUser(user);
+      final planId = selected!;
+      final user = await repository.activateTestSubscription(planId);
+      // Keep the UI correct with older backend deployments that may activate
+      // the subscription successfully but omit subscriptionPlan in the reply.
+      final updatedUser = user.subscriptionPlan == null
+          ? user.copyWith(subscriptionPlan: planId)
+          : user;
+      session.replaceUser(updatedUser);
       successMessage = 'Payment successful. Premium subscription enabled.';
       activationCount++;
     } catch (e) {
