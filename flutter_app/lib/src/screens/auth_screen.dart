@@ -113,6 +113,13 @@ class AuthScreen extends ConsumerWidget {
                     onPressed: form.loading ? null : form.toggleMode,
                     child: Text(form.isSignup ? 'Already have an account? Login' : 'New to HappiNotes? Create account'),
                   ),
+                if (form.step == AuthStep.details && !form.isSignup)
+                  TextButton(
+                    onPressed: form.loading
+                        ? null
+                        : () => Navigator.of(context).push(MaterialPageRoute(builder: (_) => const ForgotPinScreen())),
+                    child: const Text('Forgot PIN?'),
+                  ),
               ],
             ),
           ),
@@ -235,13 +242,6 @@ class _OtpBoxesState extends State<OtpBoxes> {
                       borderRadius: BorderRadius.circular(12),
                       borderSide: const BorderSide(color: AppColors.coral, width: 2),
                     ),
-                  ),
-                if (form.step == AuthStep.details && !form.isSignup)
-                  TextButton(
-                    onPressed: form.loading
-                        ? null
-                        : () => Navigator.of(context).push(MaterialPageRoute(builder: (_) => const ForgotPinScreen())),
-                    child: const Text('Forgot PIN?'),
                   ),
                 ),
               ),
