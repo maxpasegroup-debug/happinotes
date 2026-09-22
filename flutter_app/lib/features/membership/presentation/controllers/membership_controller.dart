@@ -41,14 +41,11 @@ class MembershipController extends ChangeNotifier {
         plans = _defaultPlans;
         error = 'Membership plans are temporarily unavailable. Please try again.';
       }
-      if (plans.isNotEmpty) {
-        selected = plans.any((p) => p.id == 'yearly')
-            ? 'yearly'
-            : plans.first.id;
-      }
+      // Do not preselect a plan. The user must explicitly choose one.
+      selected = null;
     } catch (e) {
       plans = _defaultPlans;
-      selected = 'yearly';
+      selected = null;
       error = client.errorMessage(e);
     }
     loading = false;

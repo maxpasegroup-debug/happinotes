@@ -18,6 +18,7 @@ class MembershipCheckoutScreen extends ConsumerWidget {
       (previous, next) {
         if (next > (previous ?? 0) && context.mounted) {
           AppMessage.showGlobal('Payment successful. Premium subscription enabled.');
+          Navigator.of(context).pop();
         }
       },
     );
