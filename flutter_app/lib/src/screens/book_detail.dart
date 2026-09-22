@@ -82,7 +82,7 @@ class BookDetail extends ConsumerWidget {
                           ),
                           clipBehavior: Clip.antiAlias,
                           child: book.coverImageUrl.isEmpty
-                              ? const ColoredBox(color: AppColors.raised)
+                              ? ColoredBox(color: Theme.of(context).colorScheme.surfaceContainerHighest)
                               : CachedNetworkImage(
                                   imageUrl: book.coverImageUrl,
                                   fit: BoxFit.cover,
@@ -145,7 +145,7 @@ class BookDetail extends ConsumerWidget {
                       }
                     },
                     leading: CircleAvatar(
-                      backgroundColor: AppColors.raised,
+                      backgroundColor: Theme.of(context).colorScheme.surfaceContainerHighest,
                       child: Text('${entry.key + 1}'),
                     ),
                     title: Text(episode.title),
