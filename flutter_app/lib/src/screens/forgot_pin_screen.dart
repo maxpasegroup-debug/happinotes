@@ -3,6 +3,7 @@ import 'package:flutter/services.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
 import '../../app/providers.dart';
 import '../theme.dart';
+import '../widgets/app_message.dart';
 
 class ForgotPinScreen extends ConsumerStatefulWidget {
   const ForgotPinScreen({super.key});
@@ -15,7 +16,7 @@ class _ForgotPinScreenState extends ConsumerState<ForgotPinScreen> {
   final phone = TextEditingController();
   final otp = TextEditingController();
   final pin = TextEditingController();
-  bool sent = false, loading = false;
+  bool sent = false, loading = false, obscureNewPin = true;
   String? testOtp, error, success;
 
   String get normalizedPhone {
@@ -45,7 +46,11 @@ class _ForgotPinScreenState extends ConsumerState<ForgotPinScreen> {
           throw StateError('Enter a 6-digit OTP and new PIN.');
         }
         await repository.resetPin(phoneNumber: normalizedPhone, otp: otp.text, pin: pin.text);
-        success = 'PIN reset successfully. You can log in now.';
+        if (mounted) {
+          AppMessage.showGlobal('PIN reset successfully. You can log in now.', success: true);
+          Navigator.of(context).pop();
+          return;
+        }
       }
     } catch (e) {
       error = ref.read(apiClientProvider).errorMessage(e);
@@ -70,7 +75,20 @@ class _ForgotPinScreenState extends ConsumerState<ForgotPinScreen> {
           if (testOtp != null) Text('DEMO OTP: $testOtp', style: const TextStyle(color: AppColors.coral, fontWeight: FontWeight.w800)),
           TextField(controller: otp, keyboardType: TextInputType.number, inputFormatters: [FilteringTextInputFormatter.digitsOnly, LengthLimitingTextInputFormatter(6)], decoration: const InputDecoration(labelText: 'OTP')),
           const SizedBox(height: 14),
-          TextField(controller: pin, obscureText: true, keyboardType: TextInputType.number, inputFormatters: [FilteringTextInputFormatter.digitsOnly, LengthLimitingTextInputFormatter(6)], decoration: const InputDecoration(labelText: 'New 6-digit PIN')),
+          TextField(
+            controller: pin,
+            obscureText: obscureNewPin,
+            keyboardType: TextInputType.number,
+            inputFormatters: [FilteringTextInputFormatter.digitsOnly, LengthLimitingTextInputFormatter(6)],
+            decoration: InputDecoration(
+              labelText: 'New 6-digit PIN',
+              suffixIcon: IconButton(
+                tooltip: obscureNewPin ? 'Show PIN' : 'Hide PIN',
+                icon: Icon(obscureNewPin ? Icons.visibility_rounded : Icons.visibility_off_rounded),
+                onPressed: () => setState(() => obscureNewPin = !obscureNewPin),
+              ),
+            ),
+          ),
         ],
         if (error != null) Padding(padding: const EdgeInsets.only(top: 14), child: Text(error!, style: const TextStyle(color: Colors.redAccent))),
         if (success != null) Padding(padding: const EdgeInsets.only(top: 14), child: Text(success!, style: const TextStyle(color: Colors.green, fontWeight: FontWeight.w700))),

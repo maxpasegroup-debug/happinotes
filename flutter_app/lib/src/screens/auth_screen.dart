@@ -115,7 +115,7 @@ class AuthScreen extends ConsumerWidget {
                     onPressed: form.loading ? null : form.toggleMode,
                     child: Text(form.isSignup ? 'Already have an account? Login' : 'New to HappiNotes? Create account'),
                   ),
-                if (form.step == AuthStep.details && !form.isSignup)
+                if (form.step == AuthStep.pin && !form.isSignup)
                   TextButton(
                     onPressed: form.loading
                         ? null
