@@ -255,7 +255,7 @@ class _OtpBoxesState extends State<OtpBoxes> {
   );
 }
 
-class _PinField extends StatelessWidget {
+class _PinField extends StatefulWidget {
   const _PinField({required this.value, required this.onChanged, required this.label, this.obscure = true});
   final String value;
   final ValueChanged<String> onChanged;
@@ -263,13 +263,33 @@ class _PinField extends StatelessWidget {
   final bool obscure;
 
   @override
+  State<_PinField> createState() => _PinFieldState();
+}
+
+class _PinFieldState extends State<_PinField> {
+  late bool hidden;
+
+  @override
+  void initState() {
+    super.initState();
+    hidden = widget.obscure;
+  }
+
+  @override
   Widget build(BuildContext context) => TextFormField(
-    key: ValueKey('$label-$value'),
-    initialValue: value,
-    onChanged: onChanged,
-    obscureText: obscure,
+    key: ValueKey('${widget.label}-${widget.value}'),
+    initialValue: widget.value,
+    onChanged: widget.onChanged,
+    obscureText: hidden,
     keyboardType: TextInputType.number,
     inputFormatters: [FilteringTextInputFormatter.digitsOnly, LengthLimitingTextInputFormatter(6)],
-    decoration: InputDecoration(labelText: label),
+    decoration: InputDecoration(
+      labelText: widget.label,
+      suffixIcon: IconButton(
+        tooltip: hidden ? 'Show PIN' : 'Hide PIN',
+        icon: Icon(hidden ? Icons.visibility_rounded : Icons.visibility_off_rounded),
+        onPressed: () => setState(() => hidden = !hidden),
+      ),
+    ),
   );
 }
