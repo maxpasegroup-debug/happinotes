@@ -64,7 +64,7 @@ class _ForgotPinScreenState extends ConsumerState<ForgotPinScreen> {
         const SizedBox(height: 10),
         const Text('Enter your WhatsApp number to receive a reset OTP.'),
         const SizedBox(height: 24),
-        TextField(controller: phone, enabled: !sent, keyboardType: TextInputType.phone, decoration: const InputDecoration(labelText: 'WhatsApp number', prefixText: '+91 ', hintText: '9876543210')),
+        TextField(controller: phone, enabled: !sent, keyboardType: TextInputType.phone, decoration: const InputDecoration(labelText: 'WhatsApp number', prefixText: '+91 ', prefixStyle: TextStyle(color: Colors.black, fontWeight: FontWeight.w600), hintText: '9876543210')),
         if (sent) ...[
           const SizedBox(height: 14),
           if (testOtp != null) Text('DEMO OTP: $testOtp', style: const TextStyle(color: AppColors.coral, fontWeight: FontWeight.w800)),
