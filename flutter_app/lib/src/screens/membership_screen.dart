@@ -68,9 +68,15 @@ class MembershipScreen extends ConsumerWidget {
                 if (state.error != null) Padding(padding: const EdgeInsets.symmetric(vertical: 12), child: Text(state.error!, style: const TextStyle(color: Colors.redAccent))),
                 if (!isPremium)
                   FilledButton(
-                    onPressed: state.selected == null ? null : () {
+                    onPressed: state.selected == null ? null : () async {
                       final selected = state.plans.firstWhere((p) => p.id == state.selected);
-                      Navigator.of(context).push(MaterialPageRoute(builder: (_) => MembershipCheckoutScreen(plan: selected)));
+                      final activated = await Navigator.of(context).push<bool>(MaterialPageRoute(builder: (_) => MembershipCheckoutScreen(plan: selected)));
+                      if (activated == true && context.mounted) {
+                        await showDialog<void>(
+                          context: context,
+                          builder: (_) => _PremiumActivatedDialog(planName: selected.name),
+                        );
+                      }
                     },
                     style: FilledButton.styleFrom(backgroundColor: AppColors.coral, padding: const EdgeInsets.all(17)),
                     child: const Text('Continue'),
@@ -87,6 +93,32 @@ class _StatusCard extends StatelessWidget {
     padding: const EdgeInsets.all(14),
     decoration: BoxDecoration(color: const Color(0xFF21894A).withValues(alpha: .14), borderRadius: BorderRadius.circular(14), border: Border.all(color: const Color(0xFF21894A))),
     child: const Row(children: [Icon(Icons.verified_rounded, color: Color(0xFF21894A)), SizedBox(width: 10), Expanded(child: Text('Premium subscription enabled', style: TextStyle(fontWeight: FontWeight.w700)))]),
+  );
+}
+
+class _PremiumActivatedDialog extends StatelessWidget {
+  const _PremiumActivatedDialog({required this.planName});
+  final String planName;
+
+  @override
+  Widget build(BuildContext context) => AlertDialog(
+    shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(24)),
+    content: Column(
+      mainAxisSize: MainAxisSize.min,
+      children: [
+        Container(
+          padding: const EdgeInsets.all(16),
+          decoration: const BoxDecoration(color: Color(0xFF21894A), shape: BoxShape.circle),
+          child: const Icon(Icons.workspace_premium_rounded, color: Colors.white, size: 42),
+        ),
+        const SizedBox(height: 18),
+        const Text('Premium activated!', textAlign: TextAlign.center, style: TextStyle(fontSize: 24, fontWeight: FontWeight.w900)),
+        const SizedBox(height: 8),
+        Text('$planName plan is now active. Enjoy unlimited listening.', textAlign: TextAlign.center),
+        const SizedBox(height: 20),
+        FilledButton(onPressed: () => Navigator.of(context).pop(), child: const Text('Start listening')),
+      ],
+    ),
   );
 }
 

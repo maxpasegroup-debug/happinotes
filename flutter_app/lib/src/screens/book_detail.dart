@@ -171,11 +171,15 @@ class BookDetail extends ConsumerWidget {
                           return;
                         }
                         try {
-                          if (isPlaying && player.currentEpisode == episode) {
-                            await player.stop();
-                          } else {
-                            await player.playEpisode(book, episode);
-                          }
+                        if (isPlaying && player.currentEpisode == episode) {
+                          await player.stop();
+                        } else {
+                          if (!context.mounted) return;
+                          Navigator.of(context).push(MaterialPageRoute(
+                            builder: (_) => EpisodePlayerScreen(book: book, episode: episode),
+                          ));
+                          await player.playEpisode(book, episode);
+                        }
                         } catch (error) {
                           if (context.mounted) AppMessage.show(context, error.toString(), success: false);
                         }
