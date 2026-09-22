@@ -473,13 +473,6 @@ class SearchTab extends ConsumerWidget {
                   decoration: InputDecoration(
                     prefixIcon: const Icon(Icons.search),
                     hintText: 'Search books',
-                    suffixIcon: IconButton(
-                      onPressed: () {
-                        ref.read(searchQueryProvider.notifier).state = '';
-                        s.loadBooks(language: language);
-                      },
-                      icon: const Icon(Icons.close),
-                    ),
                   ),
                 ),
                 const SizedBox(height: 12),
