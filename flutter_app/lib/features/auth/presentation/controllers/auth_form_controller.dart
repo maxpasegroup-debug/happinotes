@@ -31,7 +31,13 @@ class AuthFormController extends ChangeNotifier {
   String? successMessage;
 
   void setName(String value) => name = value;
-  void setPhone(String value) => phone = value.replaceAll(RegExp(r'[^\d+]'), '');
+  void setPhone(String value) {
+    final digits = value.replaceAll(RegExp(r'\D'), '');
+    final local = digits.startsWith('91') && digits.length > 10
+        ? digits.substring(2)
+        : digits;
+    phone = local.isEmpty ? '' : '+91$local';
+  }
   void setOtp(String value) => otp = _sixDigits(value);
   void setPin(String value) => pin = _sixDigits(value);
   void setConfirmPin(String value) => confirmPin = _sixDigits(value);

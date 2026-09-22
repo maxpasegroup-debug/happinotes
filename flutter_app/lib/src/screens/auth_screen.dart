@@ -60,7 +60,8 @@ class AuthScreen extends ConsumerWidget {
                     keyboardType: TextInputType.phone,
                     decoration: const InputDecoration(
                       labelText: 'WhatsApp number',
-                      hintText: '+919876543210',
+                      prefixText: '+91 ',
+                      hintText: '9876543210',
                     ),
                   ),
                   if (form.isSignup) ...[

@@ -18,6 +18,12 @@ class _ForgotPinScreenState extends ConsumerState<ForgotPinScreen> {
   bool sent = false, loading = false;
   String? testOtp, error, success;
 
+  String get normalizedPhone {
+    final digits = phone.text.replaceAll(RegExp(r'\D'), '');
+    final local = digits.startsWith('91') && digits.length > 10 ? digits.substring(2) : digits;
+    return local.isEmpty ? '' : '+91$local';
+  }
+
   @override
   void dispose() {
     phone.dispose();
@@ -31,14 +37,14 @@ class _ForgotPinScreenState extends ConsumerState<ForgotPinScreen> {
     try {
       final repository = ref.read(authRepositoryProvider);
       if (!sent) {
-        final result = await repository.requestResetPinOtp(phone.text.trim());
+        final result = await repository.requestResetPinOtp(normalizedPhone);
         testOtp = result['testOtp']?.toString();
         sent = true;
       } else {
         if (!RegExp(r'^\d{6}$').hasMatch(otp.text) || !RegExp(r'^\d{6}$').hasMatch(pin.text)) {
           throw StateError('Enter a 6-digit OTP and new PIN.');
         }
-        await repository.resetPin(phoneNumber: phone.text.trim(), otp: otp.text, pin: pin.text);
+        await repository.resetPin(phoneNumber: normalizedPhone, otp: otp.text, pin: pin.text);
         success = 'PIN reset successfully. You can log in now.';
       }
     } catch (e) {
@@ -58,7 +64,7 @@ class _ForgotPinScreenState extends ConsumerState<ForgotPinScreen> {
         const SizedBox(height: 10),
         const Text('Enter your WhatsApp number to receive a reset OTP.'),
         const SizedBox(height: 24),
-        TextField(controller: phone, enabled: !sent, keyboardType: TextInputType.phone, decoration: const InputDecoration(labelText: 'WhatsApp number', hintText: '+919876543210')),
+        TextField(controller: phone, enabled: !sent, keyboardType: TextInputType.phone, decoration: const InputDecoration(labelText: 'WhatsApp number', prefixText: '+91 ', hintText: '9876543210')),
         if (sent) ...[
           const SizedBox(height: 14),
           if (testOtp != null) Text('DEMO OTP: $testOtp', style: const TextStyle(color: AppColors.coral, fontWeight: FontWeight.w800)),
