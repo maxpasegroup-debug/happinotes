@@ -34,7 +34,7 @@ class MembershipScreen extends ConsumerWidget {
                     child: Row(children: [
                       const Icon(Icons.receipt_long_rounded),
                       const SizedBox(width: 10),
-                      Expanded(child: Text('Subscription plan: ${_planName(user?.subscriptionPlan)}', style: const TextStyle(fontWeight: FontWeight.w800))),
+                      Expanded(child: Text('Subscription plan: ${_planName(user?.subscriptionPlan, user?.subscriptionExpiry)}', style: const TextStyle(fontWeight: FontWeight.w800))),
                     ]),
                   ),
                   if (user?.subscriptionExpiry != null) ...[
@@ -95,10 +95,18 @@ String _date(DateTime value) {
   return '${date.day.toString().padLeft(2, '0')}/${date.month.toString().padLeft(2, '0')}/${date.year}';
 }
 
-String _planName(String? plan) {
+String _planName(String? plan, DateTime? expiry) {
   switch (plan?.toLowerCase()) {
     case 'monthly': return 'Monthly';
     case 'yearly': return 'Yearly';
-    default: return 'Plan not available';
   }
+
+  // Compatibility for subscriptions created before subscriptionPlan was
+  // added to the backend. The expiry duration distinguishes the two plans.
+  if (expiry != null) {
+    final remainingDays = expiry.difference(DateTime.now()).inDays;
+    if (remainingDays > 180) return 'Yearly';
+    if (remainingDays >= 0) return 'Monthly';
+  }
+  return 'Plan not available';
 }
