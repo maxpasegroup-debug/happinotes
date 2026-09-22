@@ -105,7 +105,13 @@ class HomeTab extends StatelessWidget {
   Widget build(BuildContext context) => Consumer(
     builder: (context, ref, child) {
       final s = ref.watch(booksControllerProvider);
-      final books = s.books;
+      final preference = ref.watch(sessionControllerProvider).user?.languagePreference ?? 'all';
+      final books = preference == 'all'
+          ? s.books
+          : s.books.where((book) => book.language.toLowerCase() == preference.toLowerCase()).toList();
+      final upcoming = preference == 'all'
+          ? s.upcoming
+          : s.upcoming.where((book) => book.language.toLowerCase() == preference.toLowerCase()).toList();
       return SafeArea(
         child: RefreshIndicator(
           onRefresh: () => s.loadBooks(forceRefresh: true),
@@ -173,7 +179,7 @@ class HomeTab extends StatelessWidget {
                 const HomeLoadingSkeleton()
               else if (s.error != null)
                 Text(s.error!, style: const TextStyle(color: Colors.redAccent))
-              else if (books.isEmpty && s.upcoming.isEmpty)
+              else if (books.isEmpty && upcoming.isEmpty)
                 const Padding(
                   padding: EdgeInsets.all(40),
                   child: Text(
@@ -224,7 +230,7 @@ class HomeTab extends StatelessWidget {
                   ),
                 ),
               ],
-              if (!s.loading && s.upcoming.isNotEmpty) ...[
+              if (!s.loading && upcoming.isNotEmpty) ...[
                 const SizedBox(height: 24),
                 const SectionTitle('Coming soon'),
                 const SizedBox(height: 6),
@@ -237,10 +243,10 @@ class HomeTab extends StatelessWidget {
                   height: BookCard.shelfHeight(context),
                   child: ListView.separated(
                     scrollDirection: Axis.horizontal,
-                    itemCount: s.upcoming.length,
+                    itemCount: upcoming.length,
                     separatorBuilder: (_, _) => const SizedBox(width: 12),
                     itemBuilder: (_, index) {
-                      final book = s.upcoming[index];
+                      final book = upcoming[index];
                       return BookCard(
                         book: book,
                         onTap: () => AppMessage.show(
