@@ -32,7 +32,7 @@ const userResponse = (user: typeof User.prototype) => ({
   subscriptionPlan: user.subscriptionPlan,
 });
 
-const createPhoneOtp = async (phoneNumber: string, purpose: 'signup' | 'login') => {
+const createPhoneOtp = async (phoneNumber: string, purpose: 'signup' | 'login' | 'reset-pin') => {
   const otp = Math.floor(100000 + Math.random() * 900000).toString();
   await Otp.updateMany({ identifier: phoneNumber, purpose, used: false }, { used: true });
   await Otp.create({
@@ -216,6 +216,46 @@ export const requestLoginOtp = async (req: Request, res: Response, next: NextFun
       message: 'OTP generated',
       ...(env.WHATSAPP_OTP_MODE === 'test' ? { testOtp: otp } : {}),
     });
+  } catch (err) { next(err); }
+};
+
+export const requestResetPinOtp = async (req: Request, res: Response, next: NextFunction) => {
+  try {
+    const phoneNumber = (req.body.phoneNumber ?? '').toString().trim();
+    if (!(await User.exists({ phoneNumber }))) {
+      return next(new BadRequestError('No account found for this WhatsApp number'));
+    }
+    const otp = await createPhoneOtp(phoneNumber, 'reset-pin');
+    res.json({
+      success: true,
+      message: 'OTP generated',
+      ...(env.WHATSAPP_OTP_MODE === 'test' ? { testOtp: otp } : {}),
+    });
+  } catch (err) { next(err); }
+};
+
+export const resetPin = async (req: Request, res: Response, next: NextFunction) => {
+  try {
+    const phoneNumber = (req.body.phoneNumber ?? '').toString().trim();
+    const otp = (req.body.otp ?? '').toString().trim();
+    const pin = (req.body.pin ?? '').toString().trim();
+    if (!/^\+\d{8,15}$/.test(phoneNumber) || !/^\d{6}$/.test(otp) || !/^\d{6}$/.test(pin)) {
+      return next(new BadRequestError('Phone number, OTP, and PIN must be valid'));
+    }
+    const user = await User.findOne({ phoneNumber });
+    const record = await Otp.findOne({
+      identifier: phoneNumber,
+      purpose: 'reset-pin',
+      otp: hashOtp(phoneNumber, otp),
+      used: false,
+      expiresAt: { $gt: new Date() },
+    });
+    if (!user || !record) return next(new BadRequestError('Invalid or expired OTP'));
+    user.password = await bcrypt.hash(pin, 12);
+    await user.save();
+    record.used = true;
+    await record.save();
+    res.json({ success: true, message: 'PIN reset successfully' });
   } catch (err) { next(err); }
 };
 

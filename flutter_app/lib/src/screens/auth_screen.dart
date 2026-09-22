@@ -5,6 +5,7 @@ import '../../app/providers.dart';
 import '../../features/auth/presentation/controllers/auth_form_controller.dart';
 import '../theme.dart';
 import '../widgets/app_message.dart';
+import 'forgot_pin_screen.dart';
 
 class AuthScreen extends ConsumerWidget {
   const AuthScreen({super.key});
@@ -234,6 +235,13 @@ class _OtpBoxesState extends State<OtpBoxes> {
                       borderRadius: BorderRadius.circular(12),
                       borderSide: const BorderSide(color: AppColors.coral, width: 2),
                     ),
+                  ),
+                if (form.step == AuthStep.details && !form.isSignup)
+                  TextButton(
+                    onPressed: form.loading
+                        ? null
+                        : () => Navigator.of(context).push(MaterialPageRoute(builder: (_) => const ForgotPinScreen())),
+                    child: const Text('Forgot PIN?'),
                   ),
                 ),
               ),

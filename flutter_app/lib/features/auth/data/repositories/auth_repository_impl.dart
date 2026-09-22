@@ -37,6 +37,17 @@ class AuthRepositoryImpl implements AuthRepository {
   }
 
   @override
+  Future<Map<String, dynamic>> requestResetPinOtp(String phoneNumber) async {
+    final r = await client.dio.post('/auth/request-reset-pin-otp', data: {'phoneNumber': phoneNumber});
+    return Map<String, dynamic>.from(r.data);
+  }
+
+  @override
+  Future<void> resetPin({required String phoneNumber, required String otp, required String pin}) async {
+    await client.dio.post('/auth/reset-pin', data: {'phoneNumber': phoneNumber, 'otp': otp, 'pin': pin});
+  }
+
+  @override
   Future<String> verifyLoginOtp(String phoneNumber, String otp) async {
     final r = await client.dio.post(
       '/auth/verify-login-otp',

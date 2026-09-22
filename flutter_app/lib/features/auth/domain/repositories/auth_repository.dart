@@ -4,6 +4,8 @@ abstract interface class AuthRepository {
   Future<User?> restoreSession();
   Future<Map<String, dynamic>> requestSignupOtp(String phoneNumber);
   Future<Map<String, dynamic>> requestLoginOtp(String phoneNumber);
+  Future<Map<String, dynamic>> requestResetPinOtp(String phoneNumber);
+  Future<void> resetPin({required String phoneNumber, required String otp, required String pin});
   Future<String> verifyLoginOtp(String phoneNumber, String otp);
   Future<User> signup({
     required String name,

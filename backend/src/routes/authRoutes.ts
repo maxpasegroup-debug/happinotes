@@ -10,6 +10,8 @@ import {
   resetPassword,
   requestSignupOtp,
   requestLoginOtp,
+  requestResetPinOtp,
+  resetPin,
   verifyLoginOtp,
 } from '../controllers/authController';
 import { authenticate } from '../middleware';
@@ -83,6 +85,8 @@ router.post('/signup', signupValidation, signup);
 router.post('/login', authRateLimiter, loginValidation, login);
 router.post('/request-signup-otp', authRateLimiter, [phoneValidation], requestSignupOtp);
 router.post('/request-login-otp', authRateLimiter, [phoneValidation], requestLoginOtp);
+router.post('/request-reset-pin-otp', authRateLimiter, [phoneValidation], requestResetPinOtp);
+router.post('/reset-pin', authRateLimiter, [phoneValidation, body('otp').matches(/^\d{6}$/), body('pin').matches(/^\d{6}$/)], resetPin);
 router.post(
   '/verify-login-otp',
   authRateLimiter,
