@@ -104,6 +104,8 @@ export const getContents = async (
   try {
     const type = req.query.type as string | undefined;
     const statusQuery = req.query.status as string | undefined;
+    const query = typeof req.query.query === 'string' ? req.query.query.trim() : '';
+    const language = typeof req.query.language === 'string' ? req.query.language.trim().toLowerCase() : '';
     const view = req.query.view === 'mobile' ? 'mobile' : 'web';
     const orderKey = view === 'mobile' ? 'mobileDisplayOrder' : 'webDisplayOrder';
     const filter: Record<string, unknown> = {
@@ -116,6 +118,16 @@ export const getContents = async (
       filter.contentType = type;
     } else if (type === 'happiness') {
       filter.contentType = 'silence';
+    }
+    if (query) {
+      const escaped = query.replace(/[.*+?^${}()|[\]\\]/g, '\\$&');
+      filter.$or = [
+        { title: { $regex: escaped, $options: 'i' } },
+        { description: { $regex: escaped, $options: 'i' } },
+      ];
+    }
+    if (language && language !== 'all') {
+      filter.language = language;
     }
     const contents = await Content.find(filter).lean();
     const ordered = [...contents].sort((a, b) => {
