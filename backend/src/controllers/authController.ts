@@ -30,6 +30,7 @@ const userResponse = (user: typeof User.prototype) => ({
   subscriptionStatus: hasActiveSubscription(user) ? 'premium' : 'free',
   subscriptionExpiry: user.subscriptionExpiry,
   subscriptionPlan: user.subscriptionPlan,
+  purchasedBookIds: (user.purchasedBooks ?? []).map((id: unknown) => String(id)),
   languagePreference: user.languagePreference ?? 'all',
 });
 
@@ -127,6 +128,7 @@ export const signup = async (
         subscriptionActive: hasActiveSubscription(user),
         subscriptionExpiry: user.subscriptionExpiry,
         subscriptionPlan: user.subscriptionPlan,
+        purchasedBookIds: (user.purchasedBooks ?? []).map((id) => id.toString()),
       },
     });
   } catch (err) {
@@ -196,6 +198,7 @@ export const login = async (
         subscriptionActive: hasActiveSubscription(user),
         subscriptionExpiry: user.subscriptionExpiry,
         subscriptionPlan: user.subscriptionPlan,
+        purchasedBookIds: (user.purchasedBooks ?? []).map((id) => id.toString()),
       },
     });
   } catch (err) {
@@ -313,6 +316,10 @@ export const getMe = async (
       delete u.bookCollection;
     }
     if (u) {
+      u.purchasedBookIds = Array.isArray(u.purchasedBooks)
+        ? (u.purchasedBooks as unknown[]).map((id) => String(id))
+        : [];
+      delete u.purchasedBooks;
       u.isPremium = Boolean(u.subscriptionActive) &&
         (u.subscriptionExpiry == null || new Date(String(u.subscriptionExpiry)) > new Date());
       u.subscriptionActive = u.isPremium;

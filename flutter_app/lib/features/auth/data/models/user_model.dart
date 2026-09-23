@@ -9,6 +9,7 @@ class UserModel extends User {
     super.subscriptionStatus,
     super.subscriptionExpiry,
     super.subscriptionPlan,
+    super.purchasedBookIds,
     super.languagePreference,
   });
   factory UserModel.fromJson(Map<String, dynamic> json) {
@@ -24,6 +25,7 @@ class UserModel extends User {
     languagePreference: (json['languagePreference'] ?? 'all').toString(),
     subscriptionExpiry: expiry,
     subscriptionPlan: active ? json['subscriptionPlan']?.toString() : null,
+    purchasedBookIds: (json['purchasedBookIds'] as List? ?? const []).map((e) => e.toString()).toList(),
     );
   }
 }

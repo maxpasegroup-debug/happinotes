@@ -54,4 +54,12 @@ class BooksRepositoryImpl implements BooksRepository {
   Future<void> removeFromCollection(String bookId) async {
     await client.dio.delete('/collection/$bookId');
   }
+
+  @override
+  Future<List<String>> purchaseBook(String bookId) async {
+    final response = await client.dio.post('/payments/test/purchase-book', data: {'bookId': bookId});
+    return (response.data['purchasedBookIds'] as List? ?? const [])
+        .map((value) => value.toString())
+        .toList();
+  }
 }

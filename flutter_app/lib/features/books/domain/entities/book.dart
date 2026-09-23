@@ -8,6 +8,7 @@ class Book {
     required this.coverImageUrl,
     required this.audioUrl,
     required this.accessType,
+    required this.priceInr,
     required this.status,
     required this.duration,
     this.episodes = const [],
@@ -21,6 +22,7 @@ class Book {
       audioUrl,
       accessType,
       status;
+  final double priceInr;
   final int duration;
   final List<BookEpisode> episodes;
 }

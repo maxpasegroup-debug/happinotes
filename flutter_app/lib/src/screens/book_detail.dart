@@ -15,7 +15,9 @@ class BookDetail extends ConsumerWidget {
   Widget build(BuildContext context, WidgetRef ref) {
     final player = ref.watch(playerControllerProvider);
     final user = ref.watch(sessionControllerProvider).user;
-    final locked = book.accessType == 'premium' && !(user?.hasActiveSubscription ?? false);
+    final requiresPurchase = !(user?.hasActiveSubscription ?? false) &&
+        !((user?.purchasedBookIds.contains(book.id)) ?? false) &&
+        (book.priceInr > 0 || book.accessType == 'premium');
 
     return StreamBuilder<bool>(
       stream: player.audioPlayer.playingStream,
@@ -25,8 +27,8 @@ class BookDetail extends ConsumerWidget {
             player.currentBook?.id == book.id && (snapshot.data ?? false);
 
         Future<void> handlePlayback() async {
-          if (locked) {
-            AppMessage.show(context, 'Premium subscription required to listen to this story.', success: false);
+          if (requiresPurchase) {
+            await _purchaseBook(context, ref, book);
             return;
           }
           try {
@@ -131,8 +133,8 @@ class BookDetail extends ConsumerWidget {
                   return ListTile(
                     contentPadding: EdgeInsets.zero,
                     onTap: () async {
-                      if (locked || episode.audioUrl.isEmpty) {
-                        AppMessage.show(context, 'This premium episode is locked. Subscribe to listen.', success: false);
+                      if (requiresPurchase || episode.audioUrl.isEmpty) {
+                        AppMessage.show(context, requiresPurchase ? 'Purchase this story to listen.' : 'This episode is not available yet.', success: false);
                         return;
                       }
                       try {
@@ -156,18 +158,18 @@ class BookDetail extends ConsumerWidget {
                             : Text(episode.description, maxLines: 2, overflow: TextOverflow.ellipsis)),
                     trailing: IconButton(
                       icon: Icon(
-                        locked || episode.audioUrl.isEmpty
+                        requiresPurchase || episode.audioUrl.isEmpty
                             ? Icons.lock_rounded
                             : isPlaying && player.currentEpisode == episode
                             ? Icons.stop_rounded
                             : Icons.play_arrow_rounded,
-                        color: locked || episode.audioUrl.isEmpty
+                        color: requiresPurchase || episode.audioUrl.isEmpty
                             ? AppColors.muted
                             : AppColors.coral,
                       ),
                       onPressed: () async {
-                        if (locked || episode.audioUrl.isEmpty) {
-                          AppMessage.show(context, 'This premium episode is locked. Subscribe to listen.', success: false);
+                        if (requiresPurchase || episode.audioUrl.isEmpty) {
+                          AppMessage.show(context, requiresPurchase ? 'Purchase this story to listen.' : 'This episode is not available yet.', success: false);
                           return;
                         }
                         try {
@@ -196,7 +198,7 @@ class BookDetail extends ConsumerWidget {
     bottomNavigationBar: SafeArea(
       minimum: const EdgeInsets.all(16),
       child: FilledButton.icon(
-        onPressed: locked
+        onPressed: requiresPurchase
             ? handlePlayback
             : (book.audioUrl.isEmpty && book.episodes.isEmpty)
             ? null
@@ -204,7 +206,9 @@ class BookDetail extends ConsumerWidget {
         icon: Icon(
           isPlaying ? Icons.stop_rounded : Icons.play_arrow_rounded,
         ),
-        label: Text(locked ? 'Premium locked' : (isPlaying ? 'Stop listening' : 'Start listening')),
+        label: Text(requiresPurchase
+            ? (book.priceInr > 0 ? 'Buy for INR ${book.priceInr.toStringAsFixed(0)}' : 'Price unavailable')
+            : (isPlaying ? 'Stop listening' : 'Start listening')),
         style: FilledButton.styleFrom(
           backgroundColor: AppColors.coral,
           padding: const EdgeInsets.all(17),
@@ -214,5 +218,41 @@ class BookDetail extends ConsumerWidget {
         );
       },
     );
+  }
+}
+
+Future<void> _purchaseBook(BuildContext context, WidgetRef ref, Book book) async {
+  if (book.priceInr <= 0) {
+    AppMessage.show(context, 'This story has no price yet. Please ask the admin to set one.', success: false);
+    return;
+  }
+  final confirmed = await showDialog<bool>(
+    context: context,
+    builder: (dialogContext) => AlertDialog(
+      title: Text('Buy ${book.title}?'),
+      content: Text('One-time purchase · INR ${book.priceInr.toStringAsFixed(0)}\nYou will unlock every episode in this story.'),
+      actions: [
+        TextButton(onPressed: () => Navigator.pop(dialogContext, false), child: const Text('Cancel')),
+        FilledButton(onPressed: () => Navigator.pop(dialogContext, true), child: const Text('Purchase')),
+      ],
+    ),
+  );
+  if (confirmed != true || !context.mounted) return;
+  final controller = ref.read(booksControllerProvider);
+  final ids = await controller.purchaseBook(book);
+  if (!context.mounted) return;
+  if (ids == null) {
+    AppMessage.show(context, controller.error ?? 'Purchase failed', success: false);
+    return;
+  }
+  ref.read(sessionControllerProvider).updatePurchasedBooks(ids);
+  await controller.loadBooks(forceRefresh: true);
+  if (!context.mounted) return;
+  final matches = controller.books.where((item) => item.id == book.id);
+  final updated = matches.isEmpty ? null : matches.first;
+  if (updated != null) {
+    Navigator.of(context).pushReplacement(MaterialPageRoute(builder: (_) => BookDetail(book: updated)));
+  } else {
+    AppMessage.show(context, 'Story purchased successfully. Reopen it to listen.', success: true);
   }
 }

@@ -58,10 +58,9 @@ class AuthScreen extends ConsumerWidget {
                     initialValue: form.phone,
                     onChanged: form.setPhone,
                     keyboardType: TextInputType.phone,
-                    decoration: const InputDecoration(
+                    decoration: InputDecoration(
                       labelText: 'WhatsApp number',
-                      prefixText: '+91 ',
-                      prefixStyle: TextStyle(color: Colors.black, fontSize: 16, height: 1.2, fontWeight: FontWeight.w600),
+                      prefix: Text('🇮🇳 +91 ', style: TextStyle(color: Theme.of(context).colorScheme.onSurface, fontSize: 16, height: 1.2, fontWeight: FontWeight.w600)),
                       hintText: '9876543210',
                     ),
                   ),
@@ -277,7 +276,6 @@ class _PinFieldState extends State<_PinField> {
 
   @override
   Widget build(BuildContext context) => TextFormField(
-    key: ValueKey('${widget.label}-${widget.value}'),
     initialValue: widget.value,
     onChanged: widget.onChanged,
     obscureText: hidden,
@@ -287,7 +285,7 @@ class _PinFieldState extends State<_PinField> {
       labelText: widget.label,
       suffixIcon: IconButton(
         tooltip: hidden ? 'Show PIN' : 'Hide PIN',
-        icon: Icon(hidden ? Icons.visibility_rounded : Icons.visibility_off_rounded),
+        icon: Icon(hidden ? Icons.visibility_off_rounded : Icons.visibility_rounded),
         onPressed: () => setState(() => hidden = !hidden),
       ),
     ),

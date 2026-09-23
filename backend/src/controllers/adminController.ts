@@ -3,7 +3,7 @@ import { validationResult } from 'express-validator';
 import { User, Content } from '../models';
 import type { ILifebookSection, ILesson } from '../models/Content';
 import { BadRequestError, NotFoundError } from '../utils/errors';
-import { emitCatalogChanged } from '../services/realtime';
+import { emitCatalogChanged, emitNotification } from '../services/realtime';
 import { computeSubscriptionExpiry, parseSubscriptionPlan, subscriptionDays } from '../utils/subscription';
 
 const LIFEBOOK_UPDATE_FIELDS = [
@@ -12,6 +12,7 @@ const LIFEBOOK_UPDATE_FIELDS = [
   'thumbnailUrl',
   'language',
   'type',
+  'priceInr',
   'intro',
   'lessons',
   'conclusion',
@@ -46,6 +47,25 @@ export const getAdminStats = async (
         mostListenedBook: books[0]?.title ?? 'Not available',
       },
     });
+  } catch (err) {
+    next(err);
+  }
+};
+
+/** POST /admin/notify — broadcast an in-app notification to connected clients. */
+export const sendNotification = async (
+  req: Request,
+  res: Response,
+  next: NextFunction,
+): Promise<void> => {
+  try {
+    const title = typeof req.body?.title === 'string' ? req.body.title.trim() : '';
+    const message = typeof req.body?.message === 'string' ? req.body.message.trim() : '';
+    const target = ['all', 'free', 'premium'].includes(req.body?.target) ? req.body.target : 'all';
+    const imageUrl = typeof req.body?.imageUrl === 'string' ? req.body.imageUrl.trim() : '';
+    if (!title || !message) return next(new BadRequestError('title and message are required'));
+    emitNotification({ title, message, target, ...(imageUrl ? { imageUrl } : {}) });
+    res.status(201).json({ success: true, notification: { title, message, target, imageUrl } });
   } catch (err) {
     next(err);
   }
@@ -146,6 +166,7 @@ export const createBook = async (
     const thumbnailUrl = typeof body.thumbnailUrl === 'string' ? body.thumbnailUrl.trim() : '';
     const language = typeof body.language === 'string' ? body.language.trim() : '';
     const type = body.type === 'free' || body.type === 'premium' ? body.type : undefined;
+    const priceInr = Number(body.priceInr ?? 0);
     const intro = normalizeSection(body.intro);
     const conclusion = normalizeSection(body.conclusion);
     const lessons = normalizeLessons(body.lessons);
@@ -154,6 +175,8 @@ export const createBook = async (
     if (!thumbnailUrl) return next(new BadRequestError('thumbnailUrl is required'));
     if (!language) return next(new BadRequestError('language is required'));
     if (!type) return next(new BadRequestError('type must be free or premium'));
+    if (!Number.isFinite(priceInr) || priceInr < 0) return next(new BadRequestError('priceInr must be a non-negative number'));
+    if (type === 'premium' && priceInr <= 0) return next(new BadRequestError('Premium books must have a priceInr greater than 0'));
     if (!intro && lessons.length === 0) {
       return next(new BadRequestError('Add at least one episode MP3 or an intro audio file'));
     }
@@ -168,6 +191,7 @@ export const createBook = async (
       thumbnailUrl,
       language,
       type,
+      priceInr,
       status: requestedStatus,
       intro,
       lessons,

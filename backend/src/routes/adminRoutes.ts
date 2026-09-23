@@ -13,6 +13,7 @@ import {
   blockUser,
   unblockUser,
   getAdminStats,
+  sendNotification,
 } from '../controllers/adminController';
 import { authenticate, requireAdmin } from '../middleware';
 
@@ -27,6 +28,7 @@ const createBookValidation = [
   body('thumbnailUrl').trim().notEmpty().withMessage('thumbnailUrl is required'),
   body('language').trim().notEmpty().withMessage('language is required'),
   body('type').isIn(['free', 'premium']).withMessage('type must be free or premium'),
+  body('priceInr').optional().isFloat({ min: 0 }).withMessage('priceInr must be a non-negative number'),
   body('status').optional().isIn(['draft', 'coming_soon', 'live']),
   body('intro').optional().isObject(),
   body('intro.title').optional().trim(),
@@ -52,6 +54,7 @@ const updateBookValidation = [
   body('thumbnailUrl').optional().trim(),
   body('language').optional().trim(),
   body('type').optional().isIn(['free', 'premium']).withMessage('Invalid type'),
+  body('priceInr').optional().isFloat({ min: 0 }).withMessage('priceInr must be a non-negative number'),
   body('status').optional().isIn(['draft', 'coming_soon', 'live']),
   body('intro').optional().isObject(),
   body('intro.title').optional().trim().notEmpty(),
@@ -77,6 +80,7 @@ const updateStatusValidation = [
 
 router.get('/users', getUsers);
 router.get('/stats', getAdminStats);
+router.post('/notify', sendNotification);
 router.patch('/users/:id/activate', activateUserSubscription);
 router.patch('/users/:id/deactivate', deactivateUserSubscription);
 router.patch('/users/:id/block', blockUser);

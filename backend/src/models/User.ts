@@ -14,6 +14,7 @@ export interface IUser extends Document {
   languagePreference: 'all' | 'english' | 'malayalam' | 'hindi';
   razorpaySubscriptionId: string | null;
   bookCollection: mongoose.Types.ObjectId[];
+  purchasedBooks: mongoose.Types.ObjectId[];
   favourites: { contentId: mongoose.Types.ObjectId; contentType: string }[];
   blocked: boolean;
   createdAt: Date;
@@ -33,6 +34,7 @@ const userSchema = new Schema<IUser>(
     languagePreference: { type: String, enum: ['all', 'english', 'malayalam', 'hindi'], default: 'all' },
     razorpaySubscriptionId: { type: String, default: null },
     bookCollection: [{ type: Schema.Types.ObjectId, ref: 'Content', default: [] }],
+    purchasedBooks: [{ type: Schema.Types.ObjectId, ref: 'Content', default: [] }],
     favourites: {
       type: [
         {

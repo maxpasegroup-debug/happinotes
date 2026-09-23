@@ -10,7 +10,6 @@ import '../widgets/loading_skeleton.dart';
 import 'book_detail.dart';
 import 'episode_player_screen.dart';
 import 'legal_screen.dart';
-import 'membership_screen.dart';
 
 class MainShell extends ConsumerStatefulWidget {
   const MainShell({super.key});
@@ -20,31 +19,12 @@ class MainShell extends ConsumerStatefulWidget {
 }
 
 class _MainShellState extends ConsumerState<MainShell> {
-  bool _membershipPromptShown = false;
-
   @override
   void initState() {
     super.initState();
     WidgetsBinding.instance.addPostFrameCallback((_) {
-      if (!mounted || _membershipPromptShown) return;
+      if (!mounted) return;
       ref.read(booksControllerProvider).loadCollection();
-      final user = ref.read(sessionControllerProvider).user;
-      if (user == null || user.role == 'admin' || user.hasActiveSubscription) {
-        return;
-      }
-      _membershipPromptShown = true;
-      showModalBottomSheet<void>(
-        context: context,
-        isScrollControlled: true,
-        backgroundColor: Colors.transparent,
-        builder: (_) => FractionallySizedBox(
-          heightFactor: .5,
-          child: ClipRRect(
-            borderRadius: const BorderRadius.vertical(top: Radius.circular(24)),
-            child: const MembershipScreen(),
-          ),
-        ),
-      );
     });
   }
 
@@ -120,18 +100,19 @@ class HomeTab extends StatelessWidget {
             children: [
               Row(
                 children: [
-                  const CircleAvatar(
+                  CircleAvatar(
                     backgroundColor: AppColors.coral,
-                    child: Icon(Icons.headphones, color: Colors.white),
+                    radius: 24,
+                    child: const Icon(Icons.headphones, color: Colors.white),
                   ),
                   const SizedBox(width: 12),
                   Expanded(
                     child: Column(
                       crossAxisAlignment: CrossAxisAlignment.start,
                       children: [
-                        const Text(
+                        Text(
                           'HappiNotes',
-                          style: TextStyle(
+                          style: Theme.of(context).textTheme.titleLarge?.copyWith(
                             fontSize: 22,
                             fontWeight: FontWeight.w900,
                           ),
@@ -156,21 +137,28 @@ class HomeTab extends StatelessWidget {
                 ],
               ),
               const SizedBox(height: 18),
-              Container(
-                padding: const EdgeInsets.symmetric(horizontal: 14),
-                decoration: BoxDecoration(
-                  color: Theme.of(context).colorScheme.surfaceContainerHighest,
-                  borderRadius: BorderRadius.circular(14),
-                ),
+              Material(
+                color: Theme.of(context).colorScheme.surfaceContainerHighest,
+                borderRadius: BorderRadius.circular(16),
+                child: InkWell(
+                  borderRadius: BorderRadius.circular(16),
+                  onTap: () => Navigator.of(context).push(
+                    MaterialPageRoute(builder: (_) => const SearchTab()),
+                  ),
+                  child: Padding(
+                    padding: const EdgeInsets.symmetric(horizontal: 4),
                 child: TextField(
                   readOnly: true,
                   onTap: () => Navigator.of(context).push(
                     MaterialPageRoute(builder: (_) => const SearchTab()),
                   ),
                   decoration: InputDecoration(
-                    prefixIcon: Icon(Icons.search),
+                    prefixIcon: const Icon(Icons.search_rounded),
                     hintText: 'Search books and stories',
                     fillColor: Colors.transparent,
+                    border: InputBorder.none,
+                  ),
+                ),
                   ),
                 ),
               ),
@@ -178,15 +166,21 @@ class HomeTab extends StatelessWidget {
               if (s.loading)
                 const HomeLoadingSkeleton()
               else if (s.error != null)
-                Text(s.error!, style: const TextStyle(color: Colors.redAccent))
-              else if (books.isEmpty && upcoming.isEmpty)
-                const Padding(
-                  padding: EdgeInsets.all(40),
-                  child: Text(
-                    'New audio stories will appear here.',
-                    textAlign: TextAlign.center,
-                    style: TextStyle(color: AppColors.muted),
+                _InlineState(
+                  icon: Icons.cloud_off_rounded,
+                  title: 'Couldn’t load stories',
+                  message: s.error!,
+                  action: TextButton.icon(
+                    onPressed: () => s.loadBooks(forceRefresh: true),
+                    icon: const Icon(Icons.refresh_rounded),
+                    label: const Text('Try again'),
                   ),
+                )
+              else if (books.isEmpty && upcoming.isEmpty)
+                const _InlineState(
+                  icon: Icons.auto_stories_outlined,
+                  title: 'Your next story is on its way',
+                  message: 'New audio stories will appear here.',
                 )
               else if (books.isNotEmpty) ...[
                 FeaturedRail(books: books),
@@ -401,7 +395,9 @@ class _FeaturedRailState extends State<FeaturedRail> {
             height: 8,
             margin: const EdgeInsets.symmetric(horizontal: 4),
             decoration: BoxDecoration(
-              color: active ? Colors.white : const Color(0xFF5A5A5A),
+              color: active
+                  ? Theme.of(context).colorScheme.primary
+                  : Theme.of(context).colorScheme.outline,
               borderRadius: BorderRadius.circular(10),
             ),
           );
@@ -505,14 +501,31 @@ class SearchTab extends ConsumerWidget {
           Expanded(
             child: s.loading
                 ? const GridLoadingSkeleton()
-                : GridView.builder(
+                : s.error != null
+                    ? _InlineState(
+                        icon: Icons.cloud_off_rounded,
+                        title: 'Search is unavailable',
+                        message: s.error!,
+                        action: TextButton.icon(
+                          onPressed: () => s.loadBooks(query: query, language: language),
+                          icon: const Icon(Icons.refresh_rounded),
+                          label: const Text('Try again'),
+                        ),
+                      )
+                    : s.books.isEmpty
+                        ? const _InlineState(
+                            icon: Icons.search_off_rounded,
+                            title: 'No stories found',
+                            message: 'Try another title or language filter.',
+                          )
+                        : GridView.builder(
                     padding: const EdgeInsets.all(16),
                     gridDelegate:
-                        const SliverGridDelegateWithFixedCrossAxisCount(
+                        SliverGridDelegateWithFixedCrossAxisCount(
                           crossAxisCount: 2,
-                          childAspectRatio: .58,
                           crossAxisSpacing: 14,
                           mainAxisSpacing: 16,
+                          mainAxisExtent: BookCard.shelfHeight(context) + 18,
                         ),
                     itemCount: s.books.length,
                     itemBuilder: (_, i) => BookCard(
@@ -537,7 +550,7 @@ class CollectionTab extends ConsumerWidget {
     }
     return SafeArea(
       child: Padding(
-        padding: const EdgeInsets.all(20),
+        padding: const EdgeInsets.fromLTRB(20, 16, 20, 12),
         child: Column(
           crossAxisAlignment: CrossAxisAlignment.start,
           children: [
@@ -636,27 +649,11 @@ class ProfileTab extends ConsumerWidget {
           ),
           const Divider(),
           ListTile(
-            leading: Icon(
-              Icons.workspace_premium_outlined,
-              color: s.user?.hasActiveSubscription == true
-                  ? const Color(0xFF2EAF62)
-                  : null,
-            ),
-            title: const Text('Membership'),
-            subtitle: Text(
-              !(s.user?.hasActiveSubscription ?? false)
-                  ? 'View premium plans'
-                  : s.user?.subscriptionExpiry == null
-                  ? 'PREMIUM enabled'
-                  : 'PREMIUM enabled • Expires ${_membershipDate(s.user!.subscriptionExpiry!)}',
-            ),
-            trailing: s.user?.hasActiveSubscription == true
-                ? const Icon(Icons.verified_rounded, color: Color(0xFF2EAF62))
-                : const Icon(Icons.chevron_right),
-            onTap: () => Navigator.push(
-              context,
-              MaterialPageRoute(builder: (_) => const MembershipScreen()),
-            ),
+            leading: const Icon(Icons.auto_stories_outlined),
+            title: const Text('Purchased stories'),
+            subtitle: Text('${s.user?.purchasedBookIds.length ?? 0} stories unlocked'),
+            trailing: const Icon(Icons.chevron_right),
+            onTap: () => ref.read(mainTabIndexProvider.notifier).state = 1,
           ),
           const Divider(),
           ListTile(
@@ -748,7 +745,10 @@ class MiniPlayer extends ConsumerWidget {
     if (b == null) return const SizedBox.shrink();
     return Material(
       color: Theme.of(context).colorScheme.surfaceContainerHighest,
-      child: ListTile(
+      child: SafeArea(
+        top: false,
+        child: ListTile(
+          contentPadding: const EdgeInsets.fromLTRB(16, 4, 8, 4),
         onTap: () {
           // Open the full player when the mini-player itself is tapped.
           // The play/pause button remains an independent control.
@@ -788,14 +788,37 @@ class MiniPlayer extends ConsumerWidget {
             ),
           ),
         ),
+        ),
       ),
     );
   }
 }
 
-String _membershipDate(DateTime date) {
-  final local = date.toLocal();
-  return '${local.day.toString().padLeft(2, '0')}/${local.month.toString().padLeft(2, '0')}/${local.year}';
+class _InlineState extends StatelessWidget {
+  const _InlineState({required this.icon, required this.title, required this.message, this.action});
+
+  final IconData icon;
+  final String title;
+  final String message;
+  final Widget? action;
+
+  @override
+  Widget build(BuildContext context) => Center(
+    child: Padding(
+      padding: const EdgeInsets.all(32),
+      child: Column(
+        mainAxisSize: MainAxisSize.min,
+        children: [
+          Icon(icon, size: 44, color: Theme.of(context).colorScheme.primary),
+          const SizedBox(height: 14),
+          Text(title, textAlign: TextAlign.center, style: Theme.of(context).textTheme.titleMedium),
+          const SizedBox(height: 6),
+          Text(message, textAlign: TextAlign.center, style: Theme.of(context).textTheme.bodyMedium?.copyWith(color: AppColors.muted)),
+          if (action != null) ...[const SizedBox(height: 12), action!],
+        ],
+      ),
+    ),
+  );
 }
 
 Route<void> _slideUpRoute(Widget page) => PageRouteBuilder<void>(

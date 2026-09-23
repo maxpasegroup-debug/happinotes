@@ -81,6 +81,7 @@ class BooksController extends ChangeNotifier {
     'thumbnailUrl': book.coverImageUrl,
     'introAudioUrl': book.audioUrl,
     'type': book.accessType,
+    'priceInr': book.priceInr,
     'status': book.status,
     'totalDurationSeconds': book.duration,
   };
@@ -123,6 +124,18 @@ class BooksController extends ChangeNotifier {
       return null;
     } catch (e) {
       return client.errorMessage(e);
+    }
+  }
+
+  Future<List<String>?> purchaseBook(Book book) async {
+    try {
+      final ids = await repository.purchaseBook(book.id);
+      await loadBooks(forceRefresh: true);
+      return ids;
+    } catch (e) {
+      error = client.errorMessage(e);
+      notifyListeners();
+      return null;
     }
   }
 }

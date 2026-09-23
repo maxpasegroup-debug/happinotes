@@ -193,6 +193,7 @@ class _Books extends ConsumerWidget {
               subtitle: Text(
                 '${book['language']}  •  ${book['status']}  •  '
                 '${book['accessType'] ?? book['type'] ?? 'free'}  •  '
+                'INR ${book['priceInr'] ?? 0}  •  '
                 '${((book['lessons'] as List?) ?? const []).length} episodes',
               ),
               trailing: PopupMenuButton<String>(
@@ -299,6 +300,19 @@ class _Notifications extends ConsumerWidget {
         const SizedBox(height: 14),
         TextFormField(onChanged: (v) => ref.read(adminNotificationMessageProvider.notifier).state = v, minLines: 4, maxLines: 6, decoration: const InputDecoration(labelText: 'Message')),
         const SizedBox(height: 14),
+        if (state.notificationImageUrl.isNotEmpty) ...[
+          ClipRRect(
+            borderRadius: BorderRadius.circular(14),
+            child: Image.network(state.notificationImageUrl, height: 150, width: double.infinity, fit: BoxFit.cover),
+          ),
+          const SizedBox(height: 8),
+        ],
+        OutlinedButton.icon(
+          onPressed: state.busy ? null : state.uploadNotificationImage,
+          icon: const Icon(Icons.image_outlined),
+          label: Text(state.notificationImageUrl.isEmpty ? 'Add notification image' : 'Replace notification image'),
+        ),
+        const SizedBox(height: 14),
         DropdownButtonFormField<String>(
           initialValue: target,
           decoration: const InputDecoration(labelText: 'Audience'),
@@ -345,7 +359,12 @@ class AdminBookEditor extends ConsumerWidget {
           select('Language', d.language, const ['english', 'malayalam', 'hindi'], (v) => d.language = v),
           select('Category', d.category, const ['health', 'wealth', 'happiness', 'mindfulness'], (v) => d.category = v),
           select('Status', d.status, const ['draft', 'coming_soon', 'live'], (v) => d.status = v),
-          select('Access', d.accessType, const ['free', 'premium'], (v) => d.accessType = v),
+          select('Access', d.accessType, const ['free', 'premium'], (v) {
+            d.accessType = v;
+            if (v == 'free') d.priceInr = '0';
+          }),
+          if (d.accessType == 'premium')
+            input('Price in INR', d.priceInr, (v) => d.priceInr = v, type: TextInputType.number),
           const Text('Cover image', style: TextStyle(fontWeight: FontWeight.w800)), const SizedBox(height: 8),
           if (d.coverImageUrl.isNotEmpty) ClipRRect(borderRadius: BorderRadius.circular(10), child: Image.network(d.coverImageUrl, height: 180, fit: BoxFit.contain)),
           OutlinedButton.icon(onPressed: state.busy ? null : () => state.uploadMedia('cover'), icon: const Icon(Icons.image_outlined), label: Text(d.coverImageUrl.isEmpty ? 'Choose image' : 'Replace image')),

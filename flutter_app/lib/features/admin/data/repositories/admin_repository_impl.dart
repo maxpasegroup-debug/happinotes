@@ -45,7 +45,7 @@ class AdminRepositoryImpl implements AdminRepository {
         ? 'image/webp'
         : 'image/jpeg';
     final form = FormData.fromMap({
-      'scope': kind == 'cover' ? 'cover' : 'lesson',
+      'scope': kind == 'cover' ? 'cover' : kind == 'notification' ? 'notification' : 'lesson',
       'media': await MultipartFile.fromFile(
         path,
         filename: fileName,
@@ -79,8 +79,14 @@ class AdminRepositoryImpl implements AdminRepository {
     String title,
     String message,
     String target,
+    {String? imageUrl}
   ) async => client.dio.post(
     '/admin/notify',
-    data: {'title': title, 'message': message, 'target': target},
+    data: {
+      'title': title,
+      'message': message,
+      'target': target,
+      if (imageUrl != null && imageUrl.isNotEmpty) 'imageUrl': imageUrl,
+    },
   );
 }

@@ -8,5 +8,5 @@ abstract class AdminRepository {
   Future<void> createBook(Map<String, dynamic> data);
   Future<void> updateBook(String id, Map<String, dynamic> data);
   Future<void> deleteBook(String id);
-  Future<void> sendNotification(String title, String message, String target);
+  Future<void> sendNotification(String title, String message, String target, {String? imageUrl});
 }

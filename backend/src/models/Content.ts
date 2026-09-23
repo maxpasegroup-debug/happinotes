@@ -25,6 +25,8 @@ export interface IContent extends Document {
   thumbnailUrl: string;
   language: string;
   type: ContentType;
+  /** One-time purchase price in INR. A value of 0 keeps the book free. */
+  priceInr: number;
   status: ContentStatus;
   contentType: ContentKind;
   // Lifebook
@@ -70,6 +72,7 @@ const contentSchema = new Schema<IContent>(
     thumbnailUrl: { type: String, required: true, trim: true },
     language: { type: String, required: true, trim: true },
     type: { type: String, enum: ['free', 'premium'], required: true },
+    priceInr: { type: Number, min: 0, default: 0 },
     status: { type: String, enum: ['draft', 'coming_soon', 'live'], default: 'draft' },
     // Allow 'mindspace' for backward compatibility, but prefer 'silence' going forward.
     contentType: { type: String, enum: ['lifebook', 'note', 'silence', 'mindspace'], required: true },

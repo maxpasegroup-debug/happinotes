@@ -20,3 +20,15 @@ export function emitCatalogChanged(
     occurredAt: new Date().toISOString(),
   });
 }
+
+export function emitNotification(payload: {
+  title: string;
+  message: string;
+  target: string;
+  imageUrl?: string;
+}): void {
+  socketServer?.emit('notification:new', {
+    ...payload,
+    occurredAt: new Date().toISOString(),
+  });
+}

@@ -3,7 +3,7 @@ import { Request, Response, NextFunction } from 'express';
 import { google } from 'googleapis';
 import crypto from 'crypto';
 import { BadRequestError } from '../utils/errors';
-import { PaymentWebhookEvent, User } from '../models';
+import { Content, PaymentWebhookEvent, User } from '../models';
 import { activateSubscriptionForUser, computeSubscriptionExpiry, parseSubscriptionPlan, subscriptionDays } from '../utils/subscription';
 
 const PACKAGE_NAME = 'com.happinotes.app';
@@ -84,6 +84,42 @@ export const activateTestSubscription = async (
         subscriptionPlan: plan,
         subscriptionExpiry: req.user.subscriptionExpiry,
       },
+    });
+  } catch (err) {
+    next(err);
+  }
+};
+
+/** POST /payments/test/purchase-book (test builds only) */
+export const purchaseBookInTestMode = async (
+  req: Request,
+  res: Response,
+  next: NextFunction,
+): Promise<void> => {
+  try {
+    if (process.env.PAYMENTS_TEST_MODE?.trim().toLowerCase() !== 'true') {
+      res.status(503).json({ success: false, message: 'Test payments are disabled.' });
+      return;
+    }
+    if (!req.user) return next(new BadRequestError('Authentication required'));
+    const bookId = typeof req.body?.bookId === 'string' ? req.body.bookId.trim() : '';
+    if (!bookId) return next(new BadRequestError('bookId is required'));
+    const book = await Content.findOne({ _id: bookId, contentType: 'lifebook', status: 'live' });
+    if (!book) return next(new BadRequestError('Book not found'));
+    if ((book.priceInr ?? 0) <= 0) {
+      return next(new BadRequestError('This book is already free'));
+    }
+    const alreadyOwned = req.user.purchasedBooks.some((id) => id.toString() === book.id);
+    if (!alreadyOwned) {
+      req.user.purchasedBooks.push(book._id);
+      await req.user.save();
+    }
+    res.json({
+      success: true,
+      testPayment: true,
+      bookId: book.id,
+      priceInr: book.priceInr,
+      purchasedBookIds: req.user.purchasedBooks.map((id) => id.toString()),
     });
   } catch (err) {
     next(err);

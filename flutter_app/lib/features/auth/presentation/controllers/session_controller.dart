@@ -80,6 +80,12 @@ class SessionController extends ChangeNotifier {
     notifyListeners();
   }
 
+  void updatePurchasedBooks(List<String> ids) {
+    if (user == null) return;
+    user = user!.copyWith(purchasedBookIds: ids);
+    notifyListeners();
+  }
+
   Future<void> logout() async {
     await repository.logout();
     user = null;

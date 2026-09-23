@@ -15,6 +15,7 @@ const CONTENT_UPDATE_FIELDS = [
   'thumbnailUrl',
   'language',
   'type',
+  'priceInr',
   'contentType',
   'featured',
   'webDisplayOrder',
@@ -123,8 +124,10 @@ export const uploadContentMedia = async (
             ? 'happinotes/lessons'
             : scope === 'note'
               ? 'happinotes/note'
-              : scope === 'silence'
+          : scope === 'silence'
                 ? 'happinotes/silence'
+                : scope === 'notification'
+                  ? 'happinotes/notifications'
                 : 'happinotes/uploads';
 
     const uploaded = await uploadToCloudinary(file, folder);
@@ -186,12 +189,15 @@ export const createContent = async (
       typeof body.description === 'string' ? body.description.trim() : '';
     const language = typeof body.language === 'string' ? body.language.trim() : '';
     const type = body.type === 'free' || body.type === 'premium' ? body.type : undefined;
+    const priceInr = Number(body.priceInr ?? 0);
     const contentType = normalizeContentType(body.contentType);
     const status = body.status === 'coming_soon' || body.status === 'live' ? body.status : 'draft';
 
     if (!title) return next(new BadRequestError('title is required'));
     if (!language) return next(new BadRequestError('language is required'));
     if (!type) return next(new BadRequestError('type must be free or premium'));
+    if (!Number.isFinite(priceInr) || priceInr < 0) return next(new BadRequestError('priceInr must be a non-negative number'));
+    if (type === 'premium' && priceInr <= 0) return next(new BadRequestError('Premium books must have a priceInr greater than 0'));
     if (!contentType) {
       return next(new BadRequestError('contentType must be lifebook, note, or silence'));
     }
@@ -304,6 +310,7 @@ export const createContent = async (
         thumbnailUrl: thumbnailUpload.url,
         language,
         type,
+        priceInr,
         status,
         featured: body.featured === 'true' || body.featured === true,
         webDisplayOrder: normalizeDisplayOrder(body.webDisplayOrder),
@@ -342,6 +349,7 @@ export const createContent = async (
         thumbnailUrl: thumbnailUpload.url,
         language,
         type,
+        priceInr,
         status,
         featured: body.featured === 'true' || body.featured === true,
         webDisplayOrder: normalizeDisplayOrder(body.webDisplayOrder),

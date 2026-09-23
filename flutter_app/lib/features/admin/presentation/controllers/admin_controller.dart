@@ -7,6 +7,7 @@ class BookDraft {
   String? id;
   String title = '', description = '', language = 'english';
   String category = 'happiness', status = 'draft', accessType = 'free';
+  String priceInr = '0';
   String coverImageUrl = '', coverPublicId = '';
   String introAudioUrl = '', introAudioPublicId = '', audioFileName = '';
   String duration = '0', sortOrder = '0', tags = '';
@@ -22,6 +23,7 @@ class BookDraft {
     category = (j['category'] ?? 'happiness').toString();
     status = (j['status'] ?? 'draft').toString();
     accessType = (j['accessType'] ?? 'free').toString();
+    priceInr = (j['priceInr'] ?? 0).toString();
     coverImageUrl = (j['coverImageUrl'] ?? j['thumbnailUrl'] ?? '').toString();
     coverPublicId = (j['coverPublicId'] ?? '').toString();
     introAudioUrl = (j['introAudioUrl'] ?? '').toString();
@@ -56,6 +58,7 @@ class BookDraft {
     'status': status,
     'accessType': accessType,
     'type': accessType,
+    'priceInr': double.tryParse(priceInr) ?? 0,
     'coverImageUrl': coverImageUrl,
     'thumbnailUrl': coverImageUrl,
     'coverPublicId': coverPublicId,
@@ -81,6 +84,7 @@ class AdminController extends ChangeNotifier {
   bool loading = true, busy = false;
   String? error, success;
   BookDraft draft = BookDraft();
+  String notificationImageUrl = '';
 
   void selectTab(int value) { tab = value; notifyListeners(); }
   void notifyChanged() => notifyListeners();
@@ -217,10 +221,34 @@ class AdminController extends ChangeNotifier {
     finally { busy = false; notifyListeners(); }
   }
 
+  Future<bool> uploadNotificationImage() async {
+    final result = await FilePicker.platform.pickFiles(
+      type: FileType.custom,
+      allowedExtensions: ['jpg', 'jpeg', 'png', 'webp'],
+    );
+    final path = result?.files.single.path;
+    if (path == null) return false;
+    busy = true;
+    error = null;
+    notifyListeners();
+    try {
+      final media = await repository.upload(path, 'notification');
+      notificationImageUrl = media['url']?.toString() ?? '';
+      success = 'Notification image uploaded';
+      return notificationImageUrl.isNotEmpty;
+    } catch (e) {
+      error = client.errorMessage(e);
+      return false;
+    } finally {
+      busy = false;
+      notifyListeners();
+    }
+  }
+
   Future<bool> notifyUsers(String title, String message, String target) async {
     if (title.trim().isEmpty || message.trim().isEmpty) { error = 'Enter a title and message.'; notifyListeners(); return false; }
     busy = true; error = null; notifyListeners();
-    try { await repository.sendNotification(title.trim(), message.trim(), target); success = 'Notification sent'; return true; }
+    try { await repository.sendNotification(title.trim(), message.trim(), target, imageUrl: notificationImageUrl); success = 'Notification sent'; return true; }
     catch (e) { error = client.errorMessage(e); return false; }
     finally { busy = false; notifyListeners(); }
   }

@@ -10,6 +10,7 @@ class BookModel extends Book {
     required super.coverImageUrl,
     required super.audioUrl,
     required super.accessType,
+    required super.priceInr,
     required super.status,
     required super.duration,
     super.episodes,
@@ -23,6 +24,7 @@ class BookModel extends Book {
     coverImageUrl: (j['coverImageUrl'] ?? j['thumbnailUrl'] ?? '').toString(),
     audioUrl: (j['introAudioUrl'] ?? '').toString(),
     accessType: (j['accessType'] ?? j['type'] ?? 'free').toString(),
+    priceInr: (j['priceInr'] as num?)?.toDouble() ?? 0,
     status: (j['status'] ?? 'live').toString(),
     duration: (j['totalDurationSeconds'] as num?)?.toInt() ?? 0,
     episodes: ((j['lessons'] as List?) ?? [])

@@ -6,4 +6,5 @@ abstract interface class BooksRepository {
   Future<List<Book>> getCollection();
   Future<void> addToCollection(String bookId);
   Future<void> removeFromCollection(String bookId);
+  Future<List<String>> purchaseBook(String bookId);
 }

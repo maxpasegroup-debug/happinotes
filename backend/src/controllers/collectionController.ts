@@ -32,9 +32,10 @@ export const addToCollection = async (
     if (!book) return next(new NotFoundError('Book not found'));
     if (book.status !== 'live') return next(new BadRequestError('Book is not available'));
 
-    const isPremium = book.type === 'premium';
-    if (isPremium && !req.user.subscriptionActive) {
-      return next(new ForbiddenError('Premium subscription required to add this book'));
+    const requiresPurchase = book.type === 'premium' || book.priceInr > 0;
+    const owned = req.user.purchasedBooks.some((id) => id.toString() === book._id.toString());
+    if (requiresPurchase && !req.user.subscriptionActive && !owned) {
+      return next(new ForbiddenError('Purchase this story before adding it to your library'));
     }
 
     const user = await User.findById(req.user._id);

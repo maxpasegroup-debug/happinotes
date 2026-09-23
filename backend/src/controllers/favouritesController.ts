@@ -49,7 +49,7 @@ function shapeContentForPublic(
     return toComingSoonStub(doc);
   }
 
-  const isPremium = type === 'premium';
+  const isPremium = type === 'premium' || Number(doc.priceInr ?? 0) > 0;
   const hasFullAccess = !isPremium || canAccessPremium;
 
   if (hasFullAccess) {

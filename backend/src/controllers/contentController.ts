@@ -9,6 +9,11 @@ function canAccessPremiumContent(req: Request): boolean {
   return req.user?.role === 'admin' || hasActiveSubscription(req.user ?? null);
 }
 
+function hasPurchasedContent(req: Request, contentId: unknown): boolean {
+  const id = String(contentId ?? '');
+  return Boolean(req.user?.purchasedBooks?.some((bookId) => bookId.toString() === id));
+}
+
 const COMING_SOON_KEYS = [
   '_id',
   'title',
@@ -59,7 +64,8 @@ function shapeContentForPublic(
     return toComingSoonStub(doc);
   }
 
-  const isPremium = type === 'premium';
+  const priceInr = Number(doc.priceInr ?? 0);
+  const isPremium = type === 'premium' || priceInr > 0;
   const hasFullAccess = !isPremium || canAccessPremium;
 
   if (hasFullAccess) {
@@ -151,10 +157,11 @@ export const getContents = async (
       const bCreated = Date.parse(String(bDoc.createdAt || '')) || 0;
       return bCreated - aCreated;
     });
-    const canAccess = canAccessPremiumContent(req);
-    const shaped = ordered.map((c) =>
-      shapeContentForPublic(c as Record<string, unknown>, canAccess)
-    );
+    const subscriptionAccess = canAccessPremiumContent(req);
+    const shaped = ordered.map((c) => {
+      const doc = c as Record<string, unknown>;
+      return shapeContentForPublic(doc, subscriptionAccess || hasPurchasedContent(req, doc._id));
+    });
     res.json({ success: true, contents: shaped });
   } catch (err) {
     next(err);
@@ -177,8 +184,9 @@ export const getContentById = async (
       next(new NotFoundError('Content not found'));
       return;
     }
-    const canAccess = canAccessPremiumContent(req);
-    const shaped = shapeContentForPublic(content as Record<string, unknown>, canAccess);
+    const doc = content as Record<string, unknown>;
+    const canAccess = canAccessPremiumContent(req) || hasPurchasedContent(req, doc._id);
+    const shaped = shapeContentForPublic(doc, canAccess);
     res.json({ success: true, content: shaped });
   } catch (err) {
     next(err);

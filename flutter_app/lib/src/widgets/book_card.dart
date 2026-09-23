@@ -33,29 +33,37 @@ class BookCard extends StatelessWidget {
             aspectRatio: .72,
             child: ClipRRect(
               borderRadius: BorderRadius.circular(12),
-              child: book.coverImageUrl.isEmpty
-                  ? Container(
-                      color: AppColors.raised,
-                      child: Center(
+              child: DecoratedBox(
+                decoration: BoxDecoration(
+                  color: Theme.of(context).colorScheme.surfaceContainerHighest,
+                ),
+                child: book.coverImageUrl.isEmpty
+                    ? Center(
                         child: Text(
-                          book.title.isEmpty ? '?' : book.title[0],
+                          book.title.isEmpty ? '?' : book.title[0].toUpperCase(),
                           style: const TextStyle(
                             fontSize: 42,
                             color: AppColors.coral,
+                            fontWeight: FontWeight.w900,
+                          ),
+                        ),
+                      )
+                    : CachedNetworkImage(
+                        imageUrl: book.coverImageUrl,
+                        fit: BoxFit.cover,
+                        placeholder: (_, _) => const SkeletonBox(
+                          height: double.infinity,
+                          radius: 12,
+                        ),
+                        errorWidget: (context, url, error) => Center(
+                          child: Icon(
+                            Icons.menu_book_rounded,
+                            color: Theme.of(context).colorScheme.onSurfaceVariant,
+                            size: 32,
                           ),
                         ),
                       ),
-                    )
-                  : CachedNetworkImage(
-                      imageUrl: book.coverImageUrl,
-                      fit: BoxFit.cover,
-                      placeholder: (_, _) => const SkeletonBox(
-                        height: double.infinity,
-                        radius: 12,
-                      ),
-                      errorWidget: (context, url, error) =>
-                          const ColoredBox(color: AppColors.raised),
-                    ),
+              ),
             ),
           ),
           const SizedBox(height: 8),
@@ -63,7 +71,7 @@ class BookCard extends StatelessWidget {
             book.title,
             maxLines: 2,
             overflow: TextOverflow.ellipsis,
-            style: const TextStyle(
+            style: Theme.of(context).textTheme.titleSmall?.copyWith(
               fontSize: 14,
               height: 1.2,
               fontWeight: FontWeight.w700,
@@ -71,13 +79,12 @@ class BookCard extends StatelessWidget {
           ),
           const SizedBox(height: 3),
           Text(
-            '${book.language}  •  ${book.accessType}',
+            '${book.language}  •  ${book.priceInr > 0 ? 'INR ${book.priceInr.toStringAsFixed(0)}' : 'Free'}',
             maxLines: 1,
             overflow: TextOverflow.ellipsis,
-            style: const TextStyle(
+            style: Theme.of(context).textTheme.bodySmall?.copyWith(
               fontSize: 11,
               height: 1.2,
-              color: AppColors.muted,
             ),
           ),
         ],
