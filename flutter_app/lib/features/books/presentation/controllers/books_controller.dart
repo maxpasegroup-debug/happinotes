@@ -42,7 +42,12 @@ class BooksController extends ChangeNotifier {
   Future<bool> _restoreCacheIfFresh() async {
     final preferences = await SharedPreferences.getInstance();
     final savedAt = preferences.getInt('books_cache_saved_at');
-    final rawBooks = preferences.getString('books_cache');
+    // Never restore the anonymous catalogue for an authenticated user. The
+    // backend returns different episode media depending on ownership, so a
+    // shared cache could hide purchased MP3s (or expose previously unlocked
+    // media after logout).
+    if (await client.readToken() != null) return false;
+    final rawBooks = preferences.getString('books_cache_v2');
     if (savedAt == null || rawBooks == null) return false;
     final age = DateTime.now().millisecondsSinceEpoch - savedAt;
     if (age > const Duration(minutes: 10).inMilliseconds) return false;
@@ -59,8 +64,11 @@ class BooksController extends ChangeNotifier {
 
   Future<void> _saveCache() async {
     final preferences = await SharedPreferences.getInstance();
+    // Only cache the public/anonymous catalogue. Premium episode URLs are
+    // user-specific and must always be fetched with the current JWT.
+    if (await client.readToken() != null) return;
     await preferences.setString(
-      'books_cache',
+      'books_cache_v2',
       jsonEncode({
         'books': books.map(_encodeBook).toList(),
         'upcoming': upcoming.map(_encodeBook).toList(),
@@ -84,6 +92,15 @@ class BooksController extends ChangeNotifier {
     'priceInr': book.priceInr,
     'status': book.status,
     'totalDurationSeconds': book.duration,
+    'lessons': book.episodes
+        .map((episode) => {
+              'title': episode.title,
+              'description': episode.description,
+              'mediaUrl': episode.audioUrl,
+              'mediaType': 'audio',
+              'order': episode.order,
+            })
+        .toList(),
   };
 
   List<Book> _decodeBooks(dynamic value) => (value as List? ?? [])

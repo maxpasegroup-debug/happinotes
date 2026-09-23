@@ -990,7 +990,7 @@ export default function AdminDashboardPage() {
                     <label className="grid gap-1 text-sm text-[#d4d4d8]">
                       Book price (INR)
                       <input
-                        value={form.priceInr}
+                        value={form.priceInr ?? ""}
                         onChange={(e) => setForm((prev) => ({ ...prev, priceInr: e.target.value.replace(/[^0-9.]/g, "") }))}
                         inputMode="decimal"
                         type="number"
