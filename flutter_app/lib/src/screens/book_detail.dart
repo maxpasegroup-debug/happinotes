@@ -25,7 +25,7 @@ class BookDetail extends ConsumerWidget {
         break;
       }
     }
-    final requiresPurchase = !(user?.hasActiveSubscription ?? false) &&
+    final requiresPurchase =
         !((user?.purchasedBookIds.contains(book.id)) ?? false) &&
         (book.priceInr > 0 || book.accessType == 'premium');
 

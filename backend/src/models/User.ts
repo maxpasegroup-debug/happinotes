@@ -8,11 +8,12 @@ export interface IUser extends Document {
   phoneNumber?: string;
   password: string;
   role: UserRole;
-  subscriptionActive: boolean;
-  subscriptionExpiry: Date | null;
-  subscriptionPlan: string | null;
+  /** Legacy subscription fields are optional for old records only. */
+  subscriptionActive?: boolean;
+  subscriptionExpiry?: Date | null;
+  subscriptionPlan?: string | null;
   languagePreference: 'all' | 'english' | 'malayalam' | 'hindi';
-  razorpaySubscriptionId: string | null;
+  razorpaySubscriptionId?: string | null;
   bookCollection: mongoose.Types.ObjectId[];
   purchasedBooks: mongoose.Types.ObjectId[];
   favourites: { contentId: mongoose.Types.ObjectId; contentType: string }[];
@@ -28,11 +29,7 @@ const userSchema = new Schema<IUser>(
     phoneNumber: { type: String, unique: true, sparse: true, trim: true },
     password: { type: String, required: true, select: false },
     role: { type: String, enum: ['admin', 'user'], default: 'user' },
-    subscriptionActive: { type: Boolean, default: false },
-    subscriptionExpiry: { type: Date, default: null },
-    subscriptionPlan: { type: String, enum: ['monthly', 'yearly', null], default: null },
     languagePreference: { type: String, enum: ['all', 'english', 'malayalam', 'hindi'], default: 'all' },
-    razorpaySubscriptionId: { type: String, default: null },
     bookCollection: [{ type: Schema.Types.ObjectId, ref: 'Content', default: [] }],
     purchasedBooks: [{ type: Schema.Types.ObjectId, ref: 'Content', default: [] }],
     favourites: {

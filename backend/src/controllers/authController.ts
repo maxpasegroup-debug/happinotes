@@ -8,7 +8,6 @@ import { PasswordResetToken } from '../models/passwordResetToken';
 import { env } from '../config/env';
 import { sendOTPEmail } from '../services/emailService';
 import { BadRequestError, UnauthorizedError } from '../utils/errors';
-import { hasActiveSubscription } from '../utils/subscription';
 
 const OTP_EXPIRY_MINUTES = 10;
 const PRIMARY_ADMIN_EMAIL = 'admin@happinotes.in';
@@ -25,11 +24,6 @@ const userResponse = (user: typeof User.prototype) => ({
   email: user.email,
   phoneNumber: user.phoneNumber,
   role: user.role,
-  isPremium: hasActiveSubscription(user),
-  subscriptionActive: hasActiveSubscription(user),
-  subscriptionStatus: hasActiveSubscription(user) ? 'premium' : 'free',
-  subscriptionExpiry: user.subscriptionExpiry,
-  subscriptionPlan: user.subscriptionPlan,
   purchasedBookIds: (user.purchasedBooks ?? []).map((id: unknown) => String(id)),
   languagePreference: user.languagePreference ?? 'all',
 });
@@ -124,10 +118,6 @@ export const signup = async (
         name: user.name,
         email: user.email,
         role: user.role,
-        isPremium: hasActiveSubscription(user),
-        subscriptionActive: hasActiveSubscription(user),
-        subscriptionExpiry: user.subscriptionExpiry,
-        subscriptionPlan: user.subscriptionPlan,
         purchasedBookIds: (user.purchasedBooks ?? []).map((id) => id.toString()),
       },
     });
@@ -194,10 +184,6 @@ export const login = async (
         name: user.name,
         email: user.email,
         role: user.role,
-        isPremium: hasActiveSubscription(user),
-        subscriptionActive: hasActiveSubscription(user),
-        subscriptionExpiry: user.subscriptionExpiry,
-        subscriptionPlan: user.subscriptionPlan,
         purchasedBookIds: (user.purchasedBooks ?? []).map((id) => id.toString()),
       },
     });
@@ -320,10 +306,6 @@ export const getMe = async (
         ? (u.purchasedBooks as unknown[]).map((id) => String(id))
         : [];
       delete u.purchasedBooks;
-      u.isPremium = Boolean(u.subscriptionActive) &&
-        (u.subscriptionExpiry == null || new Date(String(u.subscriptionExpiry)) > new Date());
-      u.subscriptionActive = u.isPremium;
-      u.subscriptionStatus = u.isPremium ? 'premium' : 'free';
     }
     res.json({ success: true, user: u || user });
   } catch (err) {
