@@ -13,9 +13,9 @@ abstract final class AppColors {
 
 ThemeData buildHappiTheme([Brightness brightness = Brightness.light]) {
   final dark = brightness == Brightness.dark;
-  final background = dark ? AppColors.background : const Color(0xFFFFFBF7);
+  final background = dark ? AppColors.background : Colors.white;
   final surface = dark ? AppColors.surface : Colors.white;
-  final raised = dark ? AppColors.raised : const Color(0xFFF3EDE7);
+  final raised = dark ? AppColors.raised : const Color(0xFFF6F6F6);
   final text = dark ? AppColors.text : const Color(0xFF241F1C);
   final muted = dark ? AppColors.muted : const Color(0xFF6B625C);
   final scheme = ColorScheme.fromSeed(
@@ -62,6 +62,8 @@ ThemeData buildHappiTheme([Brightness brightness = Brightness.light]) {
       fillColor: raised,
       hintStyle: TextStyle(color: muted),
       labelStyle: TextStyle(color: muted),
+      prefixIconColor: muted,
+      suffixIconColor: muted,
       contentPadding: const EdgeInsets.symmetric(horizontal: 16, vertical: 15),
       border: OutlineInputBorder(
         borderRadius: BorderRadius.circular(14),

@@ -90,8 +90,8 @@ class BooksController extends ChangeNotifier {
       .map((item) => BookModel.fromJson(Map<String, dynamic>.from(item)))
       .toList();
 
-  Future<void> loadCollection() async {
-    if (collectionLoading || collectionLoaded) return;
+  Future<void> loadCollection({bool forceRefresh = false}) async {
+    if (collectionLoading || (collectionLoaded && !forceRefresh)) return;
     collectionLoading = true;
     notifyListeners();
     try {

@@ -51,8 +51,12 @@ class _MainShellState extends ConsumerState<MainShell> {
           const MiniPlayer(),
           NavigationBar(
             selectedIndex: index,
-            onDestinationSelected: (value) =>
-                ref.read(mainTabIndexProvider.notifier).state = value,
+            onDestinationSelected: (value) {
+              ref.read(mainTabIndexProvider.notifier).state = value;
+              if (value == 1) {
+                ref.read(booksControllerProvider).loadCollection(forceRefresh: true);
+              }
+            },
             backgroundColor: Theme.of(context).colorScheme.surface,
             indicatorColor: AppColors.coral.withValues(alpha: .2),
             destinations: const [
@@ -158,6 +162,7 @@ class HomeTab extends StatelessWidget {
                     fillColor: Colors.transparent,
                     border: InputBorder.none,
                   ),
+                  style: TextStyle(color: Theme.of(context).colorScheme.onSurface),
                 ),
                   ),
                 ),
@@ -470,6 +475,7 @@ class SearchTab extends ConsumerWidget {
                     prefixIcon: const Icon(Icons.search),
                     hintText: 'Search books',
                   ),
+                  style: TextStyle(color: Theme.of(context).colorScheme.onSurface),
                 ),
                 const SizedBox(height: 12),
                 SingleChildScrollView(
@@ -653,7 +659,10 @@ class ProfileTab extends ConsumerWidget {
             title: const Text('Purchased stories'),
             subtitle: Text('${s.user?.purchasedBookIds.length ?? 0} stories unlocked'),
             trailing: const Icon(Icons.chevron_right),
-            onTap: () => ref.read(mainTabIndexProvider.notifier).state = 1,
+            onTap: () {
+              ref.read(booksControllerProvider).loadCollection(forceRefresh: true);
+              ref.read(mainTabIndexProvider.notifier).state = 1;
+            },
           ),
           const Divider(),
           ListTile(
@@ -748,7 +757,10 @@ class MiniPlayer extends ConsumerWidget {
       child: SafeArea(
         top: false,
         child: ListTile(
-          contentPadding: const EdgeInsets.fromLTRB(16, 4, 8, 4),
+          dense: true,
+          visualDensity: const VisualDensity(horizontal: 0, vertical: -2),
+          minVerticalPadding: 2,
+          contentPadding: const EdgeInsets.fromLTRB(16, 2, 8, 2),
         onTap: () {
           // Open the full player when the mini-player itself is tapped.
           // The play/pause button remains an independent control.
@@ -768,11 +780,14 @@ class MiniPlayer extends ConsumerWidget {
         },
         leading: b.coverImageUrl.isEmpty
             ? const Icon(Icons.audio_file)
-            : Image.network(
-                b.coverImageUrl,
-                width: 42,
-                height: 52,
-                fit: BoxFit.cover,
+            : ClipRRect(
+                borderRadius: BorderRadius.circular(8),
+                child: Image.network(
+                  b.coverImageUrl,
+                  width: 44,
+                  height: 44,
+                  fit: BoxFit.cover,
+                ),
               ),
         title: Text(b.title, maxLines: 1, overflow: TextOverflow.ellipsis),
         trailing: StreamBuilder<bool>(

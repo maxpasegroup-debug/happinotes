@@ -14,6 +14,7 @@ type Content = {
   coverImageUrl?: string;
   contentType: Kind;
   type: "free" | "premium";
+  priceInr?: number;
   status: Status;
   featured?: boolean;
   webDisplayOrder?: number;
@@ -85,6 +86,7 @@ type ContentForm = {
   description: string;
   status: Status;
   type: "free" | "premium";
+  priceInr: string;
   language: string;
   category: string;
   featured: boolean;
@@ -123,6 +125,7 @@ function emptyForm(): ContentForm {
     description: "",
     status: "live",
     type: "free",
+    priceInr: "",
     language: "English",
     category: "General",
     featured: false,
@@ -247,6 +250,7 @@ export default function AdminDashboardPage() {
     next.description = item.description || "";
     next.status = item.status || "coming_soon";
     next.type = item.type || "free";
+    next.priceInr = typeof item.priceInr === "number" ? String(item.priceInr) : "";
     next.featured = Boolean(item.featured);
     if (item.contentType === "silence") next.category = "General";
 
@@ -319,6 +323,9 @@ export default function AdminDashboardPage() {
     if (!token) return setMessage("Admin token missing");
     if (!form.title.trim()) return setMessage("Title is required");
     if (!form.thumbnail) return setMessage("Thumbnail is required");
+    if (form.type === "premium" && (!Number.isFinite(Number(form.priceInr)) || Number(form.priceInr) <= 0)) {
+      return setMessage("Enter a price greater than 0 for premium books");
+    }
     if (form.status === "live" && createKind === "lifebook" && !form.chapters[0]?.mediaUrl && !form.chapters[0]?.file) return setMessage("Add at least one episode MP3");
     if (form.status === "live" && createKind !== "lifebook" && !form.media && !form.mediaUploadedUrl) {
       return setMessage("Live note/happiness requires media audio");
@@ -330,6 +337,7 @@ export default function AdminDashboardPage() {
     fd.append("language", form.language || "English");
     fd.append("contentType", createKind);
     fd.append("type", form.type);
+    fd.append("priceInr", form.type === "premium" ? (form.priceInr || "0") : "0");
     fd.append("status", form.status);
     fd.append("featured", String(form.featured));
     fd.append("thumbnail", form.thumbnail);
@@ -397,12 +405,16 @@ export default function AdminDashboardPage() {
     const token = window.localStorage.getItem("admin_token") || "";
     if (!token) return setMessage("Admin token missing");
     if (!form.title.trim()) return setMessage("Title is required");
+    if (form.type === "premium" && (!Number.isFinite(Number(form.priceInr)) || Number(form.priceInr) <= 0)) {
+      return setMessage("Enter a price greater than 0 for premium books");
+    }
 
     const fd = new FormData();
     fd.append("title", form.title);
     fd.append("description", form.description);
     fd.append("contentType", editing.contentType);
     fd.append("type", form.type);
+    fd.append("priceInr", form.type === "premium" ? (form.priceInr || "0") : "0");
     fd.append("featured", String(form.featured));
     if (form.thumbnail) fd.append("thumbnail", form.thumbnail);
 
@@ -632,6 +644,7 @@ export default function AdminDashboardPage() {
                   <div className="flex flex-wrap gap-2">
                     <Badge text={item.status} tone={item.status === "live" ? "green" : item.status === "coming_soon" ? "amber" : "gray"} />
                     <Badge text={item.type} tone={item.type === "premium" ? "purple" : "blue"} />
+                    {item.type === "premium" && Number(item.priceInr || 0) > 0 ? <Badge text={`₹${item.priceInr}`} tone="amber" /> : null}
                   </div>
                   <div className="flex flex-wrap gap-2">
                     <button onClick={() => openEdit(item)} className="rounded-md border border-white/15 px-3 py-1.5 text-xs text-white hover:bg-white/5">
@@ -973,6 +986,22 @@ export default function AdminDashboardPage() {
                       </select>
                     </label>
                   </div>
+                  {form.type === "premium" ? (
+                    <label className="grid gap-1 text-sm text-[#d4d4d8]">
+                      Book price (INR)
+                      <input
+                        value={form.priceInr}
+                        onChange={(e) => setForm((prev) => ({ ...prev, priceInr: e.target.value.replace(/[^0-9.]/g, "") }))}
+                        inputMode="decimal"
+                        type="number"
+                        min="0.01"
+                        step="0.01"
+                        placeholder="e.g. 99"
+                        className="rounded-lg border border-white/10 bg-[#12131a] px-3 py-2 text-white outline-none"
+                      />
+                      <span className="text-xs text-[#a1a1aa]">Users pay this one-time price to unlock the book.</span>
+                    </label>
+                  ) : null}
                   <label className="grid gap-1 text-sm text-[#d4d4d8]">
                     Title
                     <input
