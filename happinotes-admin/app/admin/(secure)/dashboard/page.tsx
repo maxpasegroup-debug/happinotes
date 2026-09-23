@@ -50,7 +50,6 @@ type User = {
   _id?: string;
   email: string;
   createdAt?: string;
-  subscriptionActive?: boolean;
   blocked?: boolean;
 };
 
@@ -561,7 +560,6 @@ export default function AdminDashboardPage() {
           ? happiness
           : [];
 
-  const activeSubscriptions = users.filter((u) => u.subscriptionActive).length;
   const activeModuleCount =
     activeModule === "lifebooks"
       ? lifebooks.length
@@ -862,7 +860,7 @@ export default function AdminDashboardPage() {
           <table className="w-full border-collapse text-sm">
             <thead className="bg-[#101118]">
               <tr>
-                {["Email", "Join date", "Subscription", "Blocked", "Actions"].map((h) => (
+                {["Email", "Join date", "Blocked", "Actions"].map((h) => (
                   <th key={h} className="px-3 py-3 text-left text-xs text-[#a1a1aa]">
                     {h}
                   </th>
@@ -876,9 +874,6 @@ export default function AdminDashboardPage() {
                   <tr key={id} className="border-t border-[#1f1f26]">
                     <td className="px-3 py-3 text-white">{u.email}</td>
                     <td className="px-3 py-3 text-[#c8cbd3]">{u.createdAt ? new Date(u.createdAt).toLocaleDateString() : "-"}</td>
-                    <td className="px-3 py-3">
-                      <Badge text={u.subscriptionActive ? "Active" : "Inactive"} tone={u.subscriptionActive ? "green" : "gray"} />
-                    </td>
                     <td className="px-3 py-3">
                       <Badge text={u.blocked ? "Blocked" : "No"} tone={u.blocked ? "rose" : "blue"} />
                     </td>
@@ -898,24 +893,6 @@ export default function AdminDashboardPage() {
               })}
             </tbody>
           </table>
-        </div>
-      )}
-
-      {activeModule === "business" && (
-        <div className="grid grid-cols-1 gap-3 md:grid-cols-3">
-          <div className="rounded-2xl border border-white/10 bg-[#101014] p-4">
-            <div className="text-xs text-[#a1a1aa]">Site Visits</div>
-            <div className="mt-2 text-3xl font-semibold text-white">N/A</div>
-            <div className="mt-1 text-xs text-[#a1a1aa]">Connect analytics integration (GA4/Mixpanel)</div>
-          </div>
-          <div className="rounded-2xl border border-white/10 bg-[#101014] p-4">
-            <div className="text-xs text-[#a1a1aa]">Account Creation</div>
-            <div className="mt-2 text-3xl font-semibold text-white">{users.length}</div>
-          </div>
-          <div className="rounded-2xl border border-white/10 bg-[#101014] p-4">
-            <div className="text-xs text-[#a1a1aa]">Subscriptions</div>
-            <div className="mt-2 text-3xl font-semibold text-white">{activeSubscriptions}</div>
-          </div>
         </div>
       )}
 
