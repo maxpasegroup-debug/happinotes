@@ -1,12 +1,11 @@
 import { Request, Response, NextFunction } from 'express';
 import { Content } from '../models';
 import { NotFoundError } from '../utils/errors';
-import { hasActiveSubscription } from '../utils/subscription';
 
 function canAccessPremiumContent(req: Request): boolean {
-  // Administrators need the complete catalogue when reviewing or editing
-  // books, including premium episode media.
-  return req.user?.role === 'admin' || hasActiveSubscription(req.user ?? null);
+  // Premium access is now granted per book purchase. Administrators can still
+  // review the complete catalogue; subscriptions must not unlock every book.
+  return req.user?.role === 'admin';
 }
 
 function hasPurchasedContent(req: Request, contentId: unknown): boolean {
@@ -76,7 +75,7 @@ function shapeContentForPublic(
     return full;
   }
 
-  // Premium without subscription
+  // Premium without an individual purchase
   const out = { ...doc };
   if (out._id && !out.id) {
     out.id = out._id;

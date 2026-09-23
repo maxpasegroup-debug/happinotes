@@ -1,10 +1,14 @@
 import { Request, Response, NextFunction } from 'express';
 import { User, Content } from '../models';
 import { ForbiddenError, NotFoundError } from '../utils/errors';
-import { hasActiveSubscription } from '../utils/subscription';
 
 function canAccessPremiumContent(req: Request): boolean {
-  return hasActiveSubscription(req.user ?? null);
+  return req.user?.role === 'admin';
+}
+
+function hasPurchasedContent(req: Request, contentId: unknown): boolean {
+  const id = String(contentId ?? '');
+  return Boolean(req.user?.purchasedBooks?.some((bookId) => bookId.toString() === id));
 }
 
 const COMING_SOON_KEYS = [
@@ -173,7 +177,7 @@ export const getFavourites = async (
         if (status === 'draft') {
           return null;
         }
-        return shapeContentForPublic(doc, canAccess);
+        return shapeContentForPublic(doc, canAccess || hasPurchasedContent(req, doc._id));
       })
       .filter((v): v is Record<string, unknown> => v != null);
 

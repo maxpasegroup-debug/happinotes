@@ -500,7 +500,10 @@ export default function AdminDashboardPage() {
       } else {
         await apiRequest(`/admin/users/${id}/${action}`, "PATCH", undefined, token);
       }
+      setMessage(action === "delete" ? "User deleted successfully" : action === "block" ? "User blocked" : "User unblocked");
       await load();
+    } catch (err) {
+      setMessage(err instanceof Error ? err.message : "User action failed");
     } finally {
       setBusyId(null);
     }
@@ -582,25 +585,18 @@ export default function AdminDashboardPage() {
       <div className="rounded-2xl border border-white/10 bg-[#0f1320] p-5">
         <h1 className="m-0 text-2xl font-semibold text-white">Admin Command Center</h1>
         <p className="mt-2 text-sm text-[#a1a1aa]">
-          One clear workflow: choose module, manage items, create/edit through guided popup.
+          Add and manage story books with cover images, prices, and multiple MP3 episodes.
         </p>
-        <div className="mt-4 grid grid-cols-1 gap-3 sm:grid-cols-2 xl:grid-cols-5">
-          <StatCard label="Lifebooks" value={lifebooks.length} />
-          <StatCard label="Notes" value={notes.length} />
-          <StatCard label="Happiness" value={happiness.length} />
+        <div className="mt-4 grid grid-cols-1 gap-3 sm:grid-cols-2">
+          <StatCard label="Story Books" value={lifebooks.length} />
           <StatCard label="Users" value={users.length} />
-          <StatCard label="Subscriptions" value={activeSubscriptions} />
         </div>
       </div>
 
-      <div className="grid grid-cols-1 gap-2 rounded-2xl border border-white/10 bg-[#0f1320] p-3 sm:grid-cols-2 lg:grid-cols-5">
+      <div className="grid grid-cols-1 gap-2 rounded-2xl border border-white/10 bg-[#0f1320] p-3 sm:grid-cols-2">
         {[
-          { key: "lifebooks", label: "Lifebooks" },
-          { key: "notes", label: "Notes" },
-          { key: "happiness", label: "Happiness" },
-          { key: "app_views", label: "App Views" },
+          { key: "lifebooks", label: "Story Books" },
           { key: "users", label: "Users" },
-          { key: "business", label: "Business" },
         ].map((item) => (
           <button
             key={item.key}
@@ -616,17 +612,15 @@ export default function AdminDashboardPage() {
         ))}
       </div>
 
-      {(activeModule === "lifebooks" || activeModule === "notes" || activeModule === "happiness") && (
+      {activeModule === "lifebooks" && (
         <>
           <div className="flex flex-wrap items-center justify-between gap-3 rounded-2xl border border-white/10 bg-[#0f1320] p-4">
             <div>
-              <h2 className="m-0 text-xl font-semibold text-white">
-              {activeModule === "lifebooks" ? "Lifebooks" : activeModule === "notes" ? "Notes" : "Happiness"}
-              </h2>
+              <h2 className="m-0 text-xl font-semibold text-white">Story Books</h2>
               <p className="mt-1 text-xs text-[#a1a1aa]">{activeModuleCount} items</p>
             </div>
             <button
-              onClick={() => openCreate(activeModule === "lifebooks" ? "lifebook" : activeModule === "notes" ? "note" : "silence")}
+              onClick={() => openCreate("lifebook")}
               className="rounded-lg bg-[#f97316] px-4 py-2 text-sm font-semibold text-white hover:bg-[#ea580c]"
             >
               Create New
@@ -891,13 +885,6 @@ export default function AdminDashboardPage() {
                           className="rounded-md border border-white/15 px-3 py-1.5 text-xs text-white hover:bg-white/5"
                         >
                         {u.blocked ? "Unblock" : "Block"}
-                        </button>
-                        <button
-                          onClick={() => userAction(id, "delete")}
-                          disabled={busyId === id}
-                          className="rounded-md border border-rose-400/30 px-3 py-1.5 text-xs text-rose-200 hover:bg-rose-500/10"
-                        >
-                          Delete
                         </button>
                       </div>
                     </td>

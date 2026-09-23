@@ -906,9 +906,9 @@ class _DemoNotificationsSheet extends StatelessWidget {
                   time: 'Today',
                 ),
                 _DemoNotificationTile(
-                  icon: Icons.card_membership,
-                  title: 'Explore HappiNotes Premium',
-                  message: 'Unlock more stories and listen without limits.',
+                  icon: Icons.local_library_outlined,
+                  title: 'New story available',
+                  message: 'Purchase a story once to unlock all its episodes.',
                   time: 'Yesterday',
                 ),
               ],
