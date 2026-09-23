@@ -12,7 +12,10 @@ export function CatalogRealtime() {
 
   useEffect(() => {
     const socket = io(API_BASE, { transports: ["websocket", "polling"] });
-    const refresh = () => router.refresh();
+    const refresh = () => {
+      router.refresh();
+      window.dispatchEvent(new Event("happinotes:catalog-changed"));
+    };
     socket.on("books:changed", refresh);
     return () => {
       socket.off("books:changed", refresh);

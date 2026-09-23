@@ -15,6 +15,7 @@ type Content = {
   contentType: Kind;
   type: "free" | "premium";
   priceInr?: number;
+  lessons?: Array<{ title?: string; mediaUrl?: string }>;
   status: Status;
   featured?: boolean;
   webDisplayOrder?: number;
@@ -199,6 +200,9 @@ export default function AdminDashboardPage() {
 
   useEffect(() => {
     load().catch(() => undefined);
+    const refresh = () => load().catch(() => undefined);
+    window.addEventListener("happinotes:catalog-changed", refresh);
+    return () => window.removeEventListener("happinotes:catalog-changed", refresh);
   }, []);
 
   const lifebooks = useMemo(
@@ -272,7 +276,7 @@ export default function AdminDashboardPage() {
     }
     if (detail?.lessons && detail.lessons.length > 0) {
       next.chapters = detail.lessons.map((lesson, index) => ({
-        title: lesson.title || `Chapter ${index + 1}`,
+        title: lesson.title || `Episode ${index + 1}`,
         file: null,
         mediaUrl: lesson.mediaUrl || "",
         mediaType: lesson.mediaType,
@@ -343,36 +347,34 @@ export default function AdminDashboardPage() {
     fd.append("thumbnail", form.thumbnail);
 
     if (createKind === "lifebook") {
-      if (form.status === "live") {
+      fd.append(
+        "intro",
+        JSON.stringify({
+          title: form.introTitle || "Introduction",
+          description: form.introDescription || "",
+          ...(form.introMediaUrl ? { mediaUrl: form.introMediaUrl } : {}),
+          ...(form.introMediaType ? { mediaType: form.introMediaType } : {}),
+        })
+      );
+      if (!form.introMediaUrl && form.introMedia) fd.append("introMedia", form.introMedia);
+      const chapters = form.chapters
+        .map((chapter, index) => ({
+          title: chapter.title.trim() || `Episode ${index + 1}`,
+          description: "",
+          order: index,
+          mediaUrl: chapter.mediaUrl || undefined,
+          mediaType: chapter.mediaType || undefined,
+          file: chapter.file,
+        }))
+        .filter((x) => Boolean(x.title || x.file || x.mediaUrl));
+      if (chapters.length > 0) {
         fd.append(
-          "intro",
-          JSON.stringify({
-            title: form.introTitle || "Introduction",
-            description: form.introDescription || "",
-            ...(form.introMediaUrl ? { mediaUrl: form.introMediaUrl } : {}),
-            ...(form.introMediaType ? { mediaType: form.introMediaType } : {}),
-          })
+          "lessons",
+          JSON.stringify(chapters.map(({ title, description, order, mediaUrl, mediaType }) => ({ title, description, order, mediaUrl, mediaType })))
         );
-        if (!form.introMediaUrl && form.introMedia) fd.append("introMedia", form.introMedia);
-        const chapters = form.chapters
-          .map((chapter, index) => ({
-            title: chapter.title.trim() || `Chapter ${index + 1}`,
-            description: "",
-            order: index,
-            mediaUrl: chapter.mediaUrl || undefined,
-            mediaType: chapter.mediaType || undefined,
-            file: chapter.file,
-          }))
-          .filter((x) => Boolean(x.title || x.file || x.mediaUrl));
-        if (chapters.length > 0) {
-          fd.append(
-            "lessons",
-            JSON.stringify(chapters.map(({ title, description, order, mediaUrl, mediaType }) => ({ title, description, order, mediaUrl, mediaType })))
-          );
-          chapters.forEach((chapter) => {
-            if (!chapter.mediaUrl && chapter.file) fd.append("lessonMedia", chapter.file);
-          });
-        }
+        chapters.forEach((chapter) => {
+          if (!chapter.mediaUrl && chapter.file) fd.append("lessonMedia", chapter.file);
+        });
       }
     } else {
       if (createKind === "silence") fd.append("category", form.category || "General");
@@ -433,7 +435,7 @@ export default function AdminDashboardPage() {
       }
       const chapters = form.chapters
         .map((chapter, index) => ({
-          title: chapter.title.trim() || `Chapter ${index + 1}`,
+          title: chapter.title.trim() || `Episode ${index + 1}`,
           description: "",
           order: index,
           mediaUrl: chapter.mediaUrl || undefined,
@@ -640,6 +642,9 @@ export default function AdminDashboardPage() {
                     <Badge text={item.type} tone={item.type === "premium" ? "purple" : "blue"} />
                     {item.type === "premium" && Number(item.priceInr || 0) > 0 ? <Badge text={`₹${item.priceInr}`} tone="amber" /> : null}
                   </div>
+                  <p className="text-xs text-[#a1a1aa]">
+                    {item.lessons?.length || 0} episode{item.lessons?.length === 1 ? "" : "s"} saved
+                  </p>
                   <div className="flex flex-wrap gap-2">
                     <button onClick={() => openEdit(item)} className="rounded-md border border-white/15 px-3 py-1.5 text-xs text-white hover:bg-white/5">
                       Edit
@@ -939,7 +944,7 @@ export default function AdminDashboardPage() {
                         : "border-white/10 bg-[#12131a] text-[#a1a1aa]"
                     }`}
                   >
-                    {n === 1 ? "Basic" : n === 2 ? "Intro" : n === 3 ? "Chapters" : "Review"}
+                    {n === 1 ? "Basic" : n === 2 ? "Intro" : n === 3 ? "Episodes" : "Review"}
                   </button>
                 ))}
               </div>
@@ -1187,7 +1192,7 @@ export default function AdminDashboardPage() {
                                     i === index ? { ...x, uploading: false } : x
                                   ),
                                 }));
-                                setMessage(err instanceof Error ? err.message : "Chapter upload failed");
+                                setMessage(err instanceof Error ? err.message : "Episode upload failed");
                               }
                             }}
                             className="rounded-md border border-blue-400/30 px-3 py-1.5 text-xs text-blue-200 hover:bg-blue-500/10 disabled:opacity-60"
@@ -1216,7 +1221,7 @@ export default function AdminDashboardPage() {
                     onClick={() =>
                       setForm((prev) => ({
                         ...prev,
-                        chapters: [...prev.chapters, { title: `Chapter ${prev.chapters.length + 1}`, file: null, mediaUrl: "" }],
+                        chapters: [...prev.chapters, { title: `Episode ${prev.chapters.length + 1}`, file: null, mediaUrl: "" }],
                       }))
                     }
                     className="w-fit rounded-md border border-white/20 px-3 py-2 text-xs text-white hover:bg-white/5"
@@ -1232,7 +1237,7 @@ export default function AdminDashboardPage() {
                   <p><strong>Status:</strong> {form.status}</p>
                   <p><strong>Type:</strong> {form.type}</p>
                   <p><strong>Intro File:</strong> {form.introMedia?.name || (form.introMediaUrl ? "Using existing intro media" : "Not attached")}</p>
-                  <p><strong>Chapters:</strong> {form.chapters.length}</p>
+                  <p><strong>Episodes:</strong> {form.chapters.length}</p>
                 </div>
               ) : null}
 

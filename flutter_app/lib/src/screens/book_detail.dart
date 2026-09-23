@@ -9,12 +9,22 @@ import '../widgets/loading_skeleton.dart';
 import 'episode_player_screen.dart';
 
 class BookDetail extends ConsumerWidget {
-  const BookDetail({super.key, required this.book});
-  final Book book;
+  const BookDetail({super.key, required Book book}) : initialBook = book;
+  final Book initialBook;
   @override
   Widget build(BuildContext context, WidgetRef ref) {
     final player = ref.watch(playerControllerProvider);
     final user = ref.watch(sessionControllerProvider).user;
+    // Realtime catalogue updates replace the controller's book instance. Use
+    // that latest instance so newly saved episodes appear while this screen is
+    // already open instead of only after a manual refresh.
+    var book = initialBook;
+    for (final updated in ref.watch(booksControllerProvider).books) {
+      if (updated.id == initialBook.id) {
+        book = updated;
+        break;
+      }
+    }
     final requiresPurchase = !(user?.hasActiveSubscription ?? false) &&
         !((user?.purchasedBookIds.contains(book.id)) ?? false) &&
         (book.priceInr > 0 || book.accessType == 'premium');
