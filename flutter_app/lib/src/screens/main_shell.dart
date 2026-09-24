@@ -198,7 +198,7 @@ class HomeTab extends StatelessWidget {
                     scrollDirection: Axis.horizontal,
                     itemCount: books.length,
                     separatorBuilder: (context, index) =>
-                        const SizedBox(width: 12),
+                        const SizedBox(width: 16),
                     itemBuilder: (_, i) => BookCard(
                       book: books[i],
                       onTap: () => openBook(context, books[i]),
@@ -216,7 +216,7 @@ class HomeTab extends StatelessWidget {
                         .where((b) => b.accessType == 'free')
                         .length,
                     separatorBuilder: (context, index) =>
-                        const SizedBox(width: 12),
+                        const SizedBox(width: 16),
                     itemBuilder: (_, i) {
                       final b = books
                           .where((x) => x.accessType == 'free')
@@ -243,7 +243,7 @@ class HomeTab extends StatelessWidget {
                   child: ListView.separated(
                     scrollDirection: Axis.horizontal,
                     itemCount: upcoming.length,
-                    separatorBuilder: (_, _) => const SizedBox(width: 12),
+                    separatorBuilder: (_, _) => const SizedBox(width: 16),
                     itemBuilder: (_, index) {
                       final book = upcoming[index];
                       return BookCard(
@@ -304,7 +304,9 @@ class _FeaturedRailState extends State<FeaturedRail> {
           itemBuilder: (context, index) {
             final book = widget.books[index];
             return Padding(
-              padding: const EdgeInsets.symmetric(horizontal: 6),
+              // Give each featured thumbnail breathing room so adjacent
+              // covers do not appear to touch while swiping.
+              padding: const EdgeInsets.symmetric(horizontal: 10),
               child: InkWell(
                 borderRadius: BorderRadius.circular(24),
                 onTap: () => openBook(context, book),
@@ -529,7 +531,7 @@ class SearchTab extends ConsumerWidget {
                     gridDelegate:
                         SliverGridDelegateWithFixedCrossAxisCount(
                           crossAxisCount: 2,
-                          crossAxisSpacing: 14,
+                          crossAxisSpacing: 18,
                           mainAxisSpacing: 16,
                           mainAxisExtent: BookCard.shelfHeight(context) + 18,
                         ),
@@ -582,7 +584,7 @@ class CollectionTab extends ConsumerWidget {
                 child: GridView.builder(
                   gridDelegate: SliverGridDelegateWithFixedCrossAxisCount(
                     crossAxisCount: 2,
-                    crossAxisSpacing: 14,
+                    crossAxisSpacing: 18,
                     mainAxisSpacing: 18,
                     // Leave room for text metrics and larger system font
                     // settings so cards never overflow at the bottom.
@@ -986,7 +988,7 @@ class PurchasedStoriesScreen extends ConsumerWidget {
                   padding: const EdgeInsets.fromLTRB(20, 20, 20, 28),
                   gridDelegate: SliverGridDelegateWithFixedCrossAxisCount(
                     crossAxisCount: 2,
-                    crossAxisSpacing: 14,
+                    crossAxisSpacing: 18,
                     mainAxisSpacing: 18,
                     mainAxisExtent: BookCard.shelfHeight(context) + 14,
                   ),
