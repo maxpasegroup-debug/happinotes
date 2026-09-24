@@ -11,8 +11,14 @@ class SessionController extends ChangeNotifier {
   bool get isLoggedIn => user != null;
   Future<void> initialize() async {
     await Future.wait([
-      _restore(),
-      Future<void>.delayed(const Duration(milliseconds: 1700)),
+      _restore().timeout(const Duration(seconds: 8), onTimeout: () {
+        // A slow/offline backend must not leave the app showing the splash
+        // indefinitely. The next authenticated request can retry normally.
+        if (!_disposed) user = null;
+      }),
+      // Keep the branded splash visible briefly, but do not make startup feel
+      // frozen while the saved session is restored.
+      Future<void>.delayed(const Duration(milliseconds: 900)),
     ]);
     if (!_disposed) {
       initialized = true;

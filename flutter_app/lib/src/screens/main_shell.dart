@@ -660,8 +660,9 @@ class ProfileTab extends ConsumerWidget {
             subtitle: Text('${s.user?.purchasedBookIds.length ?? 0} stories unlocked'),
             trailing: const Icon(Icons.chevron_right),
             onTap: () {
-              ref.read(booksControllerProvider).loadCollection(forceRefresh: true);
-              ref.read(mainTabIndexProvider.notifier).state = 1;
+              Navigator.of(context).push(
+                MaterialPageRoute(builder: (_) => const PurchasedStoriesScreen()),
+              );
             },
           ),
           const Divider(),
@@ -949,3 +950,52 @@ class _DemoNotificationTile extends StatelessWidget {
 void openBook(BuildContext context, Book b) => Navigator.of(
   context,
 ).push(MaterialPageRoute(builder: (_) => BookDetail(book: b)));
+
+class PurchasedStoriesScreen extends ConsumerWidget {
+  const PurchasedStoriesScreen({super.key});
+
+  @override
+  Widget build(BuildContext context, WidgetRef ref) {
+    final session = ref.watch(sessionControllerProvider);
+    final booksState = ref.watch(booksControllerProvider);
+    final purchasedIds = session.user?.purchasedBookIds.toSet() ?? const <String>{};
+    final purchased = booksState.books
+        .where((book) => purchasedIds.contains(book.id))
+        .toList();
+
+    if (!booksState.loading && purchasedIds.isNotEmpty && purchased.isEmpty) {
+      Future.microtask(() => ref.read(booksControllerProvider).loadBooks(forceRefresh: true));
+    }
+
+    return Scaffold(
+      appBar: AppBar(title: const Text('Purchased stories')),
+      body: booksState.loading && purchased.isEmpty
+          ? const Center(child: CircularProgressIndicator())
+          : purchased.isEmpty
+              ? const Center(
+                  child: Padding(
+                    padding: EdgeInsets.all(24),
+                    child: Text(
+                      'You have not purchased any stories yet.',
+                      textAlign: TextAlign.center,
+                      style: TextStyle(color: AppColors.muted),
+                    ),
+                  ),
+                )
+              : GridView.builder(
+                  padding: const EdgeInsets.fromLTRB(20, 20, 20, 28),
+                  gridDelegate: SliverGridDelegateWithFixedCrossAxisCount(
+                    crossAxisCount: 2,
+                    crossAxisSpacing: 14,
+                    mainAxisSpacing: 18,
+                    mainAxisExtent: BookCard.shelfHeight(context) + 14,
+                  ),
+                  itemCount: purchased.length,
+                  itemBuilder: (_, index) {
+                    final book = purchased[index];
+                    return BookCard(book: book, onTap: () => openBook(context, book));
+                  },
+                ),
+    );
+  }
+}

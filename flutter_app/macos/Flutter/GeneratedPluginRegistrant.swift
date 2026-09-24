@@ -6,7 +6,7 @@ import FlutterMacOS
 import Foundation
 
 import audio_session
-import file_picker
+import file_picker_darwin
 import flutter_secure_storage_darwin
 import just_audio
 import share_plus

@@ -377,16 +377,45 @@ class AdminBookEditor extends ConsumerWidget {
             ],
           ),
           const SizedBox(height: 8),
-          ...d.episodes.asMap().entries.map((entry) => ListTile(
-                contentPadding: EdgeInsets.zero,
-                leading: CircleAvatar(child: Text('${entry.key + 1}')),
-                title: Text(entry.value['title']?.toString() ?? 'Episode ${entry.key + 1}'),
-                subtitle: Text(entry.value['fileName']?.toString() ?? 'MP3 uploaded'),
-                trailing: IconButton(
-                  icon: const Icon(Icons.delete_outline),
-                  onPressed: state.busy ? null : () => state.removeEpisode(entry.key),
+          ...d.episodes.asMap().entries.map((entry) {
+            final index = entry.key;
+            final episode = entry.value;
+            return Card(
+              margin: const EdgeInsets.only(bottom: 12),
+              child: Padding(
+                padding: const EdgeInsets.all(12),
+                child: Column(
+                  crossAxisAlignment: CrossAxisAlignment.stretch,
+                  children: [
+                    Row(
+                      children: [
+                        CircleAvatar(child: Text('${index + 1}')),
+                        const SizedBox(width: 10),
+                        Text('Episode ${index + 1}', style: const TextStyle(fontWeight: FontWeight.w800)),
+                        const Spacer(),
+                        IconButton(
+                          icon: const Icon(Icons.delete_outline),
+                          onPressed: state.busy ? null : () => state.removeEpisode(index),
+                        ),
+                      ],
+                    ),
+                    input(
+                      'Episode title',
+                      episode['title']?.toString() ?? 'Episode ${index + 1}',
+                      (value) => state.updateEpisodeField(index, 'title', value),
+                    ),
+                    input(
+                      'Episode description',
+                      episode['description']?.toString() ?? '',
+                      (value) => state.updateEpisodeField(index, 'description', value),
+                      lines: 3,
+                    ),
+                    Text(episode['fileName']?.toString() ?? 'MP3 uploaded', style: const TextStyle(color: AppColors.muted)),
+                  ],
                 ),
-              )),
+              ),
+            );
+          }),
           OutlinedButton.icon(
             onPressed: state.busy ? null : state.uploadEpisode,
             icon: const Icon(Icons.playlist_add_rounded),

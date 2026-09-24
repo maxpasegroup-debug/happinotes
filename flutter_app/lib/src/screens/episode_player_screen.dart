@@ -60,11 +60,57 @@ class EpisodePlayerScreen extends ConsumerWidget {
               StreamBuilder<bool>(
                 stream: player.audioPlayer.playingStream,
                 initialData: player.audioPlayer.playing,
-                builder: (_, playing) => Wrap(alignment: WrapAlignment.center, spacing: 28, children: [
-                  IconButton(iconSize: 34, onPressed: player.playPrevious, icon: const Icon(Icons.skip_previous_rounded)),
-                  IconButton(iconSize: 64, onPressed: player.togglePlayback, icon: Icon(playing.data == true ? Icons.pause_circle_filled : Icons.play_circle_filled, color: AppColors.coral)),
-                  IconButton(iconSize: 34, onPressed: player.playNext, icon: const Icon(Icons.skip_next_rounded)),
-                ]),
+                builder: (_, playing) => SizedBox(
+                  width: double.infinity,
+                  child: Row(
+                    crossAxisAlignment: CrossAxisAlignment.center,
+                    children: [
+                      Expanded(
+                        child: Align(
+                          alignment: Alignment.center,
+                          child: IconButton(
+                            tooltip: 'Previous episode',
+                            iconSize: 36,
+                            padding: EdgeInsets.zero,
+                            constraints: const BoxConstraints(minWidth: 48, minHeight: 48),
+                            onPressed: player.playPrevious,
+                            icon: const Icon(Icons.skip_previous_rounded),
+                          ),
+                        ),
+                      ),
+                      SizedBox(
+                        width: 88,
+                        height: 76,
+                        child: Center(
+                          child: IconButton(
+                            tooltip: playing.data == true ? 'Pause' : 'Play',
+                            iconSize: 68,
+                            padding: EdgeInsets.zero,
+                            constraints: const BoxConstraints(minWidth: 72, minHeight: 72),
+                            onPressed: player.togglePlayback,
+                            icon: Icon(
+                              playing.data == true ? Icons.pause_circle_filled : Icons.play_circle_filled,
+                              color: AppColors.coral,
+                            ),
+                          ),
+                        ),
+                      ),
+                      Expanded(
+                        child: Align(
+                          alignment: Alignment.center,
+                          child: IconButton(
+                            tooltip: 'Next episode',
+                            iconSize: 36,
+                            padding: EdgeInsets.zero,
+                            constraints: const BoxConstraints(minWidth: 48, minHeight: 48),
+                            onPressed: player.playNext,
+                            icon: const Icon(Icons.skip_next_rounded),
+                          ),
+                        ),
+                      ),
+                    ],
+                  ),
+                ),
               ),
               Wrap(alignment: WrapAlignment.spaceEvenly, spacing: 18, runSpacing: 8, children: [
                 const _Action(icon: Icons.timer_outlined, label: 'Timer'),

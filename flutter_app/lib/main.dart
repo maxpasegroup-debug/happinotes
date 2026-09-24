@@ -25,9 +25,11 @@ class HappiNotesApp extends ConsumerWidget {
       if (next.user == null || previous?.user == null) {
         ref.read(mainTabIndexProvider.notifier).state = 0;
       }
-      if (next.user != null && previous?.user == null) {
-        // Start the feed request as soon as a saved session is restored,
-        // while LaunchSplash is still on screen.
+      if (next.user != null && !next.initialized) {
+        // ChangeNotifier providers may deliver the same controller instance
+        // as both `previous` and `next`, so comparing previous.user is not
+        // reliable here. During restore, initialized is still false; start
+        // the feed requests then while LaunchSplash is still on screen.
         ref.read(booksControllerProvider).loadBooks();
         if (next.user?.role != 'admin') {
           ref.read(booksControllerProvider).loadCollection();

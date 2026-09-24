@@ -61,55 +61,69 @@ class BookDetail extends ConsumerWidget {
           expandedHeight: 360,
           pinned: true,
           backgroundColor: AppColors.background,
-          flexibleSpace: FlexibleSpaceBar(
-            background: Stack(
-              fit: StackFit.expand,
-              children: [
-                if (book.coverImageUrl.isNotEmpty)
-                  CachedNetworkImage(
-                    imageUrl: book.coverImageUrl,
-                    fit: BoxFit.cover,
-                    placeholder: (_, _) => const SkeletonBox(
-                      height: double.infinity,
-                      radius: 0,
-                    ),
-                    color: Colors.black.withValues(alpha: .38),
-                    colorBlendMode: BlendMode.darken,
+          // Use a regular flexible-space child instead of FlexibleSpaceBar.
+          // FlexibleSpaceBar fades its background as it collapses, which left
+          // the pinned header showing only the (black) app-bar background.
+          // Keeping the image in the stack makes it remain visible while the
+          // episode list is scrolled.
+          flexibleSpace: Stack(
+            fit: StackFit.expand,
+            children: [
+              if (book.coverImageUrl.isNotEmpty)
+                CachedNetworkImage(
+                  imageUrl: book.coverImageUrl,
+                  fit: BoxFit.cover,
+                  placeholder: (_, _) => const SkeletonBox(
+                    height: double.infinity,
+                    radius: 0,
                   ),
-                Center(
-                  child: Hero(
-                    tag: 'book-${book.id}',
-                    child: LayoutBuilder(
-                      builder: (context, constraints) {
-                        final coverWidth = (MediaQuery.sizeOf(context).width * .42)
-                            .clamp(128.0, 175.0);
-                        return Container(
-                          width: coverWidth,
-                          height: coverWidth * 1.4,
-                          decoration: BoxDecoration(
-                            borderRadius: BorderRadius.circular(14),
-                            boxShadow: const [
-                              BoxShadow(color: Colors.black54, blurRadius: 24),
-                            ],
-                          ),
-                          clipBehavior: Clip.antiAlias,
-                          child: book.coverImageUrl.isEmpty
-                              ? ColoredBox(color: Theme.of(context).colorScheme.surfaceContainerHighest)
-                              : CachedNetworkImage(
-                                  imageUrl: book.coverImageUrl,
-                                  fit: BoxFit.cover,
-                                  placeholder: (_, _) => const SkeletonBox(
-                                    height: double.infinity,
-                                    radius: 14,
-                                  ),
-                                ),
-                        );
-                      },
-                    ),
+                  color: Colors.black.withValues(alpha: .38),
+                  colorBlendMode: BlendMode.darken,
+                ),
+              // Keep toolbar controls readable over light cover images.
+              const DecoratedBox(
+                decoration: BoxDecoration(
+                  gradient: LinearGradient(
+                    begin: Alignment.topCenter,
+                    end: Alignment.bottomCenter,
+                    colors: [Colors.black54, Colors.transparent],
+                    stops: [0, .35],
                   ),
                 ),
-              ],
-            ),
+              ),
+              Center(
+                child: Hero(
+                  tag: 'book-${book.id}',
+                  child: LayoutBuilder(
+                    builder: (context, constraints) {
+                      final coverWidth = (MediaQuery.sizeOf(context).width * .42)
+                          .clamp(128.0, 175.0);
+                      return Container(
+                        width: coverWidth,
+                        height: coverWidth * 1.4,
+                        decoration: BoxDecoration(
+                          borderRadius: BorderRadius.circular(14),
+                          boxShadow: const [
+                            BoxShadow(color: Colors.black54, blurRadius: 24),
+                          ],
+                        ),
+                        clipBehavior: Clip.antiAlias,
+                        child: book.coverImageUrl.isEmpty
+                            ? ColoredBox(color: Theme.of(context).colorScheme.surfaceContainerHighest)
+                            : CachedNetworkImage(
+                                imageUrl: book.coverImageUrl,
+                                fit: BoxFit.cover,
+                                placeholder: (_, _) => const SkeletonBox(
+                                  height: double.infinity,
+                                  radius: 14,
+                                ),
+                              ),
+                      );
+                    },
+                  ),
+                ),
+              ),
+            ],
           ),
         ),
         SliverPadding(
@@ -125,6 +139,50 @@ class BookDetail extends ConsumerWidget {
                 '${book.language.toUpperCase()}  •  ${book.category}  •  ${book.accessType}',
                 style: const TextStyle(color: AppColors.muted),
               ),
+              const SizedBox(height: 14),
+              Container(
+                padding: const EdgeInsets.symmetric(horizontal: 14, vertical: 12),
+                decoration: BoxDecoration(
+                  color: Theme.of(context).colorScheme.surfaceContainerHighest,
+                  borderRadius: BorderRadius.circular(14),
+                ),
+                child: Row(
+                  mainAxisAlignment: MainAxisAlignment.spaceBetween,
+                  children: [
+                    const Text('Price', style: TextStyle(fontWeight: FontWeight.w700)),
+                    Text(
+                      book.priceInr > 0 ? 'INR ${book.priceInr.toStringAsFixed(0)}' : 'Free',
+                      style: TextStyle(
+                        color: book.priceInr > 0 ? AppColors.coral : AppColors.success,
+                        fontWeight: FontWeight.w800,
+                      ),
+                    ),
+                  ],
+                ),
+              ),
+              if (requiresPurchase) ...[
+                const SizedBox(height: 14),
+                Container(
+                  padding: const EdgeInsets.symmetric(horizontal: 14, vertical: 12),
+                  decoration: BoxDecoration(
+                    color: AppColors.coral.withValues(alpha: .12),
+                    borderRadius: BorderRadius.circular(14),
+                    border: Border.all(color: AppColors.coral.withValues(alpha: .35)),
+                  ),
+                  child: Row(
+                    children: [
+                      const Icon(Icons.lock_outline_rounded, color: AppColors.coral),
+                      const SizedBox(width: 10),
+                      Expanded(
+                        child: Text(
+                          'Premium story • One-time purchase required to unlock all episodes.',
+                          style: const TextStyle(fontWeight: FontWeight.w700),
+                        ),
+                      ),
+                    ],
+                  ),
+                ),
+              ],
               const SizedBox(height: 22),
               Text(
                 book.description,
@@ -156,9 +214,29 @@ class BookDetail extends ConsumerWidget {
                         if (context.mounted) AppMessage.show(context, error.toString(), success: false);
                       }
                     },
-                    leading: CircleAvatar(
-                      backgroundColor: Theme.of(context).colorScheme.surfaceContainerHighest,
-                      child: Text('${entry.key + 1}'),
+                    leading: ClipRRect(
+                      borderRadius: BorderRadius.circular(8),
+                      child: book.coverImageUrl.isEmpty
+                          ? Container(
+                              width: 52,
+                              height: 64,
+                              color: Theme.of(context).colorScheme.surfaceContainerHighest,
+                              alignment: Alignment.center,
+                              child: Text('${entry.key + 1}'),
+                            )
+                          : CachedNetworkImage(
+                              imageUrl: book.coverImageUrl,
+                              width: 52,
+                              height: 64,
+                              fit: BoxFit.cover,
+                              errorWidget: (_, __, ___) => Container(
+                                color: Theme.of(context).colorScheme.surfaceContainerHighest,
+                                width: 52,
+                                height: 64,
+                                alignment: Alignment.center,
+                                child: Text('${entry.key + 1}'),
+                              ),
+                            ),
                     ),
                     title: Text(episode.title),
                     subtitle: (isPlaying && player.currentEpisode == episode)
@@ -231,36 +309,116 @@ class BookDetail extends ConsumerWidget {
   }
 }
 
+class BookPurchaseCheckoutScreen extends ConsumerStatefulWidget {
+  const BookPurchaseCheckoutScreen({super.key, required this.book});
+
+  final Book book;
+
+  @override
+  ConsumerState<BookPurchaseCheckoutScreen> createState() =>
+      _BookPurchaseCheckoutScreenState();
+}
+
+class _BookPurchaseCheckoutScreenState
+    extends ConsumerState<BookPurchaseCheckoutScreen> {
+  bool _submitting = false;
+
+  Future<void> _proceed() async {
+    if (_submitting) return;
+    setState(() => _submitting = true);
+    final controller = ref.read(booksControllerProvider);
+    final ids = await controller.purchaseBook(widget.book);
+    if (!mounted) return;
+    if (ids == null) {
+      setState(() => _submitting = false);
+      AppMessage.show(context, controller.error ?? 'Payment failed', success: false);
+      return;
+    }
+    ref.read(sessionControllerProvider).updatePurchasedBooks(ids);
+    Navigator.of(context).pop(true);
+  }
+
+  @override
+  Widget build(BuildContext context) {
+    final book = widget.book;
+    return Scaffold(
+      appBar: AppBar(title: const Text('Confirm purchase')),
+      body: SafeArea(
+        child: Padding(
+          padding: const EdgeInsets.all(24),
+          child: Column(
+            crossAxisAlignment: CrossAxisAlignment.stretch,
+            children: [
+              const Icon(Icons.lock_open_rounded, size: 64, color: AppColors.coral),
+              const SizedBox(height: 20),
+              Text(book.title,
+                  textAlign: TextAlign.center,
+                  style: Theme.of(context).textTheme.headlineSmall),
+              const SizedBox(height: 12),
+              Text(
+                'Unlock every episode in this premium story with a one-time payment.',
+                textAlign: TextAlign.center,
+                style: Theme.of(context)
+                    .textTheme
+                    .bodyLarge
+                    ?.copyWith(color: AppColors.muted),
+              ),
+              const SizedBox(height: 24),
+              Card(
+                child: Padding(
+                  padding: const EdgeInsets.all(18),
+                  child: Row(
+                    mainAxisAlignment: MainAxisAlignment.spaceBetween,
+                    children: [
+                      const Text('Total', style: TextStyle(fontWeight: FontWeight.w700)),
+                      Text('INR ${book.priceInr.toStringAsFixed(0)}',
+                          style: const TextStyle(fontSize: 20, fontWeight: FontWeight.w900)),
+                    ],
+                  ),
+                ),
+              ),
+              const Spacer(),
+              OutlinedButton(
+                onPressed: _submitting ? null : () => Navigator.of(context).pop(false),
+                child: const Text('Cancel'),
+              ),
+              const SizedBox(height: 10),
+              FilledButton(
+                onPressed: _submitting ? null : _proceed,
+                child: Text(_submitting ? 'Processing...' : 'Proceed to pay'),
+              ),
+            ],
+          ),
+        ),
+      ),
+    );
+  }
+}
+
 Future<void> _purchaseBook(BuildContext context, WidgetRef ref, Book book) async {
   if (book.priceInr <= 0) {
     AppMessage.show(context, 'This story has no price yet. Please ask the admin to set one.', success: false);
     return;
   }
-  final confirmed = await showDialog<bool>(
-    context: context,
-    builder: (dialogContext) => AlertDialog(
+  final confirmed = await Navigator.of(context).push<bool>(
+    MaterialPageRoute(builder: (_) => BookPurchaseCheckoutScreen(book: book)),
+    /*
       title: Text('Buy ${book.title}?'),
       content: Text('One-time purchase · INR ${book.priceInr.toStringAsFixed(0)}\nYou will unlock every episode in this story.'),
       actions: [
         TextButton(onPressed: () => Navigator.pop(dialogContext, false), child: const Text('Cancel')),
         FilledButton(onPressed: () => Navigator.pop(dialogContext, true), child: const Text('Purchase')),
       ],
-    ),
+    */
   );
   if (confirmed != true || !context.mounted) return;
   final controller = ref.read(booksControllerProvider);
-  final ids = await controller.purchaseBook(book);
-  if (!context.mounted) return;
-  if (ids == null) {
-    AppMessage.show(context, controller.error ?? 'Purchase failed', success: false);
-    return;
-  }
-  ref.read(sessionControllerProvider).updatePurchasedBooks(ids);
   await controller.loadBooks(forceRefresh: true);
   if (!context.mounted) return;
   final matches = controller.books.where((item) => item.id == book.id);
   final updated = matches.isEmpty ? null : matches.first;
   if (updated != null) {
+    AppMessage.show(context, 'Payment successful. Story unlocked.', success: true);
     Navigator.of(context).pushReplacement(MaterialPageRoute(builder: (_) => BookDetail(book: updated)));
   } else {
     AppMessage.show(context, 'Story purchased successfully. Reopen it to listen.', success: true);

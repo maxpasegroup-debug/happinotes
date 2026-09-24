@@ -105,16 +105,18 @@ class AdminController extends ChangeNotifier {
   }
 
   Future<bool> uploadMedia(String kind) async {
-    final result = await FilePicker.platform.pickFiles(
+    final result = await FilePicker.pickFiles(
       type: FileType.custom,
       allowedExtensions: kind == 'cover' ? ['jpg', 'jpeg', 'png', 'webp'] : ['mp3'],
     );
-    final path = result?.files.single.path;
+    if (result.isEmpty) return false;
+    final file = result.single;
+    final path = file.path;
     if (path == null) return false;
     final maximumBytes = kind == 'cover'
         ? 5 * 1024 * 1024
         : 200 * 1024 * 1024;
-    final fileSize = result!.files.single.size;
+    final fileSize = await file.length() ?? 0;
     if (fileSize > maximumBytes) {
       error = kind == 'cover'
           ? 'Cover image must be 5 MB or smaller.'
@@ -131,7 +133,7 @@ class AdminController extends ChangeNotifier {
       } else {
         draft.introAudioUrl = media['url']?.toString() ?? '';
         draft.introAudioPublicId = media['publicId']?.toString() ?? '';
-        draft.audioFileName = result.files.single.name;
+        draft.audioFileName = file.name;
         final episode = {
           'title': 'Episode 1',
           'description': '',
@@ -153,11 +155,13 @@ class AdminController extends ChangeNotifier {
   }
 
   Future<bool> uploadEpisode() async {
-    final result = await FilePicker.platform.pickFiles(
+    final result = await FilePicker.pickFiles(
       type: FileType.custom,
       allowedExtensions: ['mp3'],
     );
-    final path = result?.files.single.path;
+    if (result.isEmpty) return false;
+    final file = result.single;
+    final path = file.path;
     if (path == null) return false;
     busy = true;
     error = null;
@@ -167,7 +171,7 @@ class AdminController extends ChangeNotifier {
       episodesAdd(
         title: 'Episode ${draft.episodes.length + 1}',
         mediaUrl: media['url']?.toString() ?? '',
-        fileName: result!.files.single.name,
+        fileName: file.name,
       );
       success = 'Episode uploaded';
       return true;
@@ -190,6 +194,11 @@ class AdminController extends ChangeNotifier {
       'fileName': fileName,
     });
     notifyListeners();
+  }
+
+  void updateEpisodeField(int index, String field, String value) {
+    if (index < 0 || index >= draft.episodes.length) return;
+    draft.episodes[index][field] = value;
   }
 
   void removeEpisode(int index) {
@@ -222,11 +231,13 @@ class AdminController extends ChangeNotifier {
   }
 
   Future<bool> uploadNotificationImage() async {
-    final result = await FilePicker.platform.pickFiles(
+    final result = await FilePicker.pickFiles(
       type: FileType.custom,
       allowedExtensions: ['jpg', 'jpeg', 'png', 'webp'],
     );
-    final path = result?.files.single.path;
+    if (result.isEmpty) return false;
+    final file = result.single;
+    final path = file.path;
     if (path == null) return false;
     busy = true;
     error = null;

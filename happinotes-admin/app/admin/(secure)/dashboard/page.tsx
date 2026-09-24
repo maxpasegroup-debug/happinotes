@@ -75,6 +75,7 @@ type ModuleKey = "lifebooks" | "notes" | "happiness" | "users" | "business" | "a
 
 type ChapterDraft = {
   title: string;
+  description: string;
   file: File | null;
   mediaUrl?: string;
   mediaType?: "audio" | "video";
@@ -137,7 +138,7 @@ function emptyForm(): ContentForm {
     introMediaUrl: "",
     introMediaType: undefined,
     introUploading: false,
-    chapters: [{ title: "Episode 1", file: null, mediaUrl: "", mediaType: undefined, uploading: false }],
+    chapters: [{ title: "Episode 1", description: "", file: null, mediaUrl: "", mediaType: undefined, uploading: false }],
     mediaUploadedUrl: "",
     mediaUploadedType: undefined,
     mediaUploading: false,
@@ -276,6 +277,7 @@ export default function AdminDashboardPage() {
     if (detail?.lessons && detail.lessons.length > 0) {
       next.chapters = detail.lessons.map((lesson, index) => ({
         title: lesson.title || `Episode ${index + 1}`,
+        description: lesson.description || "",
         file: null,
         mediaUrl: lesson.mediaUrl || "",
         mediaType: lesson.mediaType,
@@ -359,7 +361,7 @@ export default function AdminDashboardPage() {
       const chapters = form.chapters
         .map((chapter, index) => ({
           title: chapter.title.trim() || `Episode ${index + 1}`,
-          description: "",
+          description: chapter.description.trim(),
           order: index,
           mediaUrl: chapter.mediaUrl || undefined,
           mediaType: chapter.mediaType || undefined,
@@ -435,7 +437,7 @@ export default function AdminDashboardPage() {
       const chapters = form.chapters
         .map((chapter, index) => ({
           title: chapter.title.trim() || `Episode ${index + 1}`,
-          description: "",
+          description: chapter.description.trim(),
           order: index,
           mediaUrl: chapter.mediaUrl || undefined,
           mediaType: chapter.mediaType || undefined,
@@ -1109,6 +1111,20 @@ export default function AdminDashboardPage() {
                           placeholder={`Episode ${index + 1} title`}
                           className="rounded-lg border border-white/10 bg-[#0f1016] px-3 py-2 text-white outline-none"
                         />
+                        <textarea
+                          value={chapter.description}
+                          onChange={(e) =>
+                            setForm((prev) => ({
+                              ...prev,
+                              chapters: prev.chapters.map((x, i) =>
+                                i === index ? { ...x, description: e.target.value } : x
+                              ),
+                            }))
+                          }
+                          placeholder={`Episode ${index + 1} description`}
+                          rows={3}
+                          className="rounded-lg border border-white/10 bg-[#0f1016] px-3 py-2 text-sm text-white outline-none"
+                        />
                         <p className="text-xs text-[#a1a1aa]">
                           {chapter.file?.name || (chapter.mediaUrl ? (chapter.mediaUrl.split("/").pop() || "Saved MP3 attached") : "Choose an MP3 file")}
                         </p>
@@ -1198,7 +1214,7 @@ export default function AdminDashboardPage() {
                     onClick={() =>
                       setForm((prev) => ({
                         ...prev,
-                        chapters: [...prev.chapters, { title: `Episode ${prev.chapters.length + 1}`, file: null, mediaUrl: "" }],
+                        chapters: [...prev.chapters, { title: `Episode ${prev.chapters.length + 1}`, description: "", file: null, mediaUrl: "" }],
                       }))
                     }
                     className="w-fit rounded-md border border-white/20 px-3 py-2 text-xs text-white hover:bg-white/5"
