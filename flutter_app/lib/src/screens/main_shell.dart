@@ -25,6 +25,7 @@ class _MainShellState extends ConsumerState<MainShell> {
     super.initState();
     WidgetsBinding.instance.addPostFrameCallback((_) {
       if (!mounted) return;
+      ref.read(booksControllerProvider).loadBooks();
       ref.read(booksControllerProvider).loadCollection();
       _showFirstLanguagePicker();
     });

@@ -18,6 +18,11 @@ class BooksController extends ChangeNotifier {
   bool loading = false;
   String? error;
   Future<void> loadBooks({String? query, String? language, bool forceRefresh = false}) async {
+    // Avoid duplicate catalogue requests during startup. The session restore,
+    // MainShell, and first-language flow can all request the feed at nearly
+    // the same time; overlapping requests made the home screen appear empty
+    // for a long time on a cold backend.
+    if (loading) return;
     final canUseCache = query?.isEmpty != false &&
         (language == null || language == 'all');
     if (!forceRefresh && canUseCache && await _restoreCacheIfFresh()) return;
