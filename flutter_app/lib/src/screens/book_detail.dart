@@ -527,16 +527,34 @@ class _TestBookPurchaseScreenState
   Future<void> _proceed() async {
     if (_processing) return;
     setState(() => _processing = true);
-    await Future<void>.delayed(const Duration(milliseconds: 700));
-    if (!mounted) return;
-    final session = ref.read(sessionControllerProvider);
-    final ids = {...?session.user?.purchasedBookIds, widget.book.id}.toList();
-    session.updatePurchasedBooks(ids);
-    Navigator.of(context).pushReplacement(
-      MaterialPageRoute<void>(
-        builder: (_) => const TestPaymentSuccessScreen(),
-      ),
-    );
+    try {
+      await Future<void>.delayed(const Duration(milliseconds: 700));
+      final response = await ref.read(apiClientProvider).dio.post(
+        '/payments/test/purchase-book',
+        data: {'bookId': widget.book.id},
+      );
+      if (!mounted) return;
+      final ids = (response.data['purchasedBookIds'] as List? ?? const [])
+          .map((value) => value.toString())
+          .toList();
+      if (!ids.contains(widget.book.id)) {
+        ids.add(widget.book.id);
+      }
+      ref.read(sessionControllerProvider).updatePurchasedBooks(ids);
+      Navigator.of(context).pushReplacement(
+        MaterialPageRoute<void>(
+          builder: (_) => const TestPaymentSuccessScreen(),
+        ),
+      );
+    } catch (error) {
+      if (!mounted) return;
+      setState(() => _processing = false);
+      AppMessage.show(
+        context,
+        ref.read(apiClientProvider).errorMessage(error),
+        success: false,
+      );
+    }
   }
 
   @override
@@ -600,14 +618,19 @@ class TestPaymentSuccessScreen extends StatelessWidget {
   const TestPaymentSuccessScreen({super.key});
 
   @override
-  Widget build(BuildContext context) => Scaffold(
-    body: SafeArea(
-      child: Center(
-        child: Padding(
-          padding: const EdgeInsets.all(28),
-          child: Column(
-            mainAxisSize: MainAxisSize.min,
-            children: [
+  Widget build(BuildContext context) => PopScope<bool>(
+    canPop: false,
+    onPopInvokedWithResult: (didPop, _) {
+      if (!didPop) Navigator.of(context).pop(true);
+    },
+    child: Scaffold(
+      body: SafeArea(
+        child: Center(
+          child: Padding(
+            padding: const EdgeInsets.all(28),
+            child: Column(
+              mainAxisSize: MainAxisSize.min,
+              children: [
               Container(
                 width: 104,
                 height: 104,
@@ -633,7 +656,8 @@ class TestPaymentSuccessScreen extends StatelessWidget {
                 onPressed: () => Navigator.of(context).pop(true),
                 child: const Text('Continue listening'),
               ),
-            ],
+              ],
+            ),
           ),
         ),
       ),
