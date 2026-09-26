@@ -7,8 +7,6 @@ import {
   updateBook,
   deleteBook,
   updateBookStatus,
-  activateUserSubscription,
-  deactivateUserSubscription,
   deleteUser,
   blockUser,
   unblockUser,
@@ -81,8 +79,6 @@ const updateStatusValidation = [
 router.get('/users', getUsers);
 router.get('/stats', getAdminStats);
 router.post('/notify', sendNotification);
-router.patch('/users/:id/activate', activateUserSubscription);
-router.patch('/users/:id/deactivate', deactivateUserSubscription);
 router.patch('/users/:id/block', blockUser);
 router.patch('/users/:id/unblock', unblockUser);
 router.delete('/users/:id', deleteUser);

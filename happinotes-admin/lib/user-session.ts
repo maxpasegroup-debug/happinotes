@@ -3,8 +3,6 @@ export type WebUser = {
   name?: string;
   email?: string;
   role?: "admin" | "user";
-  subscriptionActive?: boolean;
-  subscriptionExpiry?: string | null;
 };
 
 const TOKEN_KEY = "user_token";

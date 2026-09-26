@@ -106,10 +106,6 @@ Dependencies: `express`, `mongoose`, `bcryptjs`, `jsonwebtoken`, `helmet`, `cors
      - `CLOUDINARY_CLOUD_NAME` = your Cloudinary cloud name
      - `CLOUDINARY_API_KEY` = your Cloudinary API key
      - `CLOUDINARY_API_SECRET` = your Cloudinary API secret
-     - `RAZORPAY_KEY_ID` = your Razorpay key id
-     - `RAZORPAY_KEY_SECRET` = your Razorpay key secret
-     - `RAZORPAY_MONTHLY_PLAN_ID` = Razorpay plan id for monthly autopay (₹499)
-     - `RAZORPAY_WEBHOOK_SECRET` = webhook secret from Razorpay dashboard
    - Railway will auto-set `PORT`; your app already uses `process.env.PORT`.
 
 5. **Build and start**

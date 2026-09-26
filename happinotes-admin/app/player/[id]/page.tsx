@@ -67,12 +67,9 @@ export default function PlayerPage() {
         const data = (await res.json().catch(() => ({}))) as { content?: Content };
         const item = data.content || null;
         setContent(item);
-        const user = getStoredUser();
-        if (item?.type === "premium" && !user?.subscriptionActive) {
-          setPremiumBlocked(true);
-        } else {
-          setPremiumBlocked(false);
-        }
+        // The web panel is an admin preview. Individual entitlements are
+        // verified and granted by the app payment flow.
+        setPremiumBlocked(false);
       } finally {
         setIsLoading(false);
       }
@@ -207,20 +204,13 @@ export default function PlayerPage() {
     if (!target) return;
     const isPreview = target.kind === "intro";
     const locked = premiumBlocked && !isPreview;
-    if (locked) {
-      router.push("/subscribe");
-      return;
-    }
+    if (locked) return;
     setChapterIndex(targetIndex);
     setMiniOpen(true);
     setIsPlaying(true);
   }
 
   function togglePlay() {
-    if (premiumBlocked) {
-      router.push("/subscribe");
-      return;
-    }
     if (chapters.length === 0) return;
     if (!miniOpen) {
       openChapter(0);

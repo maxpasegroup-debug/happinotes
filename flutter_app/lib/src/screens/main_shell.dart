@@ -1,5 +1,6 @@
 import 'package:flutter/material.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
+import 'package:shared_preferences/shared_preferences.dart';
 import '../../app/providers.dart';
 import '../../features/auth/presentation/controllers/session_controller.dart';
 import '../../features/books/domain/entities/book.dart';
@@ -25,7 +26,28 @@ class _MainShellState extends ConsumerState<MainShell> {
     WidgetsBinding.instance.addPostFrameCallback((_) {
       if (!mounted) return;
       ref.read(booksControllerProvider).loadCollection();
+      _showFirstLanguagePicker();
     });
+  }
+
+  Future<void> _showFirstLanguagePicker() async {
+    final user = ref.read(sessionControllerProvider).user;
+    if (user == null) return;
+    final prefs = await SharedPreferences.getInstance();
+    final key = 'language_prompt_seen_${user.id}';
+    if (prefs.getBool(key) == true || !mounted) return;
+    await prefs.setBool(key, true);
+    if (!mounted) return;
+    await showLanguagePicker(context, ref.read(sessionControllerProvider), ref);
+    if (!mounted) return;
+    final preference =
+        ref.read(sessionControllerProvider).user?.languagePreference ?? 'all';
+    await ref
+        .read(booksControllerProvider)
+        .loadBooks(
+          language: preference == 'all' ? null : preference,
+          forceRefresh: true,
+        );
   }
 
   @override
@@ -38,11 +60,7 @@ class _MainShellState extends ConsumerState<MainShell> {
         books.error == null) {
       Future.microtask(() => ref.read(booksControllerProvider).loadBooks());
     }
-    final pages = [
-      const HomeTab(),
-      const CollectionTab(),
-      const ProfileTab(),
-    ];
+    final pages = [const HomeTab(), const CollectionTab(), const ProfileTab()];
     return Scaffold(
       body: pages[index],
       bottomNavigationBar: Column(
@@ -54,7 +72,9 @@ class _MainShellState extends ConsumerState<MainShell> {
             onDestinationSelected: (value) {
               ref.read(mainTabIndexProvider.notifier).state = value;
               if (value == 1) {
-                ref.read(booksControllerProvider).loadCollection(forceRefresh: true);
+                ref
+                    .read(booksControllerProvider)
+                    .loadCollection(forceRefresh: true);
               }
             },
             backgroundColor: Theme.of(context).colorScheme.surface,
@@ -89,13 +109,25 @@ class HomeTab extends StatelessWidget {
   Widget build(BuildContext context) => Consumer(
     builder: (context, ref, child) {
       final s = ref.watch(booksControllerProvider);
-      final preference = ref.watch(sessionControllerProvider).user?.languagePreference ?? 'all';
+      final preference =
+          ref.watch(sessionControllerProvider).user?.languagePreference ??
+          'all';
       final books = preference == 'all'
           ? s.books
-          : s.books.where((book) => book.language.toLowerCase() == preference.toLowerCase()).toList();
+          : s.books
+                .where(
+                  (book) =>
+                      book.language.toLowerCase() == preference.toLowerCase(),
+                )
+                .toList();
       final upcoming = preference == 'all'
           ? s.upcoming
-          : s.upcoming.where((book) => book.language.toLowerCase() == preference.toLowerCase()).toList();
+          : s.upcoming
+                .where(
+                  (book) =>
+                      book.language.toLowerCase() == preference.toLowerCase(),
+                )
+                .toList();
       return SafeArea(
         child: RefreshIndicator(
           onRefresh: () => s.loadBooks(forceRefresh: true),
@@ -116,10 +148,11 @@ class HomeTab extends StatelessWidget {
                       children: [
                         Text(
                           'HappiNotes',
-                          style: Theme.of(context).textTheme.titleLarge?.copyWith(
-                            fontSize: 22,
-                            fontWeight: FontWeight.w900,
-                          ),
+                          style: Theme.of(context).textTheme.titleLarge
+                              ?.copyWith(
+                                fontSize: 22,
+                                fontWeight: FontWeight.w900,
+                              ),
                         ),
                         Text(
                           'Listen. Learn. Feel better.',
@@ -146,24 +179,26 @@ class HomeTab extends StatelessWidget {
                 borderRadius: BorderRadius.circular(16),
                 child: InkWell(
                   borderRadius: BorderRadius.circular(16),
-                  onTap: () => Navigator.of(context).push(
-                    MaterialPageRoute(builder: (_) => const SearchTab()),
-                  ),
+                  onTap: () => Navigator.of(
+                    context,
+                  ).push(MaterialPageRoute(builder: (_) => const SearchTab())),
                   child: Padding(
-                    padding: const EdgeInsets.symmetric(horizontal: 4),
-                child: TextField(
-                  readOnly: true,
-                  onTap: () => Navigator.of(context).push(
-                    MaterialPageRoute(builder: (_) => const SearchTab()),
-                  ),
-                  decoration: InputDecoration(
-                    prefixIcon: const Icon(Icons.search_rounded),
-                    hintText: 'Search books and stories',
-                    fillColor: Colors.transparent,
-                    border: InputBorder.none,
-                  ),
-                  style: TextStyle(color: Theme.of(context).colorScheme.onSurface),
-                ),
+                    padding: EdgeInsets.zero,
+                    child: TextField(
+                      readOnly: true,
+                      onTap: () => Navigator.of(context).push(
+                        MaterialPageRoute(builder: (_) => const SearchTab()),
+                      ),
+                      decoration: const InputDecoration(
+                        prefixIcon: Icon(Icons.search_rounded),
+                        hintText: 'Search books and stories',
+                        fillColor: Colors.transparent,
+                        border: InputBorder.none,
+                      ),
+                      style: TextStyle(
+                        color: Theme.of(context).colorScheme.onSurface,
+                      ),
+                    ),
                   ),
                 ),
               ),
@@ -294,124 +329,137 @@ class _FeaturedRailState extends State<FeaturedRail> {
     final viewport = MediaQuery.sizeOf(context);
     final railHeight = (viewport.width * .95).clamp(300.0, 374.0);
     return Column(
-    children: [
-      SizedBox(
-        height: railHeight,
-        child: PageView.builder(
-          controller: _controller,
-          itemCount: widget.books.length,
-          onPageChanged: (value) => setState(() => _index = value),
-          itemBuilder: (context, index) {
-            final book = widget.books[index];
-            return Padding(
-              // Give each featured thumbnail breathing room so adjacent
-              // covers do not appear to touch while swiping.
-              padding: const EdgeInsets.symmetric(horizontal: 10),
-              child: InkWell(
-                borderRadius: BorderRadius.circular(24),
-                onTap: () => openBook(context, book),
-                child: ClipRRect(
+      children: [
+        SizedBox(
+          height: railHeight,
+          child: PageView.builder(
+            controller: _controller,
+            // Do not center the first/last page inside the viewport. The
+            // section already has page padding, so PageView's default end
+            // padding creates an unnecessarily large left/right gap.
+            padEnds: false,
+            itemCount: widget.books.length,
+            onPageChanged: (value) => setState(() => _index = value),
+            itemBuilder: (context, index) {
+              final book = widget.books[index];
+              return Padding(
+                // Give each featured thumbnail breathing room so adjacent
+                // covers do not appear to touch while swiping.
+                padding: const EdgeInsets.symmetric(horizontal: 10),
+                child: InkWell(
                   borderRadius: BorderRadius.circular(24),
-                  child: Stack(
-                    fit: StackFit.expand,
-                    children: [
-                      _cover(book),
-                      const DecoratedBox(
-                        decoration: BoxDecoration(
-                          gradient: LinearGradient(
-                            begin: Alignment.topCenter,
-                            end: Alignment.bottomCenter,
-                            colors: [Colors.transparent, Color(0xE6000000)],
-                            stops: [.5, 1],
+                  onTap: () => openBook(context, book),
+                  child: ClipRRect(
+                    borderRadius: BorderRadius.circular(24),
+                    child: Stack(
+                      fit: StackFit.expand,
+                      children: [
+                        _cover(book),
+                        const DecoratedBox(
+                          decoration: BoxDecoration(
+                            gradient: LinearGradient(
+                              begin: Alignment.topCenter,
+                              end: Alignment.bottomCenter,
+                              colors: [Colors.transparent, Color(0xE6000000)],
+                              stops: [.5, 1],
+                            ),
                           ),
                         ),
-                      ),
-                      Positioned(
-                        top: 14,
-                        right: 14,
-                        child: DecoratedBox(
-                          decoration: BoxDecoration(
-                            color: Colors.black.withValues(alpha: .45),
-                            shape: BoxShape.circle,
-                          ),
-                          child: Consumer(
-                            builder: (context, ref, _) {
-                              final saved = ref.watch(booksControllerProvider)
-                                  .library
-                                  .any((item) => item.id == book.id);
-                              return IconButton(
-                              visualDensity: VisualDensity.compact,
-                              color: saved ? AppColors.coral : Colors.white,
-                              icon: Icon(
-                                saved
-                                    ? Icons.bookmark_rounded
-                                    : Icons.bookmark_border_rounded,
-                              ),
-                              onPressed: () async {
-                                final controller = ref.read(booksControllerProvider);
-                                final message = saved
-                                    ? await controller.removeFromCollection(book)
-                                    : await controller.addToCollection(book);
-                                if (!context.mounted) return;
-                                AppMessage.show(
-                                  context,
-                                  message ??
-                                      (saved
-                                          ? 'Removed from your library'
-                                          : 'Added to your library'),
-                                  success: message == null,
+                        Positioned(
+                          top: 14,
+                          right: 14,
+                          child: DecoratedBox(
+                            decoration: BoxDecoration(
+                              color: Colors.black.withValues(alpha: .45),
+                              shape: BoxShape.circle,
+                            ),
+                            child: Consumer(
+                              builder: (context, ref, _) {
+                                final saved = ref
+                                    .watch(booksControllerProvider)
+                                    .library
+                                    .any((item) => item.id == book.id);
+                                return IconButton(
+                                  visualDensity: VisualDensity.compact,
+                                  color: saved ? AppColors.coral : Colors.white,
+                                  icon: Icon(
+                                    saved
+                                        ? Icons.bookmark_rounded
+                                        : Icons.bookmark_border_rounded,
+                                  ),
+                                  onPressed: () async {
+                                    final controller = ref.read(
+                                      booksControllerProvider,
+                                    );
+                                    final message = saved
+                                        ? await controller.removeFromCollection(
+                                            book,
+                                          )
+                                        : await controller.addToCollection(
+                                            book,
+                                          );
+                                    if (!context.mounted) return;
+                                    AppMessage.show(
+                                      context,
+                                      message ??
+                                          (saved
+                                              ? 'Removed from your library'
+                                              : 'Added to your library'),
+                                      success: message == null,
+                                    );
+                                  },
                                 );
                               },
-                            );
-                            },
+                            ),
                           ),
                         ),
-                      ),
-                      Positioned(
-                        left: 18,
-                        right: 18,
-                        bottom: 18,
-                        child: Text(
-                          book.title,
-                          maxLines: 2,
-                          overflow: TextOverflow.ellipsis,
-                          style: const TextStyle(
-                            fontSize: 24,
-                            height: 1.05,
-                            fontWeight: FontWeight.w900,
-                            color: Colors.white,
+                        Positioned(
+                          left: 18,
+                          right: 18,
+                          bottom: 18,
+                          child: Text(
+                            book.title,
+                            maxLines: 2,
+                            overflow: TextOverflow.ellipsis,
+                            style: const TextStyle(
+                              fontSize: 24,
+                              height: 1.05,
+                              fontWeight: FontWeight.w900,
+                              color: Colors.white,
+                            ),
                           ),
                         ),
-                      ),
-                    ],
+                      ],
+                    ),
                   ),
                 ),
+              );
+            },
+          ),
+        ),
+        const SizedBox(height: 12),
+        Row(
+          mainAxisAlignment: MainAxisAlignment.center,
+          children: List.generate(widget.books.length.clamp(1, 6).toInt(), (
+            dot,
+          ) {
+            final active = dot == _index.clamp(0, 5).toInt();
+            return AnimatedContainer(
+              duration: const Duration(milliseconds: 180),
+              width: active ? 42 : 8,
+              height: 8,
+              margin: const EdgeInsets.symmetric(horizontal: 4),
+              decoration: BoxDecoration(
+                color: active
+                    ? Theme.of(context).colorScheme.primary
+                    : Theme.of(context).colorScheme.outline,
+                borderRadius: BorderRadius.circular(10),
               ),
             );
-          },
+          }),
         ),
-      ),
-      const SizedBox(height: 12),
-      Row(
-        mainAxisAlignment: MainAxisAlignment.center,
-        children: List.generate(widget.books.length.clamp(1, 6).toInt(), (dot) {
-          final active = dot == _index.clamp(0, 5).toInt();
-          return AnimatedContainer(
-            duration: const Duration(milliseconds: 180),
-            width: active ? 42 : 8,
-            height: 8,
-            margin: const EdgeInsets.symmetric(horizontal: 4),
-            decoration: BoxDecoration(
-              color: active
-                  ? Theme.of(context).colorScheme.primary
-                  : Theme.of(context).colorScheme.outline,
-              borderRadius: BorderRadius.circular(10),
-            ),
-          );
-        }),
-      ),
-    ],
-  );
+      ],
+    );
   }
 
   Widget _cover(Book book) {
@@ -430,7 +478,9 @@ class _FeaturedRailState extends State<FeaturedRail> {
       book.coverImageUrl,
       fit: BoxFit.cover,
       errorBuilder: (_, _, _) => DecoratedBox(
-        decoration: BoxDecoration(color: Theme.of(context).colorScheme.surfaceContainerHighest),
+        decoration: BoxDecoration(
+          color: Theme.of(context).colorScheme.surfaceContainerHighest,
+        ),
         child: Icon(Icons.menu_book_rounded, size: 72, color: AppColors.muted),
       ),
     );
@@ -443,7 +493,6 @@ class SearchTab extends ConsumerWidget {
   Widget build(BuildContext context, WidgetRef ref) {
     final s = ref.watch(booksControllerProvider);
     final query = ref.watch(searchQueryProvider);
-    final language = ref.watch(searchLanguageProvider);
     return Scaffold(
       appBar: AppBar(
         title: const Text('Search'),
@@ -454,97 +503,74 @@ class SearchTab extends ConsumerWidget {
       ),
       body: SafeArea(
         child: Column(
-        children: [
-          Padding(
-            padding: const EdgeInsets.all(16),
-            child: Column(
-              crossAxisAlignment: CrossAxisAlignment.start,
-              children: [
-                const Text(
-                  'Discover',
-                  style: TextStyle(fontSize: 28, fontWeight: FontWeight.w900),
-                ),
-                const SizedBox(height: 14),
-                TextFormField(
-                  initialValue: query,
-                  onChanged: (value) {
-                    ref.read(searchQueryProvider.notifier).state = value;
-                    s.loadBooks(query: value, language: language);
-                  },
-                  onFieldSubmitted: (v) =>
-                      s.loadBooks(query: v, language: language),
-                  decoration: InputDecoration(
-                    prefixIcon: const Icon(Icons.search),
-                    hintText: 'Search books',
+          children: [
+            Padding(
+              padding: const EdgeInsets.all(16),
+              child: Column(
+                crossAxisAlignment: CrossAxisAlignment.start,
+                children: [
+                  const Text(
+                    'Discover',
+                    style: TextStyle(fontSize: 28, fontWeight: FontWeight.w900),
                   ),
-                  style: TextStyle(color: Theme.of(context).colorScheme.onSurface),
-                ),
-                const SizedBox(height: 12),
-                SingleChildScrollView(
-                  scrollDirection: Axis.horizontal,
-                  child: Row(
-                    children: ['all', 'english', 'malayalam', 'hindi']
-                        .map(
-                          (x) => Padding(
-                            padding: const EdgeInsets.only(right: 8),
-                            child: ChoiceChip(
-                              label: Text(x),
-                              selected: language == x,
-                              onSelected: (_) {
-                                ref
-                                        .read(searchLanguageProvider.notifier)
-                                        .state =
-                                    x;
-                                s.loadBooks(query: query, language: x);
-                              },
-                            ),
-                          ),
-                        )
-                        .toList(),
-                  ),
-                ),
-              ],
-            ),
-          ),
-          Expanded(
-            child: s.loading
-                ? const GridLoadingSkeleton()
-                : s.error != null
-                    ? _InlineState(
-                        icon: Icons.cloud_off_rounded,
-                        title: 'Search is unavailable',
-                        message: s.error!,
-                        action: TextButton.icon(
-                          onPressed: () => s.loadBooks(query: query, language: language),
-                          icon: const Icon(Icons.refresh_rounded),
-                          label: const Text('Try again'),
-                        ),
-                      )
-                    : s.books.isEmpty
-                        ? const _InlineState(
-                            icon: Icons.search_off_rounded,
-                            title: 'No stories found',
-                            message: 'Try another title or language filter.',
-                          )
-                        : GridView.builder(
-                    padding: const EdgeInsets.all(16),
-                    gridDelegate:
-                        SliverGridDelegateWithFixedCrossAxisCount(
-                          crossAxisCount: 2,
-                          crossAxisSpacing: 18,
-                          mainAxisSpacing: 16,
-                          mainAxisExtent: BookCard.shelfHeight(context) + 18,
-                        ),
-                    itemCount: s.books.length,
-                    itemBuilder: (_, i) => BookCard(
-                      book: s.books[i],
-                      onTap: () => openBook(context, s.books[i]),
+                  const SizedBox(height: 14),
+                  TextFormField(
+                    initialValue: query,
+                    onChanged: (value) {
+                      ref.read(searchQueryProvider.notifier).state = value;
+                      s.loadBooks(query: value);
+                    },
+                    onFieldSubmitted: (v) => s.loadBooks(query: v),
+                    decoration: InputDecoration(
+                      prefixIcon: const Icon(Icons.search),
+                      hintText: 'Search books',
+                    ),
+                    style: TextStyle(
+                      color: Theme.of(context).colorScheme.onSurface,
                     ),
                   ),
-          ),
-        ],
+                ],
+              ),
+            ),
+            Expanded(
+              child: s.loading
+                  ? const GridLoadingSkeleton()
+                  : s.error != null
+                  ? _InlineState(
+                      icon: Icons.cloud_off_rounded,
+                      title: 'Search is unavailable',
+                      message: s.error!,
+                      action: TextButton.icon(
+                        onPressed: () => s.loadBooks(query: query),
+                        icon: const Icon(Icons.refresh_rounded),
+                        label: const Text('Try again'),
+                      ),
+                    )
+                  : s.books.isEmpty
+                  ? const _InlineState(
+                      icon: Icons.search_off_rounded,
+                      title: 'No stories found',
+                      message: 'Try another title.',
+                    )
+                  : GridView.builder(
+                      padding: const EdgeInsets.all(16),
+                      gridDelegate: SliverGridDelegateWithFixedCrossAxisCount(
+                        crossAxisCount: 2,
+                        crossAxisSpacing: 18,
+                        mainAxisSpacing: 16,
+                        mainAxisExtent: BookCard.shelfHeight(context) + 18,
+                      ),
+                      itemCount: s.books.length,
+                      itemBuilder: (_, i) => BookCard(
+                        book: s.books[i],
+                        onTap: () => openBook(context, s.books[i]),
+                      ),
+                    ),
+            ),
+          ],
+        ),
       ),
-    ));
+    );
   }
 }
 
@@ -554,7 +580,9 @@ class CollectionTab extends ConsumerWidget {
   Widget build(BuildContext context, WidgetRef ref) {
     final state = ref.watch(booksControllerProvider);
     if (!state.collectionLoaded && !state.collectionLoading) {
-      Future.microtask(() => ref.read(booksControllerProvider).loadCollection());
+      Future.microtask(
+        () => ref.read(booksControllerProvider).loadCollection(),
+      );
     }
     return SafeArea(
       child: Padding(
@@ -562,19 +590,29 @@ class CollectionTab extends ConsumerWidget {
         child: Column(
           crossAxisAlignment: CrossAxisAlignment.start,
           children: [
-            const Text('My Library', style: TextStyle(fontSize: 28, fontWeight: FontWeight.w900)),
+            const Text(
+              'My Library',
+              style: TextStyle(fontSize: 28, fontWeight: FontWeight.w900),
+            ),
             const SizedBox(height: 16),
             if (state.collectionLoading)
-              const Expanded(child: Center(child: CircularProgressIndicator()))
+              const Expanded(child: GridLoadingSkeleton())
             else if (state.library.isEmpty)
               const Expanded(
                 child: Center(
                   child: Column(
                     mainAxisSize: MainAxisSize.min,
                     children: [
-                      Icon(Icons.bookmark_border, size: 58, color: AppColors.muted),
+                      Icon(
+                        Icons.bookmark_border,
+                        size: 58,
+                        color: AppColors.muted,
+                      ),
                       SizedBox(height: 14),
-                      Text('Your saved books will appear here.', style: TextStyle(color: AppColors.muted)),
+                      Text(
+                        'Your saved books will appear here.',
+                        style: TextStyle(color: AppColors.muted),
+                      ),
                     ],
                   ),
                 ),
@@ -593,15 +631,17 @@ class CollectionTab extends ConsumerWidget {
                   itemCount: state.library.length,
                   itemBuilder: (_, index) {
                     final book = state.library[index];
-                    return BookCard(book: book, onTap: () => openBook(context, book));
+                    return BookCard(
+                      book: book,
+                      onTap: () => openBook(context, book),
+                    );
                   },
                 ),
               ),
           ],
         ),
-        ),
-      );
-    
+      ),
+    );
   }
 }
 
@@ -647,9 +687,13 @@ class ProfileTab extends ConsumerWidget {
           ),
           const SizedBox(height: 28),
           ListTile(
-            leading: Icon(theme.mode == ThemeMode.dark ? Icons.dark_mode : Icons.light_mode),
+            leading: Icon(
+              theme.mode == ThemeMode.dark ? Icons.dark_mode : Icons.light_mode,
+            ),
             title: const Text('Appearance'),
-            subtitle: Text(theme.mode == ThemeMode.dark ? 'Dark mode' : 'Light mode'),
+            subtitle: Text(
+              theme.mode == ThemeMode.dark ? 'Dark mode' : 'Light mode',
+            ),
             trailing: Switch(
               value: theme.mode == ThemeMode.dark,
               onChanged: (_) => ref.read(themeControllerProvider).toggle(),
@@ -659,11 +703,15 @@ class ProfileTab extends ConsumerWidget {
           ListTile(
             leading: const Icon(Icons.auto_stories_outlined),
             title: const Text('Purchased stories'),
-            subtitle: Text('${s.user?.purchasedBookIds.length ?? 0} stories unlocked'),
+            subtitle: Text(
+              '${s.user?.purchasedBookIds.length ?? 0} stories unlocked',
+            ),
             trailing: const Icon(Icons.chevron_right),
             onTap: () {
               Navigator.of(context).push(
-                MaterialPageRoute(builder: (_) => const PurchasedStoriesScreen()),
+                MaterialPageRoute(
+                  builder: (_) => const PurchasedStoriesScreen(),
+                ),
               );
             },
           ),
@@ -734,6 +782,12 @@ Future<void> showLanguagePicker(
   if (selected == null || !context.mounted) return;
   try {
     await state.updateLanguage(selected);
+    await ref
+        .read(booksControllerProvider)
+        .loadBooks(
+          language: selected == 'all' ? null : selected,
+          forceRefresh: true,
+        );
     if (context.mounted) {
       AppMessage.show(context, 'Language preference updated');
     }
@@ -760,52 +814,50 @@ class MiniPlayer extends ConsumerWidget {
       child: SafeArea(
         top: false,
         child: ListTile(
-          dense: true,
+          dense: false,
+          minTileHeight: 52,
           visualDensity: const VisualDensity(horizontal: 0, vertical: -2),
-          minVerticalPadding: 2,
-          contentPadding: const EdgeInsets.fromLTRB(16, 2, 8, 2),
-        onTap: () {
-          // Open the full player when the mini-player itself is tapped.
-          // The play/pause button remains an independent control.
-          final episode = s.currentEpisode ??
-              (b.episodes.isNotEmpty ? b.episodes.first : null);
-          if (episode != null) {
-            Navigator.of(context).push(
-              _slideUpRoute(
-                EpisodePlayerScreen(book: b, episode: episode),
-              ),
-            );
-          } else {
-            Navigator.of(context).push(
-              _slideUpRoute(BookDetail(book: b)),
-            );
-          }
-        },
-        leading: b.coverImageUrl.isEmpty
-            ? const Icon(Icons.audio_file)
-            : ClipRRect(
-                borderRadius: BorderRadius.circular(8),
-                child: Image.network(
-                  b.coverImageUrl,
-                  width: 44,
-                  height: 44,
-                  fit: BoxFit.cover,
+          minVerticalPadding: 0,
+          contentPadding: const EdgeInsets.fromLTRB(16, 0, 8, 0),
+          onTap: () {
+            // Open the full player when the mini-player itself is tapped.
+            // The play/pause button remains an independent control.
+            final episode =
+                s.currentEpisode ??
+                (b.episodes.isNotEmpty ? b.episodes.first : null);
+            if (episode != null) {
+              Navigator.of(context).push(
+                _slideUpRoute(EpisodePlayerScreen(book: b, episode: episode)),
+              );
+            } else {
+              Navigator.of(context).push(_slideUpRoute(BookDetail(book: b)));
+            }
+          },
+          leading: b.coverImageUrl.isEmpty
+              ? const Icon(Icons.audio_file)
+              : ClipRRect(
+                  borderRadius: BorderRadius.circular(10),
+                  child: Image.network(
+                    b.coverImageUrl,
+                    width: 48,
+                    height: 48,
+                    fit: BoxFit.cover,
+                  ),
                 ),
+          title: Text(b.title, maxLines: 1, overflow: TextOverflow.ellipsis),
+          trailing: StreamBuilder<bool>(
+            stream: s.audioPlayer.playingStream,
+            builder: (_, snap) => IconButton(
+              onPressed: s.togglePlayback,
+              icon: Icon(
+                snap.data == true
+                    ? Icons.pause_circle_filled
+                    : Icons.play_circle_fill,
+                color: AppColors.coral,
+                size: 36,
               ),
-        title: Text(b.title, maxLines: 1, overflow: TextOverflow.ellipsis),
-        trailing: StreamBuilder<bool>(
-          stream: s.audioPlayer.playingStream,
-          builder: (_, snap) => IconButton(
-            onPressed: s.togglePlayback,
-            icon: Icon(
-              snap.data == true
-                  ? Icons.pause_circle_filled
-                  : Icons.play_circle_fill,
-              color: AppColors.coral,
-              size: 36,
             ),
           ),
-        ),
         ),
       ),
     );
@@ -813,7 +865,12 @@ class MiniPlayer extends ConsumerWidget {
 }
 
 class _InlineState extends StatelessWidget {
-  const _InlineState({required this.icon, required this.title, required this.message, this.action});
+  const _InlineState({
+    required this.icon,
+    required this.title,
+    required this.message,
+    this.action,
+  });
 
   final IconData icon;
   final String title;
@@ -829,9 +886,19 @@ class _InlineState extends StatelessWidget {
         children: [
           Icon(icon, size: 44, color: Theme.of(context).colorScheme.primary),
           const SizedBox(height: 14),
-          Text(title, textAlign: TextAlign.center, style: Theme.of(context).textTheme.titleMedium),
+          Text(
+            title,
+            textAlign: TextAlign.center,
+            style: Theme.of(context).textTheme.titleMedium,
+          ),
           const SizedBox(height: 6),
-          Text(message, textAlign: TextAlign.center, style: Theme.of(context).textTheme.bodyMedium?.copyWith(color: AppColors.muted)),
+          Text(
+            message,
+            textAlign: TextAlign.center,
+            style: Theme.of(
+              context,
+            ).textTheme.bodyMedium?.copyWith(color: AppColors.muted),
+          ),
           if (action != null) ...[const SizedBox(height: 12), action!],
         ],
       ),
@@ -846,6 +913,19 @@ Route<void> _slideUpRoute(Widget page) => PageRouteBuilder<void>(
   transitionsBuilder: (_, animation, __, child) => SlideTransition(
     position: Tween<Offset>(
       begin: const Offset(0, 1),
+      end: Offset.zero,
+    ).chain(CurveTween(curve: Curves.easeOutCubic)).animate(animation),
+    child: child,
+  ),
+);
+
+Route<void> _slideDownRoute(Widget page) => PageRouteBuilder<void>(
+  pageBuilder: (_, __, ___) => page,
+  transitionDuration: const Duration(milliseconds: 320),
+  reverseTransitionDuration: const Duration(milliseconds: 260),
+  transitionsBuilder: (_, animation, __, child) => SlideTransition(
+    position: Tween<Offset>(
+      begin: const Offset(0, -1),
       end: Offset.zero,
     ).chain(CurveTween(curve: Curves.easeOutCubic)).animate(animation),
     child: child,
@@ -949,9 +1029,8 @@ class _DemoNotificationTile extends StatelessWidget {
   );
 }
 
-void openBook(BuildContext context, Book b) => Navigator.of(
-  context,
-).push(MaterialPageRoute(builder: (_) => BookDetail(book: b)));
+void openBook(BuildContext context, Book b) =>
+    Navigator.of(context).push(_slideDownRoute(BookDetail(book: b)));
 
 class PurchasedStoriesScreen extends ConsumerWidget {
   const PurchasedStoriesScreen({super.key});
@@ -960,44 +1039,50 @@ class PurchasedStoriesScreen extends ConsumerWidget {
   Widget build(BuildContext context, WidgetRef ref) {
     final session = ref.watch(sessionControllerProvider);
     final booksState = ref.watch(booksControllerProvider);
-    final purchasedIds = session.user?.purchasedBookIds.toSet() ?? const <String>{};
+    final purchasedIds =
+        session.user?.purchasedBookIds.toSet() ?? const <String>{};
     final purchased = booksState.books
         .where((book) => purchasedIds.contains(book.id))
         .toList();
 
     if (!booksState.loading && purchasedIds.isNotEmpty && purchased.isEmpty) {
-      Future.microtask(() => ref.read(booksControllerProvider).loadBooks(forceRefresh: true));
+      Future.microtask(
+        () => ref.read(booksControllerProvider).loadBooks(forceRefresh: true),
+      );
     }
 
     return Scaffold(
       appBar: AppBar(title: const Text('Purchased stories')),
       body: booksState.loading && purchased.isEmpty
-          ? const Center(child: CircularProgressIndicator())
+          ? const GridLoadingSkeleton()
           : purchased.isEmpty
-              ? const Center(
-                  child: Padding(
-                    padding: EdgeInsets.all(24),
-                    child: Text(
-                      'You have not purchased any stories yet.',
-                      textAlign: TextAlign.center,
-                      style: TextStyle(color: AppColors.muted),
-                    ),
-                  ),
-                )
-              : GridView.builder(
-                  padding: const EdgeInsets.fromLTRB(20, 20, 20, 28),
-                  gridDelegate: SliverGridDelegateWithFixedCrossAxisCount(
-                    crossAxisCount: 2,
-                    crossAxisSpacing: 18,
-                    mainAxisSpacing: 18,
-                    mainAxisExtent: BookCard.shelfHeight(context) + 14,
-                  ),
-                  itemCount: purchased.length,
-                  itemBuilder: (_, index) {
-                    final book = purchased[index];
-                    return BookCard(book: book, onTap: () => openBook(context, book));
-                  },
+          ? const Center(
+              child: Padding(
+                padding: EdgeInsets.all(24),
+                child: Text(
+                  'You have not purchased any stories yet.',
+                  textAlign: TextAlign.center,
+                  style: TextStyle(color: AppColors.muted),
                 ),
+              ),
+            )
+          : GridView.builder(
+              padding: const EdgeInsets.fromLTRB(20, 20, 20, 28),
+              gridDelegate: SliverGridDelegateWithFixedCrossAxisCount(
+                crossAxisCount: 2,
+                crossAxisSpacing: 18,
+                mainAxisSpacing: 18,
+                mainAxisExtent: BookCard.shelfHeight(context) + 14,
+              ),
+              itemCount: purchased.length,
+              itemBuilder: (_, index) {
+                final book = purchased[index];
+                return BookCard(
+                  book: book,
+                  onTap: () => openBook(context, book),
+                );
+              },
+            ),
     );
   }
 }

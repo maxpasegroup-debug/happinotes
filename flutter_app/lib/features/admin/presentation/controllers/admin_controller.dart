@@ -264,13 +264,6 @@ class AdminController extends ChangeNotifier {
     finally { busy = false; notifyListeners(); }
   }
 
-  Future<bool> changeSubscription(String id, String status) async {
-    busy = true; error = null; notifyListeners();
-    try { await repository.updateUserSubscription(id, status); success = 'Subscription updated'; await loadAll(); return true; }
-    catch (e) { error = client.errorMessage(e); return false; }
-    finally { busy = false; notifyListeners(); }
-  }
-
   Future<bool> removeUser(String id) async {
     busy = true; error = null; notifyListeners();
     try { await repository.deleteUser(id); success = 'User deleted'; await loadAll(); return true; }

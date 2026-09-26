@@ -4,7 +4,6 @@ import { User, Content } from '../models';
 import type { ILifebookSection, ILesson } from '../models/Content';
 import { BadRequestError, NotFoundError } from '../utils/errors';
 import { emitCatalogChanged, emitNotification } from '../services/realtime';
-import { computeSubscriptionExpiry, parseSubscriptionPlan, subscriptionDays } from '../utils/subscription';
 
 const LIFEBOOK_UPDATE_FIELDS = [
   'title',
@@ -30,7 +29,7 @@ export const getAdminStats = async (
       await Promise.all([
         User.countDocuments(),
         Content.countDocuments({ contentType: 'lifebook', status: 'live' }),
-        User.countDocuments({ subscriptionStatus: 'premium' }),
+        User.countDocuments({ purchasedBooks: { $exists: true, $ne: [] } }),
         Content.find({ contentType: 'lifebook', status: 'live' })
           .sort({ listenCount: -1 })
           .limit(1)
@@ -106,7 +105,7 @@ function normalizeLessons(v: unknown): ILesson[] {
   return out.sort((a, b) => a.order - b.order);
 }
 
-const USER_ADMIN_KEYS = ['_id', 'name', 'email', 'role', 'subscriptionActive', 'subscriptionPlan', 'subscriptionExpiry', 'blocked', 'createdAt'] as const;
+const USER_ADMIN_KEYS = ['_id', 'name', 'email', 'role', 'blocked', 'createdAt', 'purchasedBooks'] as const;
 
 function formatUserForAdmin(doc: Record<string, unknown>): Record<string, unknown> {
   const out: Record<string, unknown> = {};
@@ -118,7 +117,7 @@ function formatUserForAdmin(doc: Record<string, unknown>): Record<string, unknow
   return out;
 }
 
-/** GET /admin/users — id, name, email, role, subscriptionActive, subscriptionExpiry, createdAt; exclude password */
+/** GET /admin/users — account and purchased-book metadata; exclude password */
 export const getUsers = async (
   _req: Request,
   res: Response,
@@ -286,53 +285,6 @@ export const updateBookStatus = async (
     if (!book) return next(new NotFoundError('Book not found'));
     emitCatalogChanged('updated', book.id, book.contentType);
     res.json({ success: true, book });
-  } catch (err) {
-    next(err);
-  }
-};
-
-/** PATCH /admin/users/:id/activate — set subscriptionActive=true, subscriptionExpiry=now+30 days; return updated user */
-export const activateUserSubscription = async (
-  req: Request,
-  res: Response,
-  next: NextFunction
-): Promise<void> => {
-  try {
-    const targetUser = await User.findById(req.params.id);
-    if (!targetUser) return next(new NotFoundError('User not found'));
-
-    const plan = parseSubscriptionPlan(req.body?.plan ?? 'monthly');
-    if (!plan) return next(new BadRequestError('plan must be monthly or yearly'));
-    const expiry = computeSubscriptionExpiry(subscriptionDays(plan));
-
-    targetUser.subscriptionActive = true;
-    targetUser.subscriptionPlan = plan;
-    targetUser.subscriptionExpiry = expiry;
-    await targetUser.save();
-
-    const plain = targetUser.toObject ? targetUser.toObject() : (targetUser as unknown as Record<string, unknown>);
-    res.json({ success: true, user: formatUserForAdmin(plain as Record<string, unknown>) });
-  } catch (err) {
-    next(err);
-  }
-};
-
-/** PATCH /admin/users/:id/deactivate — set subscriptionActive=false, subscriptionExpiry=null; return updated user */
-export const deactivateUserSubscription = async (
-  req: Request,
-  res: Response,
-  next: NextFunction
-): Promise<void> => {
-  try {
-    const user = await User.findByIdAndUpdate(
-      req.params.id,
-      { subscriptionActive: false, subscriptionExpiry: null, subscriptionPlan: null },
-      { new: true }
-    )
-      .select('-password')
-      .lean();
-    if (!user) return next(new NotFoundError('User not found'));
-    res.json({ success: true, user: formatUserForAdmin(user as Record<string, unknown>) });
   } catch (err) {
     next(err);
   }

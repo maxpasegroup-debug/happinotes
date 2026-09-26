@@ -7,7 +7,6 @@ import { AuthModal } from "@/components/auth-modal";
 import { AuthRequired } from "@/components/auth-required";
 import { apiRequest } from "@/lib/api";
 import { getStoredUser, getUserToken } from "@/lib/user-session";
-import { startRazorpaySubscriptionFlow } from "@/lib/razorpay";
 import { LifebooksPremiumLayout } from "@/components/lifebooks/LifebooksPremiumLayout";
 import type { ContinueListeningItem } from "@/components/lifebooks/types";
 
@@ -22,13 +21,15 @@ export function DashboardClient({ initialLifebooks }: { initialLifebooks: Lifebo
   const [favouriteIds, setFavouriteIds] = useState<string[]>([]);
   const [continueItem, setContinueItem] = useState<ContinueListeningItem | null>(null);
   const [authOpen, setAuthOpen] = useState(false);
-  const [subscribeOpen, setSubscribeOpen] = useState(false);
+  const subscribeOpen = false;
+  const setSubscribeOpen = (_value: boolean) => undefined;
+  const subError = "";
   const [comingSoonPreview, setComingSoonPreview] = useState<LifebookItem | null>(null);
   const [selected, setSelected] = useState<LifebookItem | null>(null);
-  const [subError, setSubError] = useState("");
   const [sessionChecked, setSessionChecked] = useState(false);
   const [authenticated, setAuthenticated] = useState(false);
   const [authMode, setAuthMode] = useState<"login" | "signup">("login");
+  const handleSubscribe = () => undefined;
 
   useEffect(() => {
     if (typeof window === "undefined") return;
@@ -86,10 +87,6 @@ export function DashboardClient({ initialLifebooks }: { initialLifebooks: Lifebo
       setAuthOpen(true);
       return;
     }
-    if (!opts?.allowPreview && item.type === "premium" && !user.subscriptionActive) {
-      setSubscribeOpen(true);
-      return;
-    }
     rememberContinue(item, continueItem?.id === (item.id || item._id) ? continueItem.progressPercent : 10);
     router.push(`/player/${item.id || item._id}`);
   }
@@ -122,26 +119,6 @@ export function DashboardClient({ initialLifebooks }: { initialLifebooks: Lifebo
     }
   }
 
-  async function handleSubscribe() {
-    setSubError("");
-    const user = getStoredUser();
-    const token = typeof window !== "undefined" ? window.localStorage.getItem("user_token") : null;
-    if (!user || !token) {
-      setSubscribeOpen(false);
-      setAuthOpen(true);
-      return;
-    }
-    const result = await startRazorpaySubscriptionFlow({
-      token,
-      email: user.email,
-      name: user.name,
-    });
-    if (!result.ok) {
-      setSubError(result.message || "Unable to start payment.");
-      return;
-    }
-    setSubscribeOpen(false);
-  }
 
   const firstPlayable = useMemo(
     () => initialLifebooks.find((x) => x.status !== "coming_soon") || initialLifebooks[0] || null,
@@ -180,12 +157,8 @@ export function DashboardClient({ initialLifebooks }: { initialLifebooks: Lifebo
           setAuthenticated(true);
           if (selected) {
             const user = getStoredUser();
-            if (selected.type === "premium" && !user?.subscriptionActive) {
-              setSubscribeOpen(true);
-            } else {
-              rememberContinue(selected, continueItem?.progressPercent || 10);
-              router.push(`/player/${selected.id || selected._id}`);
-            }
+            rememberContinue(selected, continueItem?.progressPercent || 10);
+            router.push(`/player/${selected.id || selected._id}`);
           }
         }}
       />

@@ -8,9 +8,6 @@ import '../features/auth/presentation/controllers/auth_form_controller.dart';
 import '../features/books/data/repositories/books_repository_impl.dart';
 import '../features/books/domain/repositories/books_repository.dart';
 import '../features/books/presentation/controllers/books_controller.dart';
-import '../features/membership/data/repositories/membership_repository_impl.dart';
-import '../features/membership/domain/repositories/membership_repository.dart';
-import '../features/membership/presentation/controllers/membership_controller.dart';
 import '../features/player/presentation/controllers/player_controller.dart';
 import '../features/admin/data/repositories/admin_repository_impl.dart';
 import '../features/admin/domain/repositories/admin_repository.dart';
@@ -27,9 +24,6 @@ final authRepositoryProvider = Provider<AuthRepository>(
 );
 final booksRepositoryProvider = Provider<BooksRepository>(
   (ref) => BooksRepositoryImpl(ref.watch(apiClientProvider)),
-);
-final membershipRepositoryProvider = Provider<MembershipRepository>(
-  (ref) => MembershipRepositoryImpl(ref.watch(apiClientProvider)),
 );
 final sessionControllerProvider = ChangeNotifierProvider<SessionController>(
   (ref) => SessionController(ref.watch(authRepositoryProvider))..initialize(),
@@ -84,11 +78,3 @@ final realtimeServiceProvider = Provider<RealtimeService>((ref) {
 final playerControllerProvider = ChangeNotifierProvider<PlayerController>(
   (ref) => PlayerController(),
 );
-final membershipControllerProvider =
-    ChangeNotifierProvider.autoDispose<MembershipController>(
-      (ref) => MembershipController(
-        ref.watch(membershipRepositoryProvider),
-        ref.watch(sessionControllerProvider),
-        ref.watch(apiClientProvider),
-      ),
-    );

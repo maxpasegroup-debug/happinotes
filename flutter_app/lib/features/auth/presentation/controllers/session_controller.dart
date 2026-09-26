@@ -39,7 +39,6 @@ class SessionController extends ChangeNotifier {
       // Storage failures must not leave startup stuck on the splash screen.
       if (!_disposed) {
         user = null;
-        notifyListeners();
       }
     }
   }

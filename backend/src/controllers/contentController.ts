@@ -3,8 +3,6 @@ import { Content } from '../models';
 import { NotFoundError } from '../utils/errors';
 
 function canAccessPremiumContent(req: Request): boolean {
-  // Premium access is now granted per book purchase. Administrators can still
-  // review the complete catalogue; subscriptions must not unlock every book.
   return req.user?.role === 'admin';
 }
 
@@ -156,10 +154,10 @@ export const getContents = async (
       const bCreated = Date.parse(String(bDoc.createdAt || '')) || 0;
       return bCreated - aCreated;
     });
-    const subscriptionAccess = canAccessPremiumContent(req);
+    const adminAccess = canAccessPremiumContent(req);
     const shaped = ordered.map((c) => {
       const doc = c as Record<string, unknown>;
-      return shapeContentForPublic(doc, subscriptionAccess || hasPurchasedContent(req, doc._id));
+      return shapeContentForPublic(doc, adminAccess || hasPurchasedContent(req, doc._id));
     });
     res.json({ success: true, contents: shaped });
   } catch (err) {

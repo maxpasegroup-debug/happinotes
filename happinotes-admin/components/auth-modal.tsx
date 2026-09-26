@@ -6,7 +6,7 @@ import { setUserSession } from "@/lib/user-session";
 
 type Mode = "signup" | "login";
 type Step = "details" | "otp" | "pin";
-type ResponseData = { token?: string; user?: { id?: string; name?: string; phoneNumber?: string; role?: "admin" | "user"; subscriptionActive?: boolean; subscriptionExpiry?: string | null }; loginChallenge?: string; testOtp?: string; message?: string };
+type ResponseData = { token?: string; user?: { id?: string; name?: string; phoneNumber?: string; role?: "admin" | "user" }; loginChallenge?: string; testOtp?: string; message?: string };
 
 export function AuthModal({ open, onClose, onSuccess, initialMode = "login" }: { open: boolean; onClose: () => void; onSuccess: () => void; initialMode?: Mode }) {
   const [mode, setMode] = useState<Mode>(initialMode);

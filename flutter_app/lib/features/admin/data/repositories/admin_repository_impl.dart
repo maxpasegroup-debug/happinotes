@@ -26,11 +26,6 @@ class AdminRepositoryImpl implements AdminRepository {
           .toList();
 
   @override
-  Future<void> updateUserSubscription(String id, String status) async => client
-      .dio
-      .put('/admin/users/$id/subscription', data: {'subscriptionStatus': status});
-
-  @override
   Future<void> deleteUser(String id) async => client.dio.delete('/admin/users/$id');
 
   @override

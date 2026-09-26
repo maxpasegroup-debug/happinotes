@@ -8,12 +8,7 @@ export interface IUser extends Document {
   phoneNumber?: string;
   password: string;
   role: UserRole;
-  /** Legacy subscription fields are optional for old records only. */
-  subscriptionActive?: boolean;
-  subscriptionExpiry?: Date | null;
-  subscriptionPlan?: string | null;
   languagePreference: 'all' | 'english' | 'malayalam' | 'hindi';
-  razorpaySubscriptionId?: string | null;
   bookCollection: mongoose.Types.ObjectId[];
   purchasedBooks: mongoose.Types.ObjectId[];
   favourites: { contentId: mongoose.Types.ObjectId; contentType: string }[];

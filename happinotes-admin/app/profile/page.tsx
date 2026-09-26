@@ -44,7 +44,7 @@ export default function ProfilePage() {
   }, []);
 
   const name = me?.name || "Guest User";
-  const sub = me?.subscriptionActive ? "Premium Active" : "Free Plan";
+  const sub = "Individual book purchases";
   const initial = name.charAt(0).toUpperCase();
 
   async function startForgotPassword() {
@@ -151,9 +151,7 @@ export default function ProfilePage() {
         <div className="rounded-xl border border-white/10 bg-[#141a2a] px-4 py-3">
           <p className="text-sm font-medium text-white">Billing History</p>
           <p className="mt-1 text-xs text-[#b7c0d8]">
-            {me?.subscriptionActive
-              ? "Latest payment: Active subscription. Invoice history coming soon."
-              : "No billing records yet."}
+            Individual premium book purchases are handled by the app payment flow.
           </p>
         </div>
         <div className="rounded-xl border border-white/10 bg-[#141a2a] px-4 py-3">
@@ -162,26 +160,6 @@ export default function ProfilePage() {
             {me?.email ? `Email: ${me.email}` : "Add your email to get OTP and premium updates."}
           </p>
         </div>
-        {!me?.subscriptionActive ? (
-          <button
-            type="button"
-            onClick={() => {
-              const token = getUserToken();
-              if (!token) {
-                setMessage("Please signup from Lifebooks first.");
-                return;
-              }
-              router.push("/subscribe");
-            }}
-            className="w-full rounded-xl bg-gradient-to-r from-[#f6c453] to-[#e6a92c] px-4 py-3 text-sm font-semibold text-[#211100]"
-          >
-            Open Subscribe Plans
-          </button>
-        ) : (
-          <div className="rounded-xl border border-emerald-300/20 bg-emerald-500/10 px-4 py-3 text-sm text-emerald-200">
-            Subscription active. Premium lifebooks unlocked.
-          </div>
-        )}
         {message ? <p className="text-sm text-[#b7c0d8]">{message}</p> : null}
 
         <div className="rounded-xl border border-white/10 bg-[#141a2a] px-4 py-3">

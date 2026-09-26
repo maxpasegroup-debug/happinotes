@@ -15,7 +15,7 @@ type Content = {
   contentType: Kind;
   type: "free" | "premium";
   priceInr?: number;
-  lessons?: Array<{ title?: string; mediaUrl?: string }>;
+  lessons?: Array<{ title?: string; description?: string; mediaUrl?: string; mediaType?: "audio" | "video" }>;
   status: Status;
   featured?: boolean;
   webDisplayOrder?: number;
@@ -680,7 +680,7 @@ export default function AdminDashboardPage() {
             ))}
             {activeList.length === 0 ? (
               <div className="rounded-xl border border-dashed border-white/20 p-6 text-sm text-[#a1a1aa]">
-                No items yet. Create your first {activeModule === "happiness" ? "happiness" : activeModule}.
+                No items yet. Create your first lifebook.
               </div>
             ) : null}
           </div>

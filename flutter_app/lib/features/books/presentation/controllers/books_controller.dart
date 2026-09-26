@@ -144,15 +144,4 @@ class BooksController extends ChangeNotifier {
     }
   }
 
-  Future<List<String>?> purchaseBook(Book book) async {
-    try {
-      final ids = await repository.purchaseBook(book.id);
-      await loadBooks(forceRefresh: true);
-      return ids;
-    } catch (e) {
-      error = client.errorMessage(e);
-      notifyListeners();
-      return null;
-    }
-  }
 }

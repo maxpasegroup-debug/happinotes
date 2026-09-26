@@ -1,7 +1,6 @@
 import 'package:flutter/material.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
 import '../../app/providers.dart';
-import '../../features/admin/presentation/controllers/admin_controller.dart';
 import '../theme.dart';
 import '../widgets/app_message.dart';
 import '../widgets/loading_skeleton.dart';
@@ -250,7 +249,6 @@ class _Users extends ConsumerWidget {
               : PopupMenuButton<String>(
                   tooltip: 'Manage user',
                   onSelected: (action) async {
-                    bool ok;
                     if (action == 'delete') {
                       final confirmed = await showDialog<bool>(
                         context: context,
@@ -264,20 +262,14 @@ class _Users extends ConsumerWidget {
                         ),
                       ) ?? false;
                       if (!confirmed) return;
-                      ok = await state.removeUser(u['_id'].toString());
-                    } else {
-                      ok = await state.changeSubscription(u['_id'].toString(), action);
+                      final ok = await state.removeUser(u['_id'].toString());
+                      if (context.mounted) AdminSnack.show(context, ok ? state.success ?? 'Updated' : state.error ?? 'Delete failed', success: ok);
                     }
-                    if (context.mounted) AdminSnack.show(context, ok ? state.success ?? 'Updated' : state.error ?? 'Update failed', success: ok);
                   },
                   itemBuilder: (_) => const [
-                    PopupMenuItem(value: 'free', child: Text('Set Free')),
-                    PopupMenuItem(value: 'premium', child: Text('Set Premium')),
-                    PopupMenuItem(value: 'lifetime', child: Text('Set Lifetime')),
-                    PopupMenuDivider(),
                     PopupMenuItem(value: 'delete', child: Text('Delete user')),
                   ],
-                  child: Chip(label: Text((u['subscriptionStatus'] ?? 'free').toString())),
+                  child: Chip(label: Text('${(u['purchasedBooks'] as List?)?.length ?? 0} purchased')),
                 ),
         );
       },

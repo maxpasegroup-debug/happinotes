@@ -13,22 +13,6 @@ declare global {
   }
 }
 
-/**
- * If subscription is active but expiry has passed, set subscriptionActive = false and save.
- * Runs silently; does not affect request outcome.
- */
-async function expireSubscriptionIfNeeded(user: IUser): Promise<void> {
-  if (
-    user.subscriptionActive === true &&
-    user.subscriptionExpiry != null &&
-    user.subscriptionExpiry <= new Date()
-  ) {
-    user.subscriptionActive = false;
-    user.subscriptionPlan = null;
-    await user.save();
-  }
-}
-
 export const authenticate = async (
   req: Request,
   _res: Response,
@@ -52,7 +36,6 @@ export const authenticate = async (
       return next(new UnauthorizedError('Account is blocked'));
     }
 
-    await expireSubscriptionIfNeeded(user);
     req.user = user;
     next();
   } catch {
@@ -84,7 +67,6 @@ export const optionalAuthenticate = async (
       if (user.blocked) {
         return next();
       }
-      await expireSubscriptionIfNeeded(user);
       req.user = user;
     }
     next();
