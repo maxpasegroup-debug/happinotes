@@ -541,6 +541,16 @@ class _TestBookPurchaseScreenState
         ids.add(widget.book.id);
       }
       ref.read(sessionControllerProvider).updatePurchasedBooks(ids);
+      try {
+        await ref.read(sessionControllerProvider).refreshUser();
+      } catch (_) {
+        // The verified test response already contains the entitlement list.
+      }
+      try {
+        await ref.read(booksControllerProvider).loadBooks(forceRefresh: true);
+      } catch (_) {
+        // Keep the current book in memory if a catalogue refresh is offline.
+      }
       Navigator.of(context).pushReplacement(
         MaterialPageRoute<void>(
           builder: (_) => const TestPaymentSuccessScreen(),
@@ -614,8 +624,22 @@ class _TestBookPurchaseScreenState
   );
 }
 
-class TestPaymentSuccessScreen extends StatelessWidget {
+class TestPaymentSuccessScreen extends StatefulWidget {
   const TestPaymentSuccessScreen({super.key});
+
+  @override
+  State<TestPaymentSuccessScreen> createState() =>
+      _TestPaymentSuccessScreenState();
+}
+
+class _TestPaymentSuccessScreenState extends State<TestPaymentSuccessScreen> {
+  @override
+  void initState() {
+    super.initState();
+    Future<void>.delayed(const Duration(seconds: 3), () {
+      if (mounted) Navigator.of(context).pop(true);
+    });
+  }
 
   @override
   Widget build(BuildContext context) => PopScope<bool>(
@@ -651,10 +675,12 @@ class TestPaymentSuccessScreen extends StatelessWidget {
                 'This story has been purchased and unlocked for this account.',
                 textAlign: TextAlign.center,
               ),
-              const SizedBox(height: 28),
-              FilledButton(
-                onPressed: () => Navigator.of(context).pop(true),
-                child: const Text('Continue listening'),
+              const SizedBox(height: 12),
+              Text(
+                'Unlocking your story…',
+                style: Theme.of(context).textTheme.bodyMedium?.copyWith(
+                  color: AppColors.muted,
+                ),
               ),
               ],
             ),

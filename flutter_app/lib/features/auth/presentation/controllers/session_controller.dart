@@ -91,6 +91,14 @@ class SessionController extends ChangeNotifier {
     notifyListeners();
   }
 
+  Future<void> refreshUser() async {
+    final refreshed = await repository.restoreSession();
+    if (!_disposed && refreshed != null) {
+      user = refreshed;
+      notifyListeners();
+    }
+  }
+
   Future<void> logout() async {
     await repository.logout();
     user = null;
