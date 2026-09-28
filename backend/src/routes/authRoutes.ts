@@ -14,6 +14,8 @@ import {
   resetPin,
   verifyLoginOtp,
   updateLanguage,
+  requestEmailOtp,
+  verifyEmailOtp,
 } from '../controllers/authController';
 import { authenticate } from '../middleware';
 
@@ -61,6 +63,16 @@ const forgotPasswordValidation = [
   body('email').isEmail().normalizeEmail().withMessage('Valid email is required'),
 ];
 
+const emailOtpValidation = [
+  body('email').isEmail().normalizeEmail().withMessage('Valid email is required'),
+  body('purpose').isIn(['signup', 'login']).withMessage('OTP purpose must be signup or login'),
+];
+
+const emailVerifyOtpValidation = [
+  ...emailOtpValidation,
+  body('otp').isLength({ min: 6, max: 6 }).matches(/^\d+$/).withMessage('OTP must be 6 digits'),
+];
+
 const verifyOTPValidation = [
   body('email').isEmail().normalizeEmail().withMessage('Valid email is required'),
   body('otp')
@@ -84,6 +96,8 @@ const resetPasswordValidation = [
 
 router.post('/signup', signupValidation, signup);
 router.post('/login', authRateLimiter, loginValidation, login);
+router.post('/request-email-otp', authRateLimiter, emailOtpValidation, requestEmailOtp);
+router.post('/verify-email-otp', authRateLimiter, emailVerifyOtpValidation, verifyEmailOtp);
 router.post('/request-signup-otp', authRateLimiter, [phoneValidation], requestSignupOtp);
 router.post('/request-login-otp', authRateLimiter, [phoneValidation], requestLoginOtp);
 router.post('/request-reset-pin-otp', authRateLimiter, [phoneValidation], requestResetPinOtp);

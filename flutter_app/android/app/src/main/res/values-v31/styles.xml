@@ -8,6 +8,8 @@
         <item name="android:windowLayoutInDisplayCutoutMode">shortEdges</item>
         <item name="android:windowBackground">@drawable/splash_background</item>
         <item name="android:windowSplashScreenBackground">#FFF8EC</item>
+        <!-- Keep the Android 12 startup frame visually quiet; the branded
+             animated splash is rendered by Flutter immediately afterward. -->
         <item name="android:windowSplashScreenAnimatedIcon">@drawable/empty_splash_icon</item>
     </style>
     <!-- Theme applied to the Android Window as soon as the process has started.

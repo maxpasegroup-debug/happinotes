@@ -19,7 +19,11 @@ class HappiNotesApp extends ConsumerWidget {
   Widget build(BuildContext context, WidgetRef ref) {
     ref.watch(realtimeServiceProvider);
     final state = ref.watch(sessionControllerProvider);
+    final books = ref.watch(booksControllerProvider);
     final theme = ref.watch(themeControllerProvider);
+    if (state.initialized && state.isLoggedIn && !books.hasLoaded && !books.loading) {
+      Future.microtask(() => ref.read(booksControllerProvider).loadBooks());
+    }
     ref.listen(sessionControllerProvider, (previous, next) {
       // Never reopen the app on a stale tab from the previous session.
       if (next.user == null || previous?.user == null) {
@@ -38,11 +42,16 @@ class HappiNotesApp extends ConsumerWidget {
     });
     return MaterialApp(
       debugShowCheckedModeBanner: false,
+      color: const Color(0xFFFFF8EC),
       scaffoldMessengerKey: AppMessage.messengerKey,
       title: 'HappiNotes',
       theme: buildHappiTheme(),
       darkTheme: buildHappiTheme(Brightness.dark),
       themeMode: theme.mode,
+      // The branded splash is only responsible for restoring the session.
+      // Catalog requests continue in the background; keeping the whole app on
+      // the splash until a network request finishes can look like a hang on a
+      // slow/offline connection. Home renders its loading skeleton instead.
       home: !state.initialized
           ? const LaunchSplash()
           : state.isLoggedIn

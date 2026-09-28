@@ -11,117 +11,79 @@ class AuthScreen extends ConsumerWidget {
   const AuthScreen({super.key});
 
   Future<void> _submit(WidgetRef ref) async {
-    final controller = ref.read(authFormControllerProvider);
-    await controller.submit();
-    if (controller.successMessage != null || controller.error != null) {
-      AppMessage.showGlobal(
-        controller.successMessage ?? controller.error!,
-        success: controller.successMessage != null,
-      );
+    final form = ref.read(authFormControllerProvider);
+    await form.submit();
+    if (form.successMessage != null || form.error != null) {
+      AppMessage.showGlobal(form.successMessage ?? form.error!, success: form.successMessage != null);
     }
   }
 
   @override
   Widget build(BuildContext context, WidgetRef ref) {
     final form = ref.watch(authFormControllerProvider);
-    final heading = form.step == AuthStep.otp
-        ? 'Verify WhatsApp'
-        : form.step == AuthStep.pin
-        ? 'Enter your PIN'
-        : form.isSignup
-        ? 'Create your account'
-        : 'Welcome back';
+    final heading = switch (form.step) {
+      AuthStep.email => form.isSignup ? 'Create your account' : 'Welcome back',
+      AuthStep.otp => 'Verify your email',
+      AuthStep.password => 'Enter your password',
+    };
     return Scaffold(
       body: SafeArea(
-        child: SingleChildScrollView(
-          padding: const EdgeInsets.all(24),
-          child: ConstrainedBox(
-            constraints: BoxConstraints(minHeight: MediaQuery.sizeOf(context).height - 96),
-            child: Column(
-              mainAxisAlignment: MainAxisAlignment.center,
-              crossAxisAlignment: CrossAxisAlignment.stretch,
-              children: [
+        child: Center(
+          child: SingleChildScrollView(
+            padding: const EdgeInsets.all(24),
+            child: ConstrainedBox(
+              constraints: const BoxConstraints(maxWidth: 480),
+              child: Column(crossAxisAlignment: CrossAxisAlignment.stretch, children: [
                 Image.asset('assets/images/happinotes-logo.png', height: 140),
                 Text(heading, textAlign: TextAlign.center, style: Theme.of(context).textTheme.headlineMedium),
                 const SizedBox(height: 28),
-                if (form.step == AuthStep.details) ...[
-                  if (form.isSignup) ...[
-                    TextFormField(
-                      initialValue: form.name,
-                      onChanged: form.setName,
-                      textCapitalization: TextCapitalization.words,
-                      decoration: const InputDecoration(labelText: 'Full name'),
-                    ),
-                    const SizedBox(height: 14),
-                  ],
+                if (form.step == AuthStep.email)
                   TextFormField(
-                    initialValue: form.phone,
-                    onChanged: form.setPhone,
-                    keyboardType: TextInputType.phone,
-                    decoration: InputDecoration(
-                      labelText: 'WhatsApp number',
-                      prefix: Text('🇮🇳 +91 ', style: TextStyle(color: Theme.of(context).colorScheme.onSurface, fontSize: 16, height: 1.2, fontWeight: FontWeight.w600)),
-                      hintText: '9876543210',
-                    ),
+                    initialValue: form.email,
+                    onChanged: form.setEmail,
+                    keyboardType: TextInputType.emailAddress,
+                    autocorrect: false,
+                    decoration: const InputDecoration(labelText: 'Email address', prefixIcon: Icon(Icons.email_outlined)),
                   ),
+                if (form.step == AuthStep.otp) ...[
+                  Text('We sent a 6-digit code to ${form.email}', textAlign: TextAlign.center),
+                  const SizedBox(height: 14),
+                  if (form.testOtp != null) Text('DEMO OTP: ${form.testOtp}', textAlign: TextAlign.center, style: const TextStyle(color: AppColors.coral, fontWeight: FontWeight.w800)),
+                  const SizedBox(height: 12),
+                  TextFormField(
+                    initialValue: form.otp,
+                    onChanged: form.setOtp,
+                    keyboardType: TextInputType.number,
+                    maxLength: 6,
+                    inputFormatters: [FilteringTextInputFormatter.digitsOnly],
+                    textAlign: TextAlign.center,
+                    decoration: const InputDecoration(labelText: 'Email verification code', prefixIcon: Icon(Icons.verified_outlined), counterText: ''),
+                  ),
+                ],
+                if (form.step == AuthStep.password) ...[
+                  if (form.isSignup) ...[
+                    TextFormField(initialValue: form.name, onChanged: form.setName, textCapitalization: TextCapitalization.words, decoration: const InputDecoration(labelText: 'Full name', prefixIcon: Icon(Icons.person_outline_rounded))),
+                    const SizedBox(height: 14),
+                  ],
+                  _PasswordField(label: 'Password', value: form.password, onChanged: form.setPassword),
                   if (form.isSignup) ...[
                     const SizedBox(height: 14),
-                    _PinField(value: form.pin, onChanged: form.setPin, label: 'Create 6-digit PIN'),
-                    const SizedBox(height: 14),
-                    _PinField(value: form.confirmPin, onChanged: form.setConfirmPin, label: 'Confirm 6-digit PIN'),
+                    _PasswordField(label: 'Confirm password', value: form.confirmPassword, onChanged: form.setConfirmPassword),
                   ],
                 ],
-                if (form.step == AuthStep.otp) ...[
-                  Text('Enter the code sent to ${form.phone}', textAlign: TextAlign.center),
-                  const SizedBox(height: 14),
-                  if (form.testOtp != null)
-                    Container(
-                      padding: const EdgeInsets.all(12),
-                      margin: const EdgeInsets.only(bottom: 14),
-                      decoration: BoxDecoration(color: const Color(0xFF163C27), borderRadius: BorderRadius.circular(12)),
-                      child: Text('DEMO OTP: ${form.testOtp}', textAlign: TextAlign.center, style: const TextStyle(color: Color(0xFF8FE4AE), fontWeight: FontWeight.w800)),
-                    ),
-                  OtpBoxes(
-                    value: form.otp,
-                    onChanged: form.setOtp,
-                    enabled: !form.loading,
-                    onCompleted: () => _submit(ref),
-                  ),
-                ],
-                if (form.step == AuthStep.pin)
-                  _PinField(value: form.pin, onChanged: form.setPin, label: '6-digit PIN'),
-                if (form.error != null)
-                  Padding(
-                    padding: const EdgeInsets.only(top: 12),
-                    child: Text(form.error!, textAlign: TextAlign.center, style: const TextStyle(color: Colors.redAccent)),
-                  ),
+                if (form.error != null) Padding(padding: const EdgeInsets.only(top: 12), child: Text(form.error!, textAlign: TextAlign.center, style: const TextStyle(color: Colors.redAccent))),
                 const SizedBox(height: 20),
                 FilledButton(
                   onPressed: form.loading ? null : () => _submit(ref),
                   style: FilledButton.styleFrom(backgroundColor: AppColors.coral, padding: const EdgeInsets.all(17)),
-                  child: Text(form.loading
-                      ? 'Please wait...'
-                      : form.step == AuthStep.details
-                      ? 'Get WhatsApp OTP'
-                      : form.step == AuthStep.otp
-                      ? (form.isSignup ? 'Verify & Create Account' : 'Verify OTP')
-                      : 'Login'),
+                  child: Text(form.loading ? 'Please wait...' : form.step == AuthStep.email ? 'Continue' : form.step == AuthStep.otp ? 'Verify email' : form.isSignup ? 'Create account' : 'Sign in'),
                 ),
-                if (form.step != AuthStep.details)
-                  TextButton(onPressed: form.loading ? null : form.changeDetails, child: const Text('Change details')),
-                if (form.step == AuthStep.details)
-                  TextButton(
-                    onPressed: form.loading ? null : form.toggleMode,
-                    child: Text(form.isSignup ? 'Already have an account? Login' : 'New to HappiNotes? Create account'),
-                  ),
-                if (form.step == AuthStep.pin && !form.isSignup)
-                  TextButton(
-                    onPressed: form.loading
-                        ? null
-                        : () => Navigator.of(context).push(MaterialPageRoute(builder: (_) => const ForgotPinScreen())),
-                    child: const Text('Forgot PIN?'),
-                  ),
-              ],
+                if (form.step != AuthStep.email) TextButton(onPressed: form.loading ? null : form.changeEmail, child: const Text('Change email')),
+                if (form.step == AuthStep.email) ...[
+                  TextButton(onPressed: form.loading ? null : form.toggleMode, child: Text(form.isSignup ? 'Already have an account? Sign in' : 'New to HappiNotes? Create account')),
+                  if (!form.isSignup) TextButton(onPressed: form.loading ? null : () => Navigator.of(context).push(MaterialPageRoute(builder: (_) => const ForgotPinScreen())), child: const Text('Forgot password?')),
+                ],
+              ]),
             ),
           ),
         ),
@@ -130,164 +92,25 @@ class AuthScreen extends ConsumerWidget {
   }
 }
 
-class OtpBoxes extends StatefulWidget {
-  const OtpBoxes({
-    super.key,
-    required this.value,
-    required this.onChanged,
-    required this.enabled,
-    this.onCompleted,
-  });
-
-  final String value;
+class _PasswordField extends StatefulWidget {
+  const _PasswordField({required this.label, required this.value, required this.onChanged});
+  final String label, value;
   final ValueChanged<String> onChanged;
-  final bool enabled;
-  final VoidCallback? onCompleted;
-
   @override
-  State<OtpBoxes> createState() => _OtpBoxesState();
+  State<_PasswordField> createState() => _PasswordFieldState();
 }
 
-class _OtpBoxesState extends State<OtpBoxes> {
-  late final List<TextEditingController> _controllers;
-  late final List<FocusNode> _focusNodes;
-
-  @override
-  void initState() {
-    super.initState();
-    _controllers = List.generate(
-      6,
-      (index) => TextEditingController(
-        text: index < widget.value.length ? widget.value[index] : '',
-      ),
-    );
-    _focusNodes = List.generate(6, (_) => FocusNode());
-  }
-
-  String get _value => _controllers.map((controller) => controller.text).join();
-
-  void _changed(int index, String value) {
-    final digits = value.replaceAll(RegExp(r'\D'), '');
-    if (digits.length > 1) {
-      final pasted = digits.substring(0, digits.length.clamp(0, 6).toInt());
-      for (var i = 0; i < pasted.length && index + i < 6; i++) {
-        _controllers[index + i].text = pasted[i];
-      }
-      _focusNodes[(index + pasted.length).clamp(0, 5).toInt()].requestFocus();
-    } else {
-      _controllers[index].text = digits;
-      _controllers[index].selection = TextSelection.collapsed(offset: digits.length);
-      if (digits.isNotEmpty && index < 5) _focusNodes[index + 1].requestFocus();
-    }
-    widget.onChanged(_value);
-    if (_value.length == 6) widget.onCompleted?.call();
-    setState(() {});
-  }
-
-  KeyEventResult _keyEvent(int index, KeyEvent event) {
-    if (event is KeyDownEvent &&
-        event.logicalKey == LogicalKeyboardKey.backspace &&
-        _controllers[index].text.isEmpty &&
-        index > 0) {
-      _controllers[index - 1].clear();
-      _focusNodes[index - 1].requestFocus();
-      widget.onChanged(_value);
-      setState(() {});
-    }
-    return KeyEventResult.ignored;
-  }
-
-  @override
-  void dispose() {
-    for (final controller in _controllers) controller.dispose();
-    for (final node in _focusNodes) node.dispose();
-    super.dispose();
-  }
-
-  @override
-  Widget build(BuildContext context) => LayoutBuilder(
-    builder: (context, constraints) {
-      final gap = constraints.maxWidth < 360 ? 6.0 : 9.0;
-      return Row(
-        children: List.generate(
-          6,
-          (index) => Expanded(
-            child: Padding(
-              padding: EdgeInsets.only(right: index == 5 ? 0 : gap),
-              child: Focus(
-                onKeyEvent: (_, event) => _keyEvent(index, event),
-                child: TextField(
-                  controller: _controllers[index],
-                  focusNode: _focusNodes[index],
-                  enabled: widget.enabled,
-                  autofocus: index == 0,
-                  maxLength: 1,
-                  textAlign: TextAlign.center,
-                  keyboardType: TextInputType.number,
-                  onChanged: (value) => _changed(index, value),
-                  inputFormatters: [FilteringTextInputFormatter.digitsOnly],
-                  style: const TextStyle(fontSize: 22, fontWeight: FontWeight.w800),
-                  decoration: InputDecoration(
-                    counterText: '',
-                    filled: true,
-                    fillColor: _controllers[index].text.isNotEmpty
-                        ? AppColors.coral.withValues(alpha: .12)
-                        : Theme.of(context).colorScheme.surface,
-                    contentPadding: const EdgeInsets.symmetric(vertical: 15),
-                    border: OutlineInputBorder(borderRadius: BorderRadius.circular(12)),
-                    enabledBorder: OutlineInputBorder(
-                      borderRadius: BorderRadius.circular(12),
-                      borderSide: BorderSide(color: Theme.of(context).colorScheme.outlineVariant),
-                    ),
-                    focusedBorder: OutlineInputBorder(
-                      borderRadius: BorderRadius.circular(12),
-                      borderSide: const BorderSide(color: AppColors.coral, width: 2),
-                    ),
-                  ),
-                ),
-              ),
-            ),
-          ),
-        ),
-      );
-    },
-  );
-}
-
-class _PinField extends StatefulWidget {
-  const _PinField({required this.value, required this.onChanged, required this.label, this.obscure = true});
-  final String value;
-  final ValueChanged<String> onChanged;
-  final String label;
-  final bool obscure;
-
-  @override
-  State<_PinField> createState() => _PinFieldState();
-}
-
-class _PinFieldState extends State<_PinField> {
-  late bool hidden;
-
-  @override
-  void initState() {
-    super.initState();
-    hidden = widget.obscure;
-  }
-
+class _PasswordFieldState extends State<_PasswordField> {
+  bool hidden = true;
   @override
   Widget build(BuildContext context) => TextFormField(
     initialValue: widget.value,
     onChanged: widget.onChanged,
     obscureText: hidden,
-    keyboardType: TextInputType.number,
-    inputFormatters: [FilteringTextInputFormatter.digitsOnly, LengthLimitingTextInputFormatter(6)],
     decoration: InputDecoration(
       labelText: widget.label,
-      suffixIcon: IconButton(
-        tooltip: hidden ? 'Show PIN' : 'Hide PIN',
-        icon: Icon(hidden ? Icons.visibility_off_rounded : Icons.visibility_rounded),
-        onPressed: () => setState(() => hidden = !hidden),
-      ),
+      prefixIcon: const Icon(Icons.lock_outline_rounded),
+      suffixIcon: IconButton(tooltip: hidden ? 'Show password' : 'Hide password', icon: Icon(hidden ? Icons.visibility_off_rounded : Icons.visibility_rounded), onPressed: () => setState(() => hidden = !hidden)),
     ),
   );
 }

@@ -53,6 +53,22 @@ const createPhoneOtp = async (phoneNumber: string, purpose: 'signup' | 'login' |
   return otp;
 };
 
+const createEmailOtp = async (email: string, purpose: 'email-signup' | 'email-login') => {
+  const otp = Math.floor(100000 + Math.random() * 900000).toString();
+  await Otp.updateMany({ identifier: email, purpose, used: false }, { used: true });
+  await Otp.create({ identifier: email, purpose, otp: hashOtp(email, otp), expiresAt: new Date(Date.now() + OTP_EXPIRY_MINUTES * 60 * 1000) });
+  if (env.WHATSAPP_OTP_MODE !== 'test') await sendOTPEmail(email, otp);
+  return otp;
+};
+
+const verifyEmailChallenge = (token: string, email: string, type: 'email-signup' | 'email-login') => {
+  try {
+    const challenge = jwt.verify(token, env.JWT_SECRET) as { email?: string; type?: string };
+    if (challenge.type !== type || challenge.email !== email) return false;
+    return true;
+  } catch { return false; }
+};
+
 const signToken = (id: string): string => {
   return jwt.sign({ id }, env.JWT_SECRET, {
     expiresIn: env.JWT_EXPIRES_IN as jwt.SignOptions['expiresIn'],
@@ -70,7 +86,7 @@ export const signup = async (
       return next(new BadRequestError(errors.array()[0].msg));
     }
 
-    const { name, email, password, phoneNumber, pin, otp } = req.body;
+    const { name, email, password, phoneNumber, pin, otp, emailChallenge } = req.body;
     if (phoneNumber) {
       if (await User.exists({ phoneNumber })) {
         return next(new BadRequestError('WhatsApp number already registered'));
@@ -94,7 +110,11 @@ export const signup = async (
       res.status(201).json({ success: true, token: signToken(user.id), user: userResponse(user) });
       return;
     }
-    const existing = await User.findOne({ email: email.toLowerCase() });
+    const normalizedEmail = email.toLowerCase();
+    if (!verifyEmailChallenge(emailChallenge, normalizedEmail, 'email-signup')) {
+      return next(new UnauthorizedError('Verify the email OTP before creating your account'));
+    }
+    const existing = await User.findOne({ email: normalizedEmail });
     if (existing) {
       return next(new BadRequestError('Email already registered'));
     }
@@ -104,7 +124,7 @@ export const signup = async (
 
     const user = await User.create({
       name,
-      email: email.toLowerCase(),
+      email: normalizedEmail,
       password: hashedPassword,
       role,
     });
@@ -137,7 +157,7 @@ export const login = async (
       return next(new BadRequestError(errors.array()[0].msg));
     }
 
-    const { email, password, phoneNumber, pin, loginChallenge } = req.body;
+    const { email, password, phoneNumber, pin, loginChallenge, emailChallenge } = req.body;
     if (phoneNumber) {
       try {
         const challenge = jwt.verify(loginChallenge, env.JWT_SECRET) as {
@@ -162,7 +182,11 @@ export const login = async (
       res.json({ success: true, token: signToken(phoneUser.id), user: userResponse(phoneUser) });
       return;
     }
-    const user = await User.findOne({ email: email.toLowerCase() }).select('+password');
+    const normalizedEmail = email.toLowerCase();
+    if (!verifyEmailChallenge(emailChallenge, normalizedEmail, 'email-login')) {
+      return next(new UnauthorizedError('Verify the email OTP before signing in'));
+    }
+    const user = await User.findOne({ email: normalizedEmail }).select('+password');
     if (!user) {
       return next(new UnauthorizedError('Invalid email or password'));
     }
@@ -219,6 +243,32 @@ export const requestLoginOtp = async (req: Request, res: Response, next: NextFun
       message: 'OTP generated',
       ...(env.WHATSAPP_OTP_MODE === 'test' ? { testOtp: otp } : {}),
     });
+  } catch (err) { next(err); }
+};
+
+export const requestEmailOtp = async (req: Request, res: Response, next: NextFunction) => {
+  try {
+    const email = (req.body.email ?? '').toString().trim().toLowerCase();
+    const purpose = req.body.purpose === 'signup' ? 'email-signup' : 'email-login';
+    const exists = await User.exists({ email });
+    if (purpose === 'email-signup' && exists) return next(new BadRequestError('Email already registered'));
+    if (purpose === 'email-login' && !exists) return next(new UnauthorizedError('No account found for this email'));
+    const otp = await createEmailOtp(email, purpose);
+    res.json({ success: true, message: 'OTP generated', ...(env.WHATSAPP_OTP_MODE === 'test' ? { testOtp: otp } : {}) });
+  } catch (err) { next(err); }
+};
+
+export const verifyEmailOtp = async (req: Request, res: Response, next: NextFunction) => {
+  try {
+    const email = (req.body.email ?? '').toString().trim().toLowerCase();
+    const otp = (req.body.otp ?? '').toString().trim();
+    const purpose = req.body.purpose === 'signup' ? 'email-signup' : 'email-login';
+    const record = await Otp.findOne({ identifier: email, purpose, used: false, otp: hashOtp(email, otp), expiresAt: { $gt: new Date() } });
+    if (!record) return next(new BadRequestError('Invalid or expired OTP'));
+    const emailChallenge = jwt.sign({ email, type: purpose }, env.JWT_SECRET, { expiresIn: '10m' });
+    record.used = true;
+    await record.save();
+    res.json({ success: true, emailChallenge });
   } catch (err) { next(err); }
 };
 

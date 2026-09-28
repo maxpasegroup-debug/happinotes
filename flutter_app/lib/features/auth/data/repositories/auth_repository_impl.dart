@@ -48,6 +48,26 @@ class AuthRepositoryImpl implements AuthRepository {
   }
 
   @override
+  Future<Map<String, dynamic>> requestPasswordReset(String email) async {
+    final r = await client.dio.post('/auth/forgot-password', data: {'email': email.trim().toLowerCase()});
+    return Map<String, dynamic>.from(r.data);
+  }
+
+  @override
+  Future<void> verifyPasswordOtp({required String email, required String otp}) async {
+    await client.dio.post('/auth/verify-otp', data: {'email': email.trim().toLowerCase(), 'otp': otp});
+  }
+
+  @override
+  Future<void> resetPassword({required String email, required String otp, required String newPassword}) async {
+    await client.dio.post('/auth/reset-password', data: {
+      'email': email.trim().toLowerCase(),
+      'otp': otp,
+      'newPassword': newPassword,
+    });
+  }
+
+  @override
   Future<String> verifyLoginOtp(String phoneNumber, String otp) async {
     final r = await client.dio.post(
       '/auth/verify-login-otp',
@@ -85,6 +105,53 @@ class AuthRepositoryImpl implements AuthRepository {
         'loginChallenge': challenge,
       },
     );
+    await client.saveToken(r.data['token'].toString());
+    return UserModel.fromJson(Map<String, dynamic>.from(r.data['user']));
+  }
+
+  @override
+  Future<User> signupWithEmail({required String name, required String email, required String password}) async {
+    final r = await client.dio.post('/auth/signup', data: {
+      'name': name,
+      'email': email.trim().toLowerCase(),
+      'password': password,
+    });
+    await client.saveToken(r.data['token'].toString());
+    return UserModel.fromJson(Map<String, dynamic>.from(r.data['user']));
+  }
+
+  @override
+  Future<User> loginWithEmail({required String email, required String password}) async {
+    final r = await client.dio.post('/auth/login', data: {
+      'email': email.trim().toLowerCase(),
+      'password': password,
+    });
+    await client.saveToken(r.data['token'].toString());
+    return UserModel.fromJson(Map<String, dynamic>.from(r.data['user']));
+  }
+
+  @override
+  Future<Map<String, dynamic>> requestEmailOtp({required String email, required bool signup}) async {
+    final r = await client.dio.post('/auth/request-email-otp', data: {'email': email, 'purpose': signup ? 'signup' : 'login'});
+    return Map<String, dynamic>.from(r.data);
+  }
+
+  @override
+  Future<String> verifyEmailOtp({required String email, required String otp, required bool signup}) async {
+    final r = await client.dio.post('/auth/verify-email-otp', data: {'email': email, 'otp': otp, 'purpose': signup ? 'signup' : 'login'});
+    return r.data['emailChallenge'].toString();
+  }
+
+  @override
+  Future<User> signupWithEmailChallenge({required String name, required String email, required String password, required String challenge}) async {
+    final r = await client.dio.post('/auth/signup', data: {'name': name, 'email': email, 'password': password, 'emailChallenge': challenge});
+    await client.saveToken(r.data['token'].toString());
+    return UserModel.fromJson(Map<String, dynamic>.from(r.data['user']));
+  }
+
+  @override
+  Future<User> loginWithEmailChallenge({required String email, required String password, required String challenge}) async {
+    final r = await client.dio.post('/auth/login', data: {'email': email, 'password': password, 'emailChallenge': challenge});
     await client.saveToken(r.data['token'].toString());
     return UserModel.fromJson(Map<String, dynamic>.from(r.data['user']));
   }

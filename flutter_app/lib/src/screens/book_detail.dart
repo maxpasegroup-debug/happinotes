@@ -349,8 +349,8 @@ class _BookDetailState extends ConsumerState<BookDetail> {
                               try {
                                 if (!context.mounted) return;
                                 Navigator.of(context).push(
-                                  MaterialPageRoute(
-                                    builder: (_) => EpisodePlayerScreen(
+                                  _slideUpPageRoute(
+                                    EpisodePlayerScreen(
                                       book: book,
                                       episode: episode,
                                     ),
@@ -444,8 +444,8 @@ class _BookDetailState extends ConsumerState<BookDetail> {
                                   } else {
                                     if (!context.mounted) return;
                                     Navigator.of(context).push(
-                                      MaterialPageRoute(
-                                        builder: (_) => EpisodePlayerScreen(
+                                      _slideUpPageRoute(
+                                        EpisodePlayerScreen(
                                           book: book,
                                           episode: episode,
                                         ),
@@ -501,6 +501,19 @@ class _BookDetailState extends ConsumerState<BookDetail> {
     );
   }
 }
+
+Route<void> _slideUpPageRoute(Widget page) => PageRouteBuilder<void>(
+  pageBuilder: (_, __, ___) => page,
+  transitionDuration: const Duration(milliseconds: 320),
+  reverseTransitionDuration: const Duration(milliseconds: 260),
+  transitionsBuilder: (_, animation, __, child) => SlideTransition(
+    position: Tween<Offset>(
+      begin: const Offset(0, 1),
+      end: Offset.zero,
+    ).chain(CurveTween(curve: Curves.easeOutCubic)).animate(animation),
+    child: child,
+  ),
+);
 
 Future<bool?> _openTestCheckout(BuildContext context, Book book) {
   return Navigator.of(context).push<bool>(

@@ -682,7 +682,7 @@ class ProfileTab extends ConsumerWidget {
             style: const TextStyle(fontSize: 20, fontWeight: FontWeight.w800),
           ),
           Text(
-            s.user?.phoneNumber ?? '',
+            s.user?.email ?? s.user?.phoneNumber ?? '',
             textAlign: TextAlign.center,
             style: const TextStyle(color: AppColors.muted),
           ),
@@ -1031,7 +1031,7 @@ class _DemoNotificationTile extends StatelessWidget {
 }
 
 void openBook(BuildContext context, Book b) =>
-    Navigator.of(context).push(_slideDownRoute(BookDetail(book: b)));
+    Navigator.of(context).push(_slideUpRoute(BookDetail(book: b)));
 
 class PurchasedStoriesScreen extends ConsumerWidget {
   const PurchasedStoriesScreen({super.key});

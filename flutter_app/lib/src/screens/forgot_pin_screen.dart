@@ -1,10 +1,11 @@
 import 'package:flutter/material.dart';
-import 'package:flutter/services.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
 import '../../app/providers.dart';
 import '../theme.dart';
 import '../widgets/app_message.dart';
 
+/// Password recovery screen. The legacy filename is kept so existing routes
+/// remain valid, but recovery now uses the account email and password.
 class ForgotPinScreen extends ConsumerStatefulWidget {
   const ForgotPinScreen({super.key});
 
@@ -13,41 +14,42 @@ class ForgotPinScreen extends ConsumerStatefulWidget {
 }
 
 class _ForgotPinScreenState extends ConsumerState<ForgotPinScreen> {
-  final phone = TextEditingController();
+  final email = TextEditingController();
   final otp = TextEditingController();
-  final pin = TextEditingController();
-  bool sent = false, loading = false, obscureNewPin = true;
-  String? testOtp, error, success;
-
-  String get normalizedPhone {
-    final digits = phone.text.replaceAll(RegExp(r'\D'), '');
-    final local = digits.startsWith('91') && digits.length > 10 ? digits.substring(2) : digits;
-    return local.isEmpty ? '' : '+91$local';
-  }
+  final password = TextEditingController();
+  bool sent = false;
+  bool loading = false;
+  bool hidden = true;
+  String? error;
 
   @override
   void dispose() {
-    phone.dispose();
+    email.dispose();
     otp.dispose();
-    pin.dispose();
+    password.dispose();
     super.dispose();
   }
 
   Future<void> _submit() async {
-    setState(() { loading = true; error = null; success = null; });
+    setState(() { loading = true; error = null; });
     try {
       final repository = ref.read(authRepositoryProvider);
       if (!sent) {
-        final result = await repository.requestResetPinOtp(normalizedPhone);
-        testOtp = result['testOtp']?.toString();
+        if (!RegExp(r'^[^\s@]+@[^\s@]+\.[^\s@]+$').hasMatch(email.text.trim())) {
+          throw StateError('Enter a valid email address.');
+        }
+        await repository.requestPasswordReset(email.text);
         sent = true;
       } else {
-        if (!RegExp(r'^\d{6}$').hasMatch(otp.text) || !RegExp(r'^\d{6}$').hasMatch(pin.text)) {
-          throw StateError('Enter a 6-digit OTP and new PIN.');
+        if (!RegExp(r'^\d{6}$').hasMatch(otp.text)) {
+          throw StateError('Enter the 6-digit OTP.');
         }
-        await repository.resetPin(phoneNumber: normalizedPhone, otp: otp.text, pin: pin.text);
+        if (password.text.length < 6) {
+          throw StateError('Password must be at least 6 characters.');
+        }
+        await repository.resetPassword(email: email.text, otp: otp.text, newPassword: password.text);
         if (mounted) {
-          AppMessage.showGlobal('PIN reset successfully. You can log in now.', success: true);
+          AppMessage.showGlobal('Password reset successfully. You can sign in now.', success: true);
           Navigator.of(context).pop();
           return;
         }
@@ -61,39 +63,50 @@ class _ForgotPinScreenState extends ConsumerState<ForgotPinScreen> {
 
   @override
   Widget build(BuildContext context) => Scaffold(
-    appBar: AppBar(title: const Text('Forgot PIN')),
+    appBar: AppBar(title: const Text('Forgot password')),
     body: ListView(
       padding: const EdgeInsets.all(24),
       children: [
-        const Text('Reset your 6-digit PIN', style: TextStyle(fontSize: 26, fontWeight: FontWeight.w800)),
+        const Text('Reset your password', style: TextStyle(fontSize: 26, fontWeight: FontWeight.w800)),
         const SizedBox(height: 10),
-        const Text('Enter your WhatsApp number to receive a reset OTP.'),
+        const Text('Enter your email address to receive a reset code.'),
         const SizedBox(height: 24),
-        TextField(controller: phone, enabled: !sent, keyboardType: TextInputType.phone, decoration: InputDecoration(labelText: 'WhatsApp number', prefix: Text('🇮🇳 +91 ', style: TextStyle(color: Theme.of(context).colorScheme.onSurface, fontSize: 16, height: 1.2, fontWeight: FontWeight.w600)), hintText: '9876543210')),
+        TextField(
+          controller: email,
+          enabled: !sent,
+          keyboardType: TextInputType.emailAddress,
+          decoration: const InputDecoration(labelText: 'Email address', prefixIcon: Icon(Icons.email_outlined)),
+        ),
         if (sent) ...[
           const SizedBox(height: 14),
-          if (testOtp != null) Text('DEMO OTP: $testOtp', style: const TextStyle(color: AppColors.coral, fontWeight: FontWeight.w800)),
-          TextField(controller: otp, keyboardType: TextInputType.number, inputFormatters: [FilteringTextInputFormatter.digitsOnly, LengthLimitingTextInputFormatter(6)], decoration: const InputDecoration(labelText: 'OTP')),
+          TextField(
+            controller: otp,
+            keyboardType: TextInputType.number,
+            maxLength: 6,
+            decoration: const InputDecoration(labelText: 'Verification code', prefixIcon: Icon(Icons.verified_outlined)),
+          ),
           const SizedBox(height: 14),
           TextField(
-            controller: pin,
-            obscureText: obscureNewPin,
-            keyboardType: TextInputType.number,
-            inputFormatters: [FilteringTextInputFormatter.digitsOnly, LengthLimitingTextInputFormatter(6)],
+            controller: password,
+            obscureText: hidden,
             decoration: InputDecoration(
-              labelText: 'New 6-digit PIN',
+              labelText: 'New password',
+              prefixIcon: const Icon(Icons.lock_outline_rounded),
               suffixIcon: IconButton(
-                tooltip: obscureNewPin ? 'Show PIN' : 'Hide PIN',
-                icon: Icon(obscureNewPin ? Icons.visibility_off_rounded : Icons.visibility_rounded),
-                onPressed: () => setState(() => obscureNewPin = !obscureNewPin),
+                tooltip: hidden ? 'Show password' : 'Hide password',
+                icon: Icon(hidden ? Icons.visibility_off_rounded : Icons.visibility_rounded),
+                onPressed: () => setState(() => hidden = !hidden),
               ),
             ),
           ),
         ],
         if (error != null) Padding(padding: const EdgeInsets.only(top: 14), child: Text(error!, style: const TextStyle(color: Colors.redAccent))),
-        if (success != null) Padding(padding: const EdgeInsets.only(top: 14), child: Text(success!, style: const TextStyle(color: Colors.green, fontWeight: FontWeight.w700))),
         const SizedBox(height: 24),
-        FilledButton(onPressed: loading || success != null ? null : _submit, style: FilledButton.styleFrom(backgroundColor: AppColors.coral, padding: const EdgeInsets.all(17)), child: Text(loading ? 'Please wait...' : sent ? 'Reset PIN' : 'Send OTP')),
+        FilledButton(
+          onPressed: loading ? null : _submit,
+          style: FilledButton.styleFrom(backgroundColor: AppColors.coral, padding: const EdgeInsets.all(17)),
+          child: Text(loading ? 'Please wait...' : sent ? 'Reset password' : 'Send reset code'),
+        ),
       ],
     ),
   );

@@ -16,6 +16,7 @@ class BooksController extends ChangeNotifier {
   bool collectionLoading = false;
   bool collectionLoaded = false;
   bool loading = false;
+  bool hasLoaded = false;
   String? error;
   Future<void> loadBooks({String? query, String? language, bool forceRefresh = false}) async {
     // Avoid duplicate catalogue requests during startup. The session restore,
@@ -39,9 +40,11 @@ class BooksController extends ChangeNotifier {
       if (canUseCache) await _saveCache();
     } catch (e) {
       error = client.errorMessage(e);
+    } finally {
+      hasLoaded = true;
+      loading = false;
+      notifyListeners();
     }
-    loading = false;
-    notifyListeners();
   }
 
   Future<bool> _restoreCacheIfFresh() async {

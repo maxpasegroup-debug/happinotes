@@ -2,122 +2,62 @@ import 'package:flutter/foundation.dart';
 import '../../../../core/network/api_client.dart';
 import 'session_controller.dart';
 
-enum AuthStep { details, otp, pin }
+enum AuthStep { email, otp, password }
 
 class AuthFormController extends ChangeNotifier {
   AuthFormController(this.session, this.client);
-
-  bool _disposed = false;
-
-  void _notify() {
-    if (!_disposed) notifyListeners();
-  }
-
   final SessionController session;
   final ApiClient client;
   bool isSignup = false;
   bool loading = false;
-  AuthStep step = AuthStep.details;
-  String name = '';
-  // Keep the field empty; the country-code format is shown as a hint instead
-  // of accidentally appearing in the name/phone input on signup.
-  String phone = '';
-  String otp = '';
-  String pin = '';
-  String confirmPin = '';
+  AuthStep step = AuthStep.email;
+  String name = '', email = '', otp = '', password = '', confirmPassword = '';
   String challenge = '';
-  String? testOtp;
-  String? error;
-  String? successMessage;
-
-  void setName(String value) => name = value;
-  void setPhone(String value) {
-    final digits = value.replaceAll(RegExp(r'\D'), '');
-    final local = digits.startsWith('91') && digits.length > 10
-        ? digits.substring(2)
-        : digits;
-    phone = local.isEmpty ? '' : '+91$local';
-  }
-  void setOtp(String value) => otp = _sixDigits(value);
-  void setPin(String value) => pin = _sixDigits(value);
-  void setConfirmPin(String value) => confirmPin = _sixDigits(value);
-
-  String _sixDigits(String value) {
-    final digits = value.replaceAll(RegExp(r'\D'), '');
-    return digits.length > 6 ? digits.substring(0, 6) : digits;
-  }
+  String? testOtp, error, successMessage;
+  bool _disposed = false;
+  void _notify() { if (!_disposed) notifyListeners(); }
+  void setName(String v) { name = v; _notify(); }
+  void setEmail(String v) { email = v.trim(); _notify(); }
+  void setOtp(String v) { otp = v.replaceAll(RegExp(r'\D'), '').split('').take(6).join(); _notify(); }
+  void setPassword(String v) { password = v; _notify(); }
+  void setConfirmPassword(String v) { confirmPassword = v; _notify(); }
 
   void toggleMode() {
-    isSignup = !isSignup;
-    step = AuthStep.details;
-    otp = '';
-    pin = '';
-    confirmPin = '';
-    challenge = '';
-    testOtp = null;
-    error = null;
-    successMessage = null;
-    _notify();
+    isSignup = !isSignup; step = AuthStep.email; name = ''; password = ''; confirmPassword = ''; otp = ''; challenge = ''; testOtp = null; error = null; successMessage = null; _notify();
   }
-
-  void changeDetails() {
-    step = AuthStep.details;
-    otp = '';
-    challenge = '';
-    testOtp = null;
-    error = null;
-    _notify();
-  }
+  void changeEmail() { step = AuthStep.email; otp = ''; challenge = ''; testOtp = null; error = null; _notify(); }
 
   Future<void> submit() async {
-    error = null;
-    successMessage = null;
-    if (!RegExp(r'^\+[1-9]\d{7,14}$').hasMatch(phone)) {
-      error = 'Enter a valid WhatsApp number with country code.';
-      _notify();
-      return;
+    error = null; successMessage = null;
+    if (step == AuthStep.email) {
+      if (!RegExp(r'^[^\s@]+@[^\s@]+\.[^\s@]+$').hasMatch(email)) { error = 'Enter a valid email address.'; _notify(); return; }
+    } else if (step == AuthStep.otp) {
+      if (otp.length != 6) { error = 'Enter the 6-digit OTP.'; _notify(); return; }
+    } else {
+      if (isSignup && name.trim().isEmpty) { error = 'Enter your full name.'; _notify(); return; }
+      if (password.length < 6) { error = 'Password must be at least 6 characters.'; _notify(); return; }
+      if (isSignup && password != confirmPassword) { error = 'Passwords do not match.'; _notify(); return; }
     }
-    loading = true;
-    _notify();
+    loading = true; _notify();
     try {
-      if (step == AuthStep.details) {
-        if (isSignup) {
-          if (name.trim().isEmpty) throw StateError('Enter your full name.');
-          if (pin.length != 6) throw StateError('Create a 6-digit PIN.');
-          if (pin != confirmPin) throw StateError('PIN numbers do not match.');
-          final result = await session.requestSignupOtp(phone);
-          testOtp = result['testOtp']?.toString();
-        } else {
-          final result = await session.requestLoginOtp(phone);
-          testOtp = result['testOtp']?.toString();
-        }
+      if (step == AuthStep.email) {
+        final result = await session.requestEmailOtp(email, isSignup);
+        testOtp = result['testOtp']?.toString();
         step = AuthStep.otp;
       } else if (step == AuthStep.otp) {
-        if (otp.length != 6) throw StateError('Enter the 6-digit OTP.');
-        if (isSignup) {
-          await session.signup(name.trim(), phone, pin, otp);
-          successMessage = 'Your account was created successfully';
-        } else {
-          challenge = await session.verifyLoginOtp(phone, otp);
-          step = AuthStep.pin;
-          successMessage = 'OTP verified';
-        }
+        challenge = await session.verifyEmailOtp(email, otp, isSignup);
+        step = AuthStep.password;
+      } else if (isSignup) {
+        await session.signupWithEmailChallenge(name.trim(), email, password, challenge);
+        successMessage = 'Your account was created successfully';
       } else {
-        if (pin.length != 6) throw StateError('Enter your 6-digit PIN.');
-        await session.login(phone, pin, challenge);
+        await session.loginWithEmailChallenge(email, password, challenge);
         successMessage = 'Login successful';
       }
-    } catch (exception) {
-      error = client.errorMessage(exception);
-    } finally {
-      loading = false;
-      _notify();
-    }
+    } catch (exception) { error = client.errorMessage(exception); }
+    finally { loading = false; _notify(); }
   }
 
   @override
-  void dispose() {
-    _disposed = true;
-    super.dispose();
-  }
+  void dispose() { _disposed = true; super.dispose(); }
 }

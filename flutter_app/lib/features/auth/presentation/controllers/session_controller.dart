@@ -11,14 +11,16 @@ class SessionController extends ChangeNotifier {
   bool get isLoggedIn => user != null;
   Future<void> initialize() async {
     await Future.wait([
-      _restore().timeout(const Duration(seconds: 8), onTimeout: () {
+      // Keep startup bounded when the saved token points at an unavailable
+      // backend. Home/auth must still appear instead of looking frozen.
+      _restore().timeout(const Duration(seconds: 5), onTimeout: () {
         // A slow/offline backend must not leave the app showing the splash
         // indefinitely. The next authenticated request can retry normally.
         if (!_disposed) user = null;
       }),
       // Keep the branded splash visible briefly, but do not make startup feel
       // frozen while the saved session is restored.
-      Future<void>.delayed(const Duration(milliseconds: 900)),
+      Future<void>.delayed(const Duration(milliseconds: 350)),
     ]);
     if (!_disposed) {
       initialized = true;
@@ -88,6 +90,27 @@ class SessionController extends ChangeNotifier {
   void updatePurchasedBooks(List<String> ids) {
     if (user == null) return;
     user = user!.copyWith(purchasedBookIds: ids);
+    notifyListeners();
+  }
+
+  Future<void> signupWithEmail(String name, String email, String password) async {
+    user = await repository.signupWithEmail(name: name, email: email, password: password);
+    notifyListeners();
+  }
+
+  Future<void> loginWithEmail(String email, String password) async {
+    user = await repository.loginWithEmail(email: email, password: password);
+    notifyListeners();
+  }
+
+  Future<Map<String, dynamic>> requestEmailOtp(String email, bool signup) => repository.requestEmailOtp(email: email, signup: signup);
+  Future<String> verifyEmailOtp(String email, String otp, bool signup) => repository.verifyEmailOtp(email: email, otp: otp, signup: signup);
+  Future<void> signupWithEmailChallenge(String name, String email, String password, String challenge) async {
+    user = await repository.signupWithEmailChallenge(name: name, email: email, password: password, challenge: challenge);
+    notifyListeners();
+  }
+  Future<void> loginWithEmailChallenge(String email, String password, String challenge) async {
+    user = await repository.loginWithEmailChallenge(email: email, password: password, challenge: challenge);
     notifyListeners();
   }
 
