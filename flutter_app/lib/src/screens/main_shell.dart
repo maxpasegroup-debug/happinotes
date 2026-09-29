@@ -490,19 +490,31 @@ class _FeaturedRailState extends State<FeaturedRail> {
 
 class SearchTab extends ConsumerWidget {
   const SearchTab({super.key});
+
+  void _leaveSearch(WidgetRef ref) {
+    // Search results use the same catalog controller as Home. Clear the
+    // temporary query and refresh the full catalog before Home is shown again.
+    ref.read(searchQueryProvider.notifier).state = '';
+    ref.read(booksControllerProvider).loadBooks(forceRefresh: true);
+  }
+
   @override
   Widget build(BuildContext context, WidgetRef ref) {
     final s = ref.watch(booksControllerProvider);
     final query = ref.watch(searchQueryProvider);
-    return Scaffold(
-      appBar: AppBar(
-        title: const Text('Search'),
-        leading: IconButton(
-          icon: const Icon(Icons.arrow_back_rounded),
-          onPressed: () => Navigator.of(context).pop(),
+    return PopScope<void>(
+      onPopInvokedWithResult: (didPop, _) {
+        if (didPop) _leaveSearch(ref);
+      },
+      child: Scaffold(
+        appBar: AppBar(
+          title: const Text('Search'),
+          leading: IconButton(
+            icon: const Icon(Icons.arrow_back_rounded),
+            onPressed: () => Navigator.of(context).pop(),
+          ),
         ),
-      ),
-      body: SafeArea(
+        body: SafeArea(
         child: Column(
           children: [
             Padding(
@@ -569,6 +581,7 @@ class SearchTab extends ConsumerWidget {
                     ),
             ),
           ],
+        ),
         ),
       ),
     );

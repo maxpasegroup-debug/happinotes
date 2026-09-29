@@ -43,22 +43,21 @@ class AuthScreen extends ConsumerWidget {
                     onChanged: form.setEmail,
                     keyboardType: TextInputType.emailAddress,
                     autocorrect: false,
-                    decoration: const InputDecoration(labelText: 'Email address', prefixIcon: Icon(Icons.email_outlined)),
+                    decoration: InputDecoration(
+                      labelText: 'Email address',
+                      prefixIcon: const Icon(Icons.email_outlined),
+                      errorText: form.email.isNotEmpty &&
+                              !RegExp(r'^[^\s@]+@[^\s@]+\.[^\s@]+$').hasMatch(form.email)
+                          ? 'Enter a valid email address'
+                          : null,
+                    ),
                   ),
                 if (form.step == AuthStep.otp) ...[
                   Text('We sent a 6-digit code to ${form.email}', textAlign: TextAlign.center),
                   const SizedBox(height: 14),
                   if (form.testOtp != null) Text('DEMO OTP: ${form.testOtp}', textAlign: TextAlign.center, style: const TextStyle(color: AppColors.coral, fontWeight: FontWeight.w800)),
                   const SizedBox(height: 12),
-                  TextFormField(
-                    initialValue: form.otp,
-                    onChanged: form.setOtp,
-                    keyboardType: TextInputType.number,
-                    maxLength: 6,
-                    inputFormatters: [FilteringTextInputFormatter.digitsOnly],
-                    textAlign: TextAlign.center,
-                    decoration: const InputDecoration(labelText: 'Email verification code', prefixIcon: Icon(Icons.verified_outlined), counterText: ''),
-                  ),
+                  OtpBoxes(value: form.otp, onChanged: form.setOtp, enabled: !form.loading, onCompleted: () => _submit(ref)),
                 ],
                 if (form.step == AuthStep.password) ...[
                   if (form.isSignup) ...[
@@ -112,5 +111,82 @@ class _PasswordFieldState extends State<_PasswordField> {
       prefixIcon: const Icon(Icons.lock_outline_rounded),
       suffixIcon: IconButton(tooltip: hidden ? 'Show password' : 'Hide password', icon: Icon(hidden ? Icons.visibility_off_rounded : Icons.visibility_rounded), onPressed: () => setState(() => hidden = !hidden)),
     ),
+  );
+}
+
+class OtpBoxes extends StatefulWidget {
+  const OtpBoxes({super.key, required this.value, required this.onChanged, required this.enabled, this.onCompleted});
+  final String value;
+  final ValueChanged<String> onChanged;
+  final bool enabled;
+  final VoidCallback? onCompleted;
+
+  @override
+  State<OtpBoxes> createState() => _OtpBoxesState();
+}
+
+class _OtpBoxesState extends State<OtpBoxes> {
+  late final List<TextEditingController> _controllers;
+  late final List<FocusNode> _nodes;
+
+  @override
+  void initState() {
+    super.initState();
+    _controllers = List.generate(6, (i) => TextEditingController(text: i < widget.value.length ? widget.value[i] : ''));
+    _nodes = List.generate(6, (_) => FocusNode());
+  }
+
+  String get _joined => _controllers.map((c) => c.text).join();
+
+  void _changed(int index, String value) {
+    final digits = value.replaceAll(RegExp(r'\D'), '');
+    if (digits.length > 1) {
+      for (var i = 0; i < digits.length && index + i < 6; i++) {
+        _controllers[index + i].text = digits[i];
+      }
+      _nodes[(index + digits.length).clamp(0, 5).toInt()].requestFocus();
+    } else {
+      _controllers[index].text = digits;
+      _controllers[index].selection = TextSelection.collapsed(offset: digits.length);
+      if (digits.isNotEmpty && index < 5) _nodes[index + 1].requestFocus();
+    }
+    widget.onChanged(_joined);
+    if (_joined.length == 6) widget.onCompleted?.call();
+    setState(() {});
+  }
+
+  @override
+  void dispose() {
+    for (final c in _controllers) c.dispose();
+    for (final n in _nodes) n.dispose();
+    super.dispose();
+  }
+
+  @override
+  Widget build(BuildContext context) => Row(
+    children: List.generate(6, (index) => Expanded(
+      child: Padding(
+        padding: EdgeInsets.only(right: index == 5 ? 0 : 8),
+        child: TextField(
+          controller: _controllers[index],
+          focusNode: _nodes[index],
+          enabled: widget.enabled,
+          autofocus: index == 0,
+          maxLength: 1,
+          textAlign: TextAlign.center,
+          keyboardType: TextInputType.number,
+          inputFormatters: [FilteringTextInputFormatter.digitsOnly],
+          onChanged: (value) => _changed(index, value),
+          style: const TextStyle(fontSize: 22, fontWeight: FontWeight.w800),
+          decoration: InputDecoration(
+            counterText: '',
+            filled: true,
+            fillColor: _controllers[index].text.isNotEmpty ? AppColors.coral.withValues(alpha: .12) : Theme.of(context).colorScheme.surface,
+            contentPadding: const EdgeInsets.symmetric(vertical: 15),
+            border: OutlineInputBorder(borderRadius: BorderRadius.circular(12)),
+          ),
+        ),
+      ),
+    )),
   );
 }

@@ -221,7 +221,7 @@ class _BookDetailState extends ConsumerState<BookDetail> {
                       ),
                       const SizedBox(height: 8),
                       Text(
-                        '${book.language.toUpperCase()}  â€¢  ${book.category}  â€¢  ${book.accessType}',
+                        '${book.language.toUpperCase()} \u2022 ${book.accessType == 'premium' ? 'Premium' : 'Free'}',
                         style: const TextStyle(color: AppColors.muted),
                       ),
                       const SizedBox(height: 14),
@@ -304,7 +304,7 @@ class _BookDetailState extends ConsumerState<BookDetail> {
                               const SizedBox(width: 10),
                               Expanded(
                                 child: Text(
-                                  'Premium story â€¢ One-time purchase required to unlock all episodes.',
+                                  'Premium story \u2022 One-time purchase required to unlock all episodes.',
                                   style: const TextStyle(
                                     fontWeight: FontWeight.w700,
                                   ),
@@ -647,14 +647,6 @@ class TestPaymentSuccessScreen extends StatefulWidget {
 
 class _TestPaymentSuccessScreenState extends State<TestPaymentSuccessScreen> {
   @override
-  void initState() {
-    super.initState();
-    Future<void>.delayed(const Duration(seconds: 3), () {
-      if (mounted) Navigator.of(context).pop(true);
-    });
-  }
-
-  @override
   Widget build(BuildContext context) => PopScope<bool>(
     canPop: false,
     onPopInvokedWithResult: (didPop, _) {
@@ -690,9 +682,22 @@ class _TestPaymentSuccessScreenState extends State<TestPaymentSuccessScreen> {
               ),
               const SizedBox(height: 12),
               Text(
-                'Unlocking your story…',
+                'Your story is ready to play.',
                 style: Theme.of(context).textTheme.bodyMedium?.copyWith(
                   color: AppColors.muted,
+                ),
+              ),
+              const SizedBox(height: 28),
+              SizedBox(
+                width: double.infinity,
+                child: FilledButton.icon(
+                  onPressed: () => Navigator.of(context).pop(true),
+                  icon: const Icon(Icons.done_rounded),
+                  label: const Text('Done'),
+                  style: FilledButton.styleFrom(
+                    backgroundColor: AppColors.success,
+                    padding: const EdgeInsets.symmetric(vertical: 16),
+                  ),
                 ),
               ),
               ],
