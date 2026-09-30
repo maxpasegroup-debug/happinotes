@@ -30,4 +30,5 @@ export const env = {
   WHATSAPP_OTP_MODE: process.env.WHATSAPP_OTP_MODE || 'test',
   RESEND_API_KEY: process.env.RESEND_API_KEY ?? '',
   RESEND_FROM_EMAIL: process.env.RESEND_FROM_EMAIL || 'no-reply@happinotes.online',
+  FIREBASE_SERVICE_ACCOUNT_JSON: process.env.FIREBASE_SERVICE_ACCOUNT_JSON ?? '',
 } as const;

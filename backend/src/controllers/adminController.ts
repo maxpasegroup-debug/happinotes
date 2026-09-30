@@ -4,6 +4,7 @@ import { User, Content } from '../models';
 import type { ILifebookSection, ILesson } from '../models/Content';
 import { BadRequestError, NotFoundError } from '../utils/errors';
 import { emitCatalogChanged, emitNotification } from '../services/realtime';
+import { sendPushNotification } from '../services/pushNotification';
 
 const LIFEBOOK_UPDATE_FIELDS = [
   'title',
@@ -64,7 +65,40 @@ export const sendNotification = async (
     const imageUrl = typeof req.body?.imageUrl === 'string' ? req.body.imageUrl.trim() : '';
     if (!title || !message) return next(new BadRequestError('title and message are required'));
     emitNotification({ title, message, target, ...(imageUrl ? { imageUrl } : {}) });
-    res.status(201).json({ success: true, notification: { title, message, target, imageUrl } });
+
+    const userFilter = target === 'premium'
+      ? { purchasedBooks: { $exists: true, $ne: [] } }
+      : target === 'free'
+        ? { $or: [{ purchasedBooks: { $exists: false } }, { purchasedBooks: { $size: 0 } }] }
+        : {};
+    const recipients = await User.find(userFilter).select({ fcmTokens: 1 }).lean();
+    const tokens = recipients.flatMap((user) => user.fcmTokens ?? []);
+    const push = await sendPushNotification({
+      tokens,
+      title,
+      message,
+      target,
+      ...(imageUrl ? { imageUrl } : {}),
+    });
+
+    if (push.invalidTokens.length > 0) {
+      await User.updateMany(
+        { fcmTokens: { $in: push.invalidTokens } },
+        { $pull: { fcmTokens: { $in: push.invalidTokens } } },
+      );
+    }
+
+    res.status(201).json({
+      success: true,
+      notification: { title, message, target, imageUrl },
+      push: {
+        configured: push.configured,
+        sent: push.sent,
+        failed: push.failed,
+        removed: push.removed,
+        ...(push.error ? { error: push.error } : {}),
+      },
+    });
   } catch (err) {
     next(err);
   }

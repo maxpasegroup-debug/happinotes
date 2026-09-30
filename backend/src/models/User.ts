@@ -12,6 +12,7 @@ export interface IUser extends Document {
   bookCollection: mongoose.Types.ObjectId[];
   purchasedBooks: mongoose.Types.ObjectId[];
   favourites: { contentId: mongoose.Types.ObjectId; contentType: string }[];
+  fcmTokens: string[];
   blocked: boolean;
   createdAt: Date;
   updatedAt: Date;
@@ -36,6 +37,7 @@ const userSchema = new Schema<IUser>(
       ],
       default: [],
     },
+    fcmTokens: { type: [String], default: [] },
     blocked: { type: Boolean, default: false },
   },
   { timestamps: true }

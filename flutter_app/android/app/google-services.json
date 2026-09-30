@@ -12,7 +12,20 @@
           "package_name": "com.happinotes.happinotes_flutter"
         }
       },
-      "oauth_client": [],
+      "oauth_client": [
+        {
+          "client_id": "948516820261-6l3otfo8j5bsug7f5bfcignklmdhpk0v.apps.googleusercontent.com",
+          "client_type": 1,
+          "android_info": {
+            "package_name": "com.happinotes.happinotes_flutter",
+            "certificate_hash": "d7f1f3347c0ce1198b95f5d1846e59809af964b3"
+          }
+        },
+        {
+          "client_id": "948516820261-5csiepcik3prr7fo3h2ouan5er561br8.apps.googleusercontent.com",
+          "client_type": 3
+        }
+      ],
       "api_key": [
         {
           "current_key": "AIzaSyCsxO7s7L2Bn0CDOMGj-Lv6Rz_AFP2u_LE"
@@ -20,7 +33,12 @@
       ],
       "services": {
         "appinvite_service": {
-          "other_platform_oauth_client": []
+          "other_platform_oauth_client": [
+            {
+              "client_id": "948516820261-5csiepcik3prr7fo3h2ouan5er561br8.apps.googleusercontent.com",
+              "client_type": 3
+            }
+          ]
         }
       }
     }

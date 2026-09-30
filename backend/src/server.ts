@@ -16,6 +16,7 @@ const start = async (): Promise<void> => {
   console.log('ADMIN_EMAIL:', process.env.ADMIN_EMAIL ? 'SET' : 'MISSING');
   console.log('RESEND_API_KEY:', process.env.RESEND_API_KEY ? 'SET' : 'MISSING');
   console.log('RESEND_FROM_EMAIL:', process.env.RESEND_FROM_EMAIL ? 'SET' : 'MISSING');
+  console.log('FIREBASE_SERVICE_ACCOUNT_JSON:', process.env.FIREBASE_SERVICE_ACCOUNT_JSON ? 'SET' : 'MISSING');
   if (!process.env.RESEND_API_KEY?.trim()) {
     console.error('RESEND_API_KEY is MISSING - email OTP delivery will fail');
   }

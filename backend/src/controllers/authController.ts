@@ -45,6 +45,39 @@ export const updateLanguage = async (req: Request, res: Response, next: NextFunc
   } catch (err) { next(err); }
 };
 
+export const registerFcmToken = async (req: Request, res: Response, next: NextFunction): Promise<void> => {
+  try {
+    if (!req.user) return next(new UnauthorizedError('Not authenticated'));
+    const token = typeof req.body?.token === 'string' ? req.body.token.trim() : '';
+    if (!token || token.length > 4096) {
+      return next(new BadRequestError('A valid FCM token is required'));
+    }
+
+    // A device token must belong to only the currently authenticated account.
+    await User.updateMany(
+      { _id: { $ne: req.user._id }, fcmTokens: token },
+      { $pull: { fcmTokens: token } },
+    );
+    await User.updateOne(
+      { _id: req.user._id },
+      { $addToSet: { fcmTokens: token } },
+    );
+    res.json({ success: true });
+  } catch (err) { next(err); }
+};
+
+export const unregisterFcmToken = async (req: Request, res: Response, next: NextFunction): Promise<void> => {
+  try {
+    if (!req.user) return next(new UnauthorizedError('Not authenticated'));
+    const token = typeof req.body?.token === 'string' ? req.body.token.trim() : '';
+    if (!token || token.length > 4096) {
+      return next(new BadRequestError('A valid FCM token is required'));
+    }
+    await User.updateMany({ fcmTokens: token }, { $pull: { fcmTokens: token } });
+    res.json({ success: true });
+  } catch (err) { next(err); }
+};
+
 const createPhoneOtp = async (phoneNumber: string, purpose: 'signup' | 'login' | 'reset-pin') => {
   const otp = generateOtp();
   await Otp.updateMany({ identifier: phoneNumber, purpose, used: false }, { used: true });
@@ -395,6 +428,7 @@ export const getMe = async (
         ? (u.purchasedBooks as unknown[]).map((id) => String(id))
         : [];
       delete u.purchasedBooks;
+      delete u.fcmTokens;
     }
     res.json({ success: true, user: u || user });
   } catch (err) {

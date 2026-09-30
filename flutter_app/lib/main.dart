@@ -21,6 +21,9 @@ class HappiNotesApp extends ConsumerWidget {
     final state = ref.watch(sessionControllerProvider);
     final books = ref.watch(booksControllerProvider);
     final theme = ref.watch(themeControllerProvider);
+    if (state.initialized && state.isLoggedIn) {
+      Future.microtask(() => ref.read(fcmServiceProvider).initialize());
+    }
     if (state.initialized && state.isLoggedIn && !books.hasLoaded && !books.loading) {
       Future.microtask(() => ref.read(booksControllerProvider).loadBooks());
     }

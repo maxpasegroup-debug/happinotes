@@ -16,6 +16,8 @@ import {
   updateLanguage,
   requestEmailOtp,
   verifyEmailOtp,
+  registerFcmToken,
+  unregisterFcmToken,
 } from '../controllers/authController';
 import { authenticate } from '../middleware';
 
@@ -111,6 +113,8 @@ router.post(
 router.post('/forgot-password', authRateLimiter, forgotPasswordValidation, forgotPassword);
 router.post('/verify-otp', authRateLimiter, verifyOTPValidation, verifyOTP);
 router.post('/reset-password', resetPasswordValidation, resetPassword);
+router.post('/me/fcm-token', authenticate, body('token').isString().trim().isLength({ min: 20, max: 4096 }), registerFcmToken);
+router.delete('/me/fcm-token', authenticate, body('token').isString().trim().isLength({ min: 20, max: 4096 }), unregisterFcmToken);
 router.get('/me', authenticate, getMe);
 router.put('/me', authenticate, updateLanguage);
 
