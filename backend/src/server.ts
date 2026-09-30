@@ -14,11 +14,10 @@ const PORT = Number(process.env.PORT);
 
 const start = async (): Promise<void> => {
   console.log('ADMIN_EMAIL:', process.env.ADMIN_EMAIL ? 'SET' : 'MISSING');
-  console.log('BREVO_API_KEY:', process.env.BREVO_API_KEY ? 'SET' : 'MISSING');
-  console.log('EMAIL_USER:', process.env.EMAIL_USER ? 'SET' : 'MISSING');
-  console.log('EMAIL_PASS:', process.env.EMAIL_PASS ? 'SET' : 'MISSING');
-  if (!process.env.BREVO_API_KEY?.trim()) {
-    console.error('BREVO_API_KEY is MISSING - forgot-password OTP emails will fail');
+  console.log('RESEND_API_KEY:', process.env.RESEND_API_KEY ? 'SET' : 'MISSING');
+  console.log('RESEND_FROM_EMAIL:', process.env.RESEND_FROM_EMAIL ? 'SET' : 'MISSING');
+  if (!process.env.RESEND_API_KEY?.trim()) {
+    console.error('RESEND_API_KEY is MISSING - email OTP delivery will fail');
   }
 
   await connectDB();

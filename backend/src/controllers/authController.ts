@@ -7,16 +7,20 @@ import { Otp, User } from '../models';
 import { PasswordResetToken } from '../models/passwordResetToken';
 import { env } from '../config/env';
 import { sendOTPEmail } from '../services/emailService';
-import { BadRequestError, UnauthorizedError } from '../utils/errors';
+import { BadRequestError, RateLimitError, UnauthorizedError } from '../utils/errors';
 
-const OTP_EXPIRY_MINUTES = 10;
+const OTP_EXPIRY_MINUTES = 5;
+const EMAIL_OTP_RESEND_COOLDOWN_SECONDS = 60;
 const PRIMARY_ADMIN_EMAIL = 'admin@happinotes.in';
 
 const hashOtp = (identifier: string, otp: string): string =>
   crypto
-    .createHash('sha256')
-    .update(`${identifier}:${otp}:${env.JWT_SECRET}`)
+    .createHmac('sha256', env.JWT_SECRET)
+    .update(`${identifier}:${otp}`)
     .digest('hex');
+
+const generateOtp = (): string =>
+  crypto.randomInt(0, 1_000_000).toString().padStart(6, '0');
 
 const userResponse = (user: typeof User.prototype) => ({
   id: user._id,
@@ -42,7 +46,7 @@ export const updateLanguage = async (req: Request, res: Response, next: NextFunc
 };
 
 const createPhoneOtp = async (phoneNumber: string, purpose: 'signup' | 'login' | 'reset-pin') => {
-  const otp = Math.floor(100000 + Math.random() * 900000).toString();
+  const otp = generateOtp();
   await Otp.updateMany({ identifier: phoneNumber, purpose, used: false }, { used: true });
   await Otp.create({
     identifier: phoneNumber,
@@ -54,11 +58,38 @@ const createPhoneOtp = async (phoneNumber: string, purpose: 'signup' | 'login' |
 };
 
 const createEmailOtp = async (email: string, purpose: 'email-signup' | 'email-login') => {
-  const otp = Math.floor(100000 + Math.random() * 900000).toString();
+  const now = Date.now();
+  const latest = await Otp.findOne({
+    identifier: email,
+    purpose,
+    used: false,
+    expiresAt: { $gt: new Date(now) },
+  }).sort({ createdAt: -1 });
+  if (latest?.createdAt) {
+    const retryAfter = Math.ceil(
+      (latest.createdAt.getTime() + EMAIL_OTP_RESEND_COOLDOWN_SECONDS * 1000 - now) / 1000,
+    );
+    if (retryAfter > 0) {
+      throw new RateLimitError(`Please wait ${retryAfter} seconds before requesting another OTP`);
+    }
+  }
+
+  const otp = generateOtp();
   await Otp.updateMany({ identifier: email, purpose, used: false }, { used: true });
-  await Otp.create({ identifier: email, purpose, otp: hashOtp(email, otp), expiresAt: new Date(Date.now() + OTP_EXPIRY_MINUTES * 60 * 1000) });
-  if (env.WHATSAPP_OTP_MODE !== 'test') await sendOTPEmail(email, otp);
-  return otp;
+  const record = await Otp.create({
+    identifier: email,
+    purpose,
+    otp: hashOtp(email, otp),
+    expiresAt: new Date(now + OTP_EXPIRY_MINUTES * 60 * 1000),
+  });
+
+  try {
+    await sendOTPEmail(email, otp);
+  } catch (error) {
+    record.used = true;
+    await record.save();
+    throw error;
+  }
 };
 
 const verifyEmailChallenge = (token: string, email: string, type: 'email-signup' | 'email-login') => {
@@ -183,7 +214,10 @@ export const login = async (
       return;
     }
     const normalizedEmail = email.toLowerCase();
-    if (!verifyEmailChallenge(emailChallenge, normalizedEmail, 'email-login')) {
+    // The admin dashboard uses a dedicated email/password login. Regular
+    // users still require the email OTP challenge from the mobile flow.
+    if (normalizedEmail !== PRIMARY_ADMIN_EMAIL &&
+        !verifyEmailChallenge(emailChallenge, normalizedEmail, 'email-login')) {
       return next(new UnauthorizedError('Verify the email OTP before signing in'));
     }
     const user = await User.findOne({ email: normalizedEmail }).select('+password');
@@ -253,8 +287,13 @@ export const requestEmailOtp = async (req: Request, res: Response, next: NextFun
     const exists = await User.exists({ email });
     if (purpose === 'email-signup' && exists) return next(new BadRequestError('Email already registered'));
     if (purpose === 'email-login' && !exists) return next(new UnauthorizedError('No account found for this email'));
-    const otp = await createEmailOtp(email, purpose);
-    res.json({ success: true, message: 'OTP generated', ...(env.WHATSAPP_OTP_MODE === 'test' ? { testOtp: otp } : {}) });
+    await createEmailOtp(email, purpose);
+    res.json({
+      success: true,
+      message: 'OTP sent to your email',
+      expiresInSeconds: OTP_EXPIRY_MINUTES * 60,
+      resendAfterSeconds: EMAIL_OTP_RESEND_COOLDOWN_SECONDS,
+    });
   } catch (err) { next(err); }
 };
 
@@ -384,7 +423,7 @@ export const forgotPassword = async (
       return;
     }
 
-    const otp = Math.floor(100000 + Math.random() * 900000).toString();
+    const otp = generateOtp();
     const otpHash = await bcrypt.hash(otp, 10);
     const expiresAt = new Date(Date.now() + OTP_EXPIRY_MINUTES * 60 * 1000);
 

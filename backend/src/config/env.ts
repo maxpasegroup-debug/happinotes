@@ -28,4 +28,6 @@ export const env = {
   ADMIN_EMAIL: process.env.ADMIN_EMAIL ?? undefined,
   ADMIN_PHONE_NUMBER: process.env.ADMIN_PHONE_NUMBER || '+918089239823',
   WHATSAPP_OTP_MODE: process.env.WHATSAPP_OTP_MODE || 'test',
+  RESEND_API_KEY: process.env.RESEND_API_KEY ?? '',
+  RESEND_FROM_EMAIL: process.env.RESEND_FROM_EMAIL || 'no-reply@happinotes.online',
 } as const;

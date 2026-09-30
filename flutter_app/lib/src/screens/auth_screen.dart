@@ -18,6 +18,14 @@ class AuthScreen extends ConsumerWidget {
     }
   }
 
+  Future<void> _resend(WidgetRef ref) async {
+    final form = ref.read(authFormControllerProvider);
+    await form.resendOtp();
+    if (form.successMessage != null || form.error != null) {
+      AppMessage.showGlobal(form.successMessage ?? form.error!, success: form.successMessage != null);
+    }
+  }
+
   @override
   Widget build(BuildContext context, WidgetRef ref) {
     final form = ref.watch(authFormControllerProvider);
@@ -55,9 +63,14 @@ class AuthScreen extends ConsumerWidget {
                 if (form.step == AuthStep.otp) ...[
                   Text('We sent a 6-digit code to ${form.email}', textAlign: TextAlign.center),
                   const SizedBox(height: 14),
-                  if (form.testOtp != null) Text('DEMO OTP: ${form.testOtp}', textAlign: TextAlign.center, style: const TextStyle(color: AppColors.coral, fontWeight: FontWeight.w800)),
-                  const SizedBox(height: 12),
                   OtpBoxes(value: form.otp, onChanged: form.setOtp, enabled: !form.loading, onCompleted: () => _submit(ref)),
+                  const SizedBox(height: 8),
+                  TextButton(
+                    onPressed: form.loading || form.resendSeconds > 0 ? null : () => _resend(ref),
+                    child: Text(form.resendSeconds > 0
+                        ? 'Resend code in ${form.resendSeconds}s'
+                        : 'Resend code'),
+                  ),
                 ],
                 if (form.step == AuthStep.password) ...[
                   if (form.isSignup) ...[

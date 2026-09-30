@@ -1,15 +1,16 @@
-import { BrevoClient } from "@getbrevo/brevo";
+import { Resend } from 'resend';
+import { env } from '../config/env';
 
 const FROM_NAME = "Happinotes";
-const FROM_EMAIL = process.env.SENDER_EMAIL?.trim() || "hello@happinotes.in";
-const OTP_EXPIRY_MINUTES = 10;
+const FROM_EMAIL = env.RESEND_FROM_EMAIL.trim();
+const OTP_EXPIRY_MINUTES = 5;
 
-function getClient(): BrevoClient {
-  const apiKey = process.env.BREVO_API_KEY;
+function getClient(): Resend {
+  const apiKey = env.RESEND_API_KEY.trim();
   if (!apiKey) {
-    throw new Error("BREVO_API_KEY is not set");
+    throw new Error("RESEND_API_KEY is not set");
   }
-  return new BrevoClient({ apiKey });
+  return new Resend(apiKey);
 }
 
 function buildOTPHtml(otp: string): string {
@@ -42,20 +43,20 @@ function buildOTPHtml(otp: string): string {
 export async function sendOTPEmail(to: string, otp: string): Promise<void> {
   console.log("[Email] Sending OTP email to:", to);
   try {
-    const client = getClient();
-    const response = await client.transactionalEmails.sendTransacEmail({
-      sender: { name: FROM_NAME, email: FROM_EMAIL },
-      to: [{ email: to }],
+    const resend = getClient();
+    const { data, error } = await resend.emails.send({
+      from: `${FROM_NAME} <${FROM_EMAIL}>`,
+      to: [to],
       subject: "Your OTP Code - Happinotes",
-      htmlContent: buildOTPHtml(otp),
+      html: buildOTPHtml(otp),
     });
-    const body = (response as { body?: { messageId?: string } })?.body;
-    console.log("[Email] Email sent successfully to", to, body?.messageId ?? response);
+
+    if (error) throw new Error(error.message);
+    console.log("[Email] Email sent successfully to", to, data?.id ?? 'accepted');
   } catch (err) {
     console.error("[Email] Email sending failed:", err);
     const message = err instanceof Error ? err.message : String(err);
-    const body = (err as { body?: unknown })?.body;
-    console.error("[Email] Failed to send OTP to", to, body ?? message);
+    console.error("[Email] Failed to send OTP to", to, message);
     throw err;
   }
 }

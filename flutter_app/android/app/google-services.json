@@ -1,0 +1,29 @@
+{
+  "project_info": {
+    "project_number": "948516820261",
+    "project_id": "happinotes-cd8f6",
+    "storage_bucket": "happinotes-cd8f6.firebasestorage.app"
+  },
+  "client": [
+    {
+      "client_info": {
+        "mobilesdk_app_id": "1:948516820261:android:d1ff85a82a910bb7f2b6cc",
+        "android_client_info": {
+          "package_name": "com.happinotes.happinotes_flutter"
+        }
+      },
+      "oauth_client": [],
+      "api_key": [
+        {
+          "current_key": "AIzaSyCsxO7s7L2Bn0CDOMGj-Lv6Rz_AFP2u_LE"
+        }
+      ],
+      "services": {
+        "appinvite_service": {
+          "other_platform_oauth_client": []
+        }
+      }
+    }
+  ],
+  "configuration_version": "1"
+}

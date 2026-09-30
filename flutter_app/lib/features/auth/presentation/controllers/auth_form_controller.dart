@@ -1,3 +1,4 @@
+import 'dart:async';
 import 'package:flutter/foundation.dart';
 import '../../../../core/network/api_client.dart';
 import 'session_controller.dart';
@@ -13,7 +14,9 @@ class AuthFormController extends ChangeNotifier {
   AuthStep step = AuthStep.email;
   String name = '', email = '', otp = '', password = '', confirmPassword = '';
   String challenge = '';
-  String? testOtp, error, successMessage;
+  String? error, successMessage;
+  int resendSeconds = 0;
+  Timer? _resendTimer;
   bool _disposed = false;
   void _notify() { if (!_disposed) notifyListeners(); }
   void setName(String v) { name = v; _notify(); }
@@ -22,10 +25,31 @@ class AuthFormController extends ChangeNotifier {
   void setPassword(String v) { password = v; _notify(); }
   void setConfirmPassword(String v) { confirmPassword = v; _notify(); }
 
-  void toggleMode() {
-    isSignup = !isSignup; step = AuthStep.email; name = ''; password = ''; confirmPassword = ''; otp = ''; challenge = ''; testOtp = null; error = null; successMessage = null; _notify();
+  void _startResendCooldown([int seconds = 60]) {
+    _resendTimer?.cancel();
+    resendSeconds = seconds;
+    _notify();
+    if (seconds <= 0) return;
+    _resendTimer = Timer.periodic(const Duration(seconds: 1), (timer) {
+      if (_disposed) {
+        timer.cancel();
+        return;
+      }
+      if (resendSeconds <= 1) {
+        timer.cancel();
+        resendSeconds = 0;
+      } else {
+        resendSeconds -= 1;
+      }
+      _notify();
+    });
   }
-  void changeEmail() { step = AuthStep.email; otp = ''; challenge = ''; testOtp = null; error = null; _notify(); }
+
+  void toggleMode() {
+    _resendTimer?.cancel();
+    isSignup = !isSignup; step = AuthStep.email; name = ''; password = ''; confirmPassword = ''; otp = ''; challenge = ''; resendSeconds = 0; error = null; successMessage = null; _notify();
+  }
+  void changeEmail() { _resendTimer?.cancel(); step = AuthStep.email; otp = ''; challenge = ''; resendSeconds = 0; error = null; successMessage = null; _notify(); }
 
   Future<void> submit() async {
     error = null; successMessage = null;
@@ -42,10 +66,13 @@ class AuthFormController extends ChangeNotifier {
     try {
       if (step == AuthStep.email) {
         final result = await session.requestEmailOtp(email, isSignup);
-        testOtp = result['testOtp']?.toString();
         step = AuthStep.otp;
+        final resendAfter = int.tryParse(result['resendAfterSeconds']?.toString() ?? '') ?? 60;
+        _startResendCooldown(resendAfter);
       } else if (step == AuthStep.otp) {
         challenge = await session.verifyEmailOtp(email, otp, isSignup);
+        _resendTimer?.cancel();
+        resendSeconds = 0;
         step = AuthStep.password;
       } else if (isSignup) {
         await session.signupWithEmailChallenge(name.trim(), email, password, challenge);
@@ -58,6 +85,30 @@ class AuthFormController extends ChangeNotifier {
     finally { loading = false; _notify(); }
   }
 
+  Future<void> resendOtp() async {
+    if (step != AuthStep.otp || loading) return;
+    if (resendSeconds > 0) {
+      error = 'Please wait $resendSeconds seconds before requesting another code.';
+      _notify();
+      return;
+    }
+    loading = true;
+    error = null;
+    successMessage = null;
+    _notify();
+    try {
+      final result = await session.requestEmailOtp(email, isSignup);
+      final resendAfter = int.tryParse(result['resendAfterSeconds']?.toString() ?? '') ?? 60;
+      _startResendCooldown(resendAfter);
+      successMessage = 'A new OTP was sent to your email.';
+    } catch (exception) {
+      error = client.errorMessage(exception);
+    } finally {
+      loading = false;
+      _notify();
+    }
+  }
+
   @override
-  void dispose() { _disposed = true; super.dispose(); }
+  void dispose() { _disposed = true; _resendTimer?.cancel(); super.dispose(); }
 }
