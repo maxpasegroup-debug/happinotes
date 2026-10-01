@@ -66,8 +66,17 @@ class FcmService {
     final notification = message.notification;
     final title = notification?.title?.trim() ?? '';
     final body = notification?.body?.trim() ?? '';
+    final imageUrl = (notification?.android?.imageUrl ??
+            notification?.apple?.imageUrl ??
+            message.data['imageUrl']?.toString())
+        ?.trim();
     final text = [title, body].where((value) => value.isNotEmpty).join('\n');
-    if (text.isNotEmpty) AppMessage.showGlobal(text);
+    if (text.isNotEmpty || (imageUrl?.isNotEmpty ?? false)) {
+      AppMessage.showGlobal(
+        text.isNotEmpty ? text : 'New notification',
+        imageUrl: imageUrl?.isNotEmpty == true ? imageUrl : null,
+      );
+    }
   }
 
   Future<void> dispose() async {
