@@ -4,7 +4,6 @@ import 'package:firebase_core/firebase_core.dart';
 import 'package:firebase_messaging/firebase_messaging.dart';
 
 import '../../firebase_options.dart';
-import '../../src/widgets/app_message.dart';
 import '../network/api_client.dart';
 
 @pragma('vm:entry-point')
@@ -19,7 +18,6 @@ class FcmService {
 
   final ApiClient _client;
   StreamSubscription<String>? _tokenSubscription;
-  StreamSubscription<RemoteMessage>? _messageSubscription;
   Future<void>? _initialization;
   bool _initialized = false;
 
@@ -46,7 +44,6 @@ class FcmService {
       if (token != null && token.isNotEmpty) await _registerToken(token);
 
       _tokenSubscription = messaging.onTokenRefresh.listen(_registerToken);
-      _messageSubscription = FirebaseMessaging.onMessage.listen(_showForegroundMessage);
       _initialized = true;
     } catch (error) {
       // Notifications must never prevent the app from opening or logging in.
@@ -62,27 +59,8 @@ class FcmService {
     }
   }
 
-  void _showForegroundMessage(RemoteMessage message) {
-    final notification = message.notification;
-    final title = notification?.title?.trim() ?? '';
-    final body = notification?.body?.trim() ?? '';
-    final imageUrl = (notification?.android?.imageUrl ??
-            notification?.apple?.imageUrl ??
-            message.data['imageUrl']?.toString())
-        ?.trim();
-    final text = [title, body].where((value) => value.isNotEmpty).join('\n');
-    if (text.isNotEmpty || (imageUrl?.isNotEmpty ?? false)) {
-      AppMessage.showGlobal(
-        text.isNotEmpty ? text : 'New notification',
-        imageUrl: imageUrl?.isNotEmpty == true ? imageUrl : null,
-      );
-    }
-  }
-
   Future<void> dispose() async {
     await _tokenSubscription?.cancel();
-    await _messageSubscription?.cancel();
     _tokenSubscription = null;
-    _messageSubscription = null;
   }
 }
