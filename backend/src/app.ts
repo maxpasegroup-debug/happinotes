@@ -18,6 +18,8 @@ const staticOrigins = [
   'http://localhost:3000',
   'http://localhost:3001',
   'https://happinotes-production.up.railway.app',
+  'https://happinotes.online',
+  'https://www.happinotes.online',
 ];
 const allowedOrigins = new Set([...staticOrigins, ...configuredOrigins]);
 
