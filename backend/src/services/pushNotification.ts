@@ -6,6 +6,7 @@ export type PushNotificationResult = {
   failed: number;
   removed: number;
   invalidTokens: string[];
+  failureCodes: Record<string, number>;
   error?: string;
 };
 
@@ -25,7 +26,14 @@ export async function sendPushNotification(input: {
   const messaging = getFirebaseMessaging();
   if (!messaging) {
     console.warn('[FCM] FIREBASE_SERVICE_ACCOUNT_JSON is not configured; push skipped');
-    return { configured: false, sent: 0, failed: 0, removed: 0, invalidTokens: [] };
+    return {
+      configured: false,
+      sent: 0,
+      failed: 0,
+      removed: 0,
+      invalidTokens: [],
+      failureCodes: {},
+    };
   }
 
   const tokens = [...new Set(input.tokens.filter(Boolean))];
@@ -34,12 +42,20 @@ export async function sendPushNotification(input: {
       target: input.target,
       title: input.title,
     });
-    return { configured: true, sent: 0, failed: 0, removed: 0, invalidTokens: [] };
+    return {
+      configured: true,
+      sent: 0,
+      failed: 0,
+      removed: 0,
+      invalidTokens: [],
+      failureCodes: {},
+    };
   }
 
   let sent = 0;
   let failed = 0;
   const invalidTokens = new Set<string>();
+  const failureCodes: Record<string, number> = {};
 
   try {
     for (let start = 0; start < tokens.length; start += 500) {
@@ -69,7 +85,10 @@ export async function sendPushNotification(input: {
       failed += response.failureCount;
       response.responses.forEach((result, index) => {
         const code = result.error?.code;
-        if (code && INVALID_TOKEN_ERRORS.has(code)) invalidTokens.add(batch[index]);
+        if (code) {
+          failureCodes[code] = (failureCodes[code] ?? 0) + 1;
+          if (INVALID_TOKEN_ERRORS.has(code)) invalidTokens.add(batch[index]);
+        }
       });
     }
 
@@ -80,6 +99,7 @@ export async function sendPushNotification(input: {
       sent,
       failed,
       invalidTokens: invalidTokens.size,
+      failureCodes,
     });
 
     return {
@@ -88,6 +108,7 @@ export async function sendPushNotification(input: {
       failed,
       removed: invalidTokens.size,
       invalidTokens: [...invalidTokens],
+      failureCodes,
     };
   } catch (error) {
     const message = error instanceof Error ? error.message : String(error);
@@ -98,6 +119,7 @@ export async function sendPushNotification(input: {
       failed: failed || tokens.length,
       removed: 0,
       invalidTokens: [],
+      failureCodes,
       error: message,
     };
   }

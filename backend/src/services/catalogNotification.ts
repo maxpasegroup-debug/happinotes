@@ -71,6 +71,7 @@ export async function notifyCatalogUsers(
       sent: push.sent,
       failed: push.failed,
       invalidTokens: push.invalidTokens.length,
+      failureCodes: push.failureCodes,
     });
 
     if (push.failed > 0 || !push.configured) {
@@ -78,6 +79,7 @@ export async function notifyCatalogUsers(
         configured: push.configured,
         sent: push.sent,
         failed: push.failed,
+        failureCodes: push.failureCodes,
       });
     }
   } catch (error) {
