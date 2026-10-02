@@ -2,6 +2,9 @@ import { User } from '../models';
 import { sendPushNotification } from './pushNotification';
 
 type CatalogNotificationInput = {
+  eventType: 'new_book' | 'new_episode';
+  bookId: string;
+  episodeId?: string;
   title: string;
   message: string;
   imageUrl?: string;
@@ -31,7 +34,13 @@ export async function notifyCatalogUsers(
   try {
     const recipients = await User.find().select({ fcmTokens: 1 }).lean();
     const tokens = [...new Set(recipients.flatMap((user) => user.fcmTokens ?? []))];
-    if (tokens.length === 0) return;
+    if (tokens.length === 0) {
+      console.info('[FCM] Catalog notification skipped: no recipient tokens', {
+        eventType: input.eventType,
+        bookId: input.bookId,
+      });
+      return;
+    }
     const imageUrl = toAbsoluteImageUrl(input.imageUrl, input.baseUrl);
 
     const push = await sendPushNotification({
@@ -39,6 +48,11 @@ export async function notifyCatalogUsers(
       title: input.title,
       message: input.message,
       target: 'all',
+      data: {
+        eventType: input.eventType,
+        bookId: input.bookId,
+        ...(input.episodeId ? { episodeId: input.episodeId } : {}),
+      },
       ...(imageUrl ? { imageUrl } : {}),
     });
 
@@ -48,6 +62,16 @@ export async function notifyCatalogUsers(
         { $pull: { fcmTokens: { $in: push.invalidTokens } } },
       );
     }
+
+    console.info('[FCM] Catalog notification', {
+      eventType: input.eventType,
+      bookId: input.bookId,
+      ...(input.episodeId ? { episodeId: input.episodeId } : {}),
+      tokensFound: tokens.length,
+      sent: push.sent,
+      failed: push.failed,
+      invalidTokens: push.invalidTokens.length,
+    });
 
     if (push.failed > 0 || !push.configured) {
       console.warn('[FCM] Catalog notification was not delivered to all devices', {

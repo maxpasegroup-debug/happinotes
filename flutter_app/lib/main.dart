@@ -1,12 +1,59 @@
 import 'package:flutter/material.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
 import 'app/providers.dart';
+import 'features/books/domain/entities/book.dart';
 import 'src/screens/auth_screen.dart';
+import 'src/screens/book_detail.dart';
 import 'src/screens/launch_splash.dart';
 import 'src/screens/main_shell.dart';
 import 'src/screens/admin_screen.dart';
 import 'src/theme.dart';
 import 'src/widgets/app_message.dart';
+
+final appNavigatorKey = GlobalKey<NavigatorState>();
+
+Future<void> _openNotificationTarget(
+  WidgetRef ref,
+  Map<String, String> data,
+) async {
+  final bookId = data['bookId'];
+  if (bookId == null || bookId.isEmpty) return;
+
+  final booksController = ref.read(booksControllerProvider);
+  Book? book;
+  for (final candidate in [
+    ...booksController.books,
+    ...booksController.upcoming,
+    ...booksController.library,
+  ]) {
+    if (candidate.id == bookId) {
+      book = candidate;
+      break;
+    }
+  }
+  if (book == null) {
+    await booksController.loadBooks(forceRefresh: true);
+    for (final candidate in [
+      ...booksController.books,
+      ...booksController.upcoming,
+      ...booksController.library,
+    ]) {
+      if (candidate.id == bookId) {
+        book = candidate;
+        break;
+      }
+    }
+  }
+  if (book == null) return;
+
+  ref.read(mainTabIndexProvider.notifier).state = 0;
+  await Future<void>.delayed(const Duration(milliseconds: 100));
+  final navigator = appNavigatorKey.currentState;
+  if (navigator == null) return;
+  await navigator.push(
+    MaterialPageRoute<void>(builder: (_) => BookDetail(book: book!)),
+  );
+}
 
 Future<void> main() async {
   WidgetsFlutterBinding.ensureInitialized();
@@ -22,7 +69,11 @@ class HappiNotesApp extends ConsumerWidget {
     final books = ref.watch(booksControllerProvider);
     final theme = ref.watch(themeControllerProvider);
     if (state.initialized && state.isLoggedIn) {
-      Future.microtask(() => ref.read(fcmServiceProvider).initialize());
+      Future.microtask(
+        () => ref.read(fcmServiceProvider).initialize(
+          onNotificationTap: (data) => _openNotificationTarget(ref, data),
+        ),
+      );
     }
     if (state.initialized && state.isLoggedIn && !books.hasLoaded && !books.loading) {
       Future.microtask(() => ref.read(booksControllerProvider).loadBooks());
@@ -44,6 +95,7 @@ class HappiNotesApp extends ConsumerWidget {
       }
     });
     return MaterialApp(
+      navigatorKey: appNavigatorKey,
       debugShowCheckedModeBanner: false,
       color: const Color(0xFFFFF8EC),
       scaffoldMessengerKey: AppMessage.messengerKey,

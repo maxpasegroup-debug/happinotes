@@ -20,6 +20,7 @@ export async function sendPushNotification(input: {
   message: string;
   imageUrl?: string;
   target: string;
+  data?: Record<string, string>;
 }): Promise<PushNotificationResult> {
   const messaging = getFirebaseMessaging();
   if (!messaging) {
@@ -29,6 +30,10 @@ export async function sendPushNotification(input: {
 
   const tokens = [...new Set(input.tokens.filter(Boolean))];
   if (tokens.length === 0) {
+    console.info('[FCM] No recipient tokens found', {
+      target: input.target,
+      title: input.title,
+    });
     return { configured: true, sent: 0, failed: 0, removed: 0, invalidTokens: [] };
   }
 
@@ -49,6 +54,7 @@ export async function sendPushNotification(input: {
         data: {
           type: 'admin_notification',
           target: input.target,
+          ...(input.data ?? {}),
           ...(input.imageUrl ? { imageUrl: input.imageUrl } : {}),
         },
         android: {
@@ -66,6 +72,15 @@ export async function sendPushNotification(input: {
         if (code && INVALID_TOKEN_ERRORS.has(code)) invalidTokens.add(batch[index]);
       });
     }
+
+    console.info('[FCM] Notification delivery complete', {
+      target: input.target,
+      title: input.title,
+      tokensFound: tokens.length,
+      sent,
+      failed,
+      invalidTokens: invalidTokens.size,
+    });
 
     return {
       configured: true,

@@ -234,6 +234,8 @@ export const createBook = async (
     emitCatalogChanged('created', book.id, book.contentType);
     if (book.contentType === 'lifebook' && book.status === 'live') {
       void notifyCatalogUsers({
+        eventType: 'new_book',
+        bookId: book.id,
         title: 'New story book available',
         message: `${book.title} is now available to listen.`,
         imageUrl: book.thumbnailUrl,
@@ -292,6 +294,8 @@ export const updateBook = async (
       payload.lessons.length > previousLessonCount;
     if (lessonsAdded && book.status === 'live') {
       void notifyCatalogUsers({
+        eventType: 'new_episode',
+        bookId: book.id,
         title: 'New episode available',
         message: `A new episode of “${book.title}” is now ready to listen.`,
         imageUrl: book.thumbnailUrl,
@@ -346,6 +350,8 @@ export const updateBookStatus = async (
     emitCatalogChanged('updated', book.id, book.contentType);
     if (existing.status !== 'live' && status === 'live' && book.contentType === 'lifebook') {
       void notifyCatalogUsers({
+        eventType: 'new_book',
+        bookId: book.id,
         title: 'New story book available',
         message: `${book.title} is now available to listen.`,
         imageUrl: book.thumbnailUrl,
