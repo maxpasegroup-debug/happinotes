@@ -5,6 +5,7 @@ import type { ILifebookSection, ILesson } from '../models/Content';
 import { BadRequestError, NotFoundError } from '../utils/errors';
 import { emitCatalogChanged, emitNotification } from '../services/realtime';
 import { sendPushNotification } from '../services/pushNotification';
+import { notifyCatalogUsers } from '../services/catalogNotification';
 
 const LIFEBOOK_UPDATE_FIELDS = [
   'title',
@@ -231,6 +232,14 @@ export const createBook = async (
       conclusion,
     });
     emitCatalogChanged('created', book.id, book.contentType);
+    if (book.contentType === 'lifebook' && book.status === 'live') {
+      void notifyCatalogUsers({
+        title: 'New story book available',
+        message: `${book.title} is now available to listen.`,
+        imageUrl: book.thumbnailUrl,
+        baseUrl: `${req.protocol}://${req.get('host')}`,
+      });
+    }
     res.status(201).json({ success: true, book });
   } catch (err) {
     next(err);
@@ -249,9 +258,12 @@ export const updateBook = async (
       return next(new BadRequestError(errors.array()[0].msg));
     }
     const payload = pickLifebookFields(req.body as Record<string, unknown>);
+    const existing = await Content.findById(req.params.id);
+    if (!existing) return next(new NotFoundError('Book not found'));
+    const previousLessonCount = Array.isArray(existing.lessons)
+      ? existing.lessons.length
+      : 0;
     if (Object.keys(payload).length === 0) {
-      const existing = await Content.findById(req.params.id);
-      if (!existing) return next(new NotFoundError('Book not found'));
       return void res.json({ success: true, book: existing });
     }
     if (payload.intro !== undefined) {
@@ -274,6 +286,18 @@ export const updateBook = async (
     );
     if (!book) return next(new NotFoundError('Book not found'));
     emitCatalogChanged('updated', book.id, book.contentType);
+    const lessonsAdded =
+      book.contentType === 'lifebook' &&
+      Array.isArray(payload.lessons) &&
+      payload.lessons.length > previousLessonCount;
+    if (lessonsAdded && book.status === 'live') {
+      void notifyCatalogUsers({
+        title: 'New episode available',
+        message: `A new episode of “${book.title}” is now ready to listen.`,
+        imageUrl: book.thumbnailUrl,
+        baseUrl: `${req.protocol}://${req.get('host')}`,
+      });
+    }
     res.json({ success: true, book });
   } catch (err) {
     next(err);
@@ -311,6 +335,8 @@ export const updateBookStatus = async (
     if (status !== 'draft' && status !== 'coming_soon' && status !== 'live') {
       return next(new BadRequestError('status must be draft, coming_soon, or live'));
     }
+    const existing = await Content.findById(req.params.id);
+    if (!existing) return next(new NotFoundError('Book not found'));
     const book = await Content.findByIdAndUpdate(
       req.params.id,
       { status },
@@ -318,6 +344,14 @@ export const updateBookStatus = async (
     );
     if (!book) return next(new NotFoundError('Book not found'));
     emitCatalogChanged('updated', book.id, book.contentType);
+    if (existing.status !== 'live' && status === 'live' && book.contentType === 'lifebook') {
+      void notifyCatalogUsers({
+        title: 'New story book available',
+        message: `${book.title} is now available to listen.`,
+        imageUrl: book.thumbnailUrl,
+        baseUrl: `${req.protocol}://${req.get('host')}`,
+      });
+    }
     res.json({ success: true, book });
   } catch (err) {
     next(err);

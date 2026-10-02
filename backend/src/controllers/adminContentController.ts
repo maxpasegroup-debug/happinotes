@@ -8,6 +8,7 @@ import type { ILifebookSection, ILesson } from '../models/Content';
 import type { Multer } from 'multer';
 import { BadRequestError, NotFoundError } from '../utils/errors';
 import { emitCatalogChanged } from '../services/realtime';
+import { notifyCatalogUsers } from '../services/catalogNotification';
 
 const CONTENT_UPDATE_FIELDS = [
   'title',
@@ -361,6 +362,20 @@ export const createContent = async (
     }
     const createdContent = content as { id: string; contentType?: string };
     emitCatalogChanged('created', createdContent.id, createdContent.contentType);
+    const created = content as {
+      contentType?: string;
+      status?: string;
+      title?: string;
+      thumbnailUrl?: string;
+    };
+    if (created.contentType === 'lifebook' && created.status === 'live') {
+      void notifyCatalogUsers({
+        title: 'New story book available',
+        message: `${created.title || 'A new story book'} is now available to listen.`,
+        imageUrl: created.thumbnailUrl,
+        baseUrl: `${req.protocol}://${req.get('host')}`,
+      });
+    }
     res.status(201).json({ success: true, content });
   } catch (err) {
     next(err);
@@ -386,6 +401,9 @@ export const updateContent = async (
     const payload = pickContentFields(body);
     const existing = await Content.findById(req.params.id);
     if (!existing) return next(new NotFoundError('Content not found'));
+    const previousLessonCount = Array.isArray(existing.lessons)
+      ? existing.lessons.length
+      : 0;
 
     const thumbnailFile = files?.thumbnail?.[0];
     const introFile = files?.introMedia?.[0];
@@ -585,6 +603,18 @@ export const updateContent = async (
     });
     if (!content) return next(new NotFoundError('Content not found'));
     emitCatalogChanged('updated', content.id, content.contentType);
+    const lessonsAdded =
+      finalContentType === 'lifebook' &&
+      Array.isArray(payload.lessons) &&
+      payload.lessons.length > previousLessonCount;
+    if (lessonsAdded && content.status === 'live') {
+      void notifyCatalogUsers({
+        title: 'New episode available',
+        message: `A new episode of “${content.title}” is now ready to listen.`,
+        imageUrl: content.thumbnailUrl,
+        baseUrl: `${req.protocol}://${req.get('host')}`,
+      });
+    }
     res.json({ success: true, content });
   } catch (err) {
     next(err);
@@ -626,6 +656,9 @@ export const updateContentStatus = async (
         )
       );
     }
+    const existing = await Content.findById(req.params.id);
+    if (!existing) return next(new NotFoundError('Content not found'));
+    const wasLive = existing.status === 'live';
     const content = await Content.findByIdAndUpdate(
       req.params.id,
       { status },
@@ -633,6 +666,14 @@ export const updateContentStatus = async (
     );
     if (!content) return next(new NotFoundError('Content not found'));
     emitCatalogChanged('updated', content.id, content.contentType);
+    if (content.contentType === 'lifebook' && !wasLive && status === 'live') {
+      void notifyCatalogUsers({
+        title: 'New story book available',
+        message: `${content.title} is now available to listen.`,
+        imageUrl: content.thumbnailUrl,
+        baseUrl: `${req.protocol}://${req.get('host')}`,
+      });
+    }
     res.json({ success: true, content });
   } catch (err) {
     next(err);
