@@ -47,6 +47,9 @@ export async function getLiveLifebooks(): Promise<LifebookItem[]> {
     // from showing different books after an admin rearranges them.
     const res = await fetch(`${BASE_URL}/contents?type=lifebook&view=mobile`, {
       next: { revalidate: 30 },
+      // Keep static generation and page loads bounded when the API is unavailable.
+      // The existing catch returns an empty catalogue so the landing page can render.
+      signal: AbortSignal.timeout(5000),
     });
     if (!res.ok) return [];
     const data = (await res.json()) as { contents?: LifebookItem[] };
