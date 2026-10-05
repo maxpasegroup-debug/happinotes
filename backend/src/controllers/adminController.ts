@@ -3,9 +3,10 @@ import { validationResult } from 'express-validator';
 import { User, Content } from '../models';
 import type { ILifebookSection, ILesson } from '../models/Content';
 import { BadRequestError, NotFoundError } from '../utils/errors';
-import { emitCatalogChanged, emitNotification } from '../services/realtime';
+import { emitCatalogChanged } from '../services/realtime';
 import { sendPushNotification } from '../services/pushNotification';
 import { notifyCatalogUsers } from '../services/catalogNotification';
+import { createInAppNotification } from '../services/inAppNotification';
 
 const LIFEBOOK_UPDATE_FIELDS = [
   'title',
@@ -65,8 +66,17 @@ export const sendNotification = async (
     const target = ['all', 'free', 'premium'].includes(req.body?.target) ? req.body.target : 'all';
     const imageUrl = typeof req.body?.imageUrl === 'string' ? req.body.imageUrl.trim() : '';
     if (!title || !message) return next(new BadRequestError('title and message are required'));
-    emitNotification({ title, message, target, ...(imageUrl ? { imageUrl } : {}) });
-
+    try {
+      await createInAppNotification({
+        title,
+        message,
+        target,
+        type: 'admin',
+        ...(imageUrl ? { imageUrl } : {}),
+      });
+    } catch (error) {
+      console.error('[Notifications] Failed to save admin notification:', error);
+    }
     const userFilter = target === 'premium'
       ? { purchasedBooks: { $exists: true, $ne: [] } }
       : target === 'free'

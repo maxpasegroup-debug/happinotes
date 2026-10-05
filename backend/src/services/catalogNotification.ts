@@ -1,5 +1,6 @@
 import { User } from '../models';
 import { sendPushNotification } from './pushNotification';
+import { createInAppNotification } from './inAppNotification';
 
 type CatalogNotificationInput = {
   eventType: 'new_book' | 'new_episode';
@@ -32,6 +33,20 @@ export async function notifyCatalogUsers(
   input: CatalogNotificationInput,
 ): Promise<void> {
   try {
+    const imageUrl = toAbsoluteImageUrl(input.imageUrl, input.baseUrl);
+    try {
+      await createInAppNotification({
+        type: input.eventType,
+        title: input.title,
+        message: input.message,
+        target: 'all',
+        bookId: input.bookId,
+        ...(input.episodeId ? { episodeId: input.episodeId } : {}),
+        ...(imageUrl ? { imageUrl } : {}),
+      });
+    } catch (error) {
+      console.error('[Notifications] Failed to save catalog notification:', error);
+    }
     const recipients = await User.find().select({ fcmTokens: 1 }).lean();
     const tokens = [...new Set(recipients.flatMap((user) => user.fcmTokens ?? []))];
     if (tokens.length === 0) {
@@ -41,8 +56,6 @@ export async function notifyCatalogUsers(
       });
       return;
     }
-    const imageUrl = toAbsoluteImageUrl(input.imageUrl, input.baseUrl);
-
     const push = await sendPushNotification({
       tokens,
       title: input.title,

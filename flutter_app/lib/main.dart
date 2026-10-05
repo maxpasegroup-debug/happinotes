@@ -70,18 +70,29 @@ class HappiNotesApp extends ConsumerWidget {
     final theme = ref.watch(themeControllerProvider);
     if (state.initialized && state.isLoggedIn) {
       Future.microtask(
-        () => ref.read(fcmServiceProvider).initialize(
-          onNotificationTap: (data) => _openNotificationTarget(ref, data),
-        ),
+        () => ref
+            .read(fcmServiceProvider)
+            .initialize(
+              onNotificationTap: (data) => _openNotificationTarget(ref, data),
+              onForegroundMessage: (_) => ref
+                  .read(notificationsControllerProvider)
+                  .load(forceRefresh: true),
+            ),
       );
     }
-    if (state.initialized && state.isLoggedIn && !books.hasLoaded && !books.loading) {
+    if (state.initialized &&
+        state.isLoggedIn &&
+        !books.hasLoaded &&
+        !books.loading) {
       Future.microtask(() => ref.read(booksControllerProvider).loadBooks());
     }
     ref.listen(sessionControllerProvider, (previous, next) {
       // Never reopen the app on a stale tab from the previous session.
       if (next.user == null || previous?.user == null) {
         ref.read(mainTabIndexProvider.notifier).state = 0;
+      }
+      if (next.user == null) {
+        ref.read(booksControllerProvider).reset();
       }
       if (next.user != null && !next.initialized) {
         // ChangeNotifier providers may deliver the same controller instance

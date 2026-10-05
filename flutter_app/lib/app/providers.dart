@@ -14,6 +14,7 @@ import '../features/admin/domain/repositories/admin_repository.dart';
 import '../features/admin/presentation/controllers/admin_controller.dart';
 import '../core/realtime/realtime_service.dart';
 import '../core/notifications/fcm_service.dart';
+import '../core/notifications/notifications_controller.dart';
 import 'theme_controller.dart';
 
 final apiClientProvider = Provider<ApiClient>((ref) => ApiClient());
@@ -22,6 +23,10 @@ final fcmServiceProvider = Provider<FcmService>((ref) {
   ref.onDispose(service.dispose);
   return service;
 });
+final notificationsControllerProvider =
+    ChangeNotifierProvider<NotificationsController>(
+      (ref) => NotificationsController(ref.watch(apiClientProvider)),
+    );
 final themeControllerProvider = ChangeNotifierProvider<ThemeController>(
   (ref) => ThemeController()..initialize(),
 );

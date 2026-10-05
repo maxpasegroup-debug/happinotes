@@ -4,6 +4,7 @@ import 'package:shared_preferences/shared_preferences.dart';
 import '../../app/providers.dart';
 import '../../features/auth/presentation/controllers/session_controller.dart';
 import '../../features/books/domain/entities/book.dart';
+import '../../core/notifications/app_notification.dart';
 import '../theme.dart';
 import '../widgets/app_message.dart';
 import '../widgets/book_card.dart';
@@ -27,6 +28,7 @@ class _MainShellState extends ConsumerState<MainShell> {
       if (!mounted) return;
       ref.read(booksControllerProvider).loadBooks();
       ref.read(booksControllerProvider).loadCollection();
+      ref.read(notificationsControllerProvider).load();
       _showFirstLanguagePicker();
     });
   }
@@ -164,12 +166,18 @@ class HomeTab extends StatelessWidget {
                     ),
                   ),
                   IconButton(
-                    onPressed: () => showModalBottomSheet<void>(
-                      context: context,
-                      isScrollControlled: true,
-                      backgroundColor: Colors.transparent,
-                      builder: (_) => const _DemoNotificationsSheet(),
-                    ),
+                    tooltip: 'Notifications',
+                    onPressed: () {
+                      ref
+                          .read(notificationsControllerProvider)
+                          .load(forceRefresh: true);
+                      showModalBottomSheet<void>(
+                        context: context,
+                        isScrollControlled: true,
+                        backgroundColor: Colors.transparent,
+                        builder: (_) => const NotificationsSheet(),
+                      );
+                    },
                     icon: const Icon(Icons.notifications_none),
                   ),
                 ],
@@ -956,91 +964,160 @@ class SectionTitle extends StatelessWidget {
   );
 }
 
-class _DemoNotificationsSheet extends StatelessWidget {
-  const _DemoNotificationsSheet();
+class NotificationsSheet extends ConsumerWidget {
+  const NotificationsSheet({super.key});
 
   @override
-  Widget build(BuildContext context) => SafeArea(
-    child: Container(
-      constraints: const BoxConstraints(maxHeight: 520),
-      decoration: BoxDecoration(
-        color: Theme.of(context).colorScheme.surface,
-        borderRadius: BorderRadius.vertical(top: Radius.circular(24)),
-      ),
-      padding: const EdgeInsets.fromLTRB(20, 12, 20, 20),
-      child: Column(
-        crossAxisAlignment: CrossAxisAlignment.stretch,
-        children: [
-          Center(
-            child: Container(
-              width: 42,
-              height: 4,
-              decoration: BoxDecoration(
-                color: AppColors.muted,
-                borderRadius: BorderRadius.circular(4),
+  Widget build(BuildContext context, WidgetRef ref) {
+    final state = ref.watch(notificationsControllerProvider);
+    final children = state.loading && state.items.isEmpty
+        ? const <Widget>[
+            Padding(
+              padding: EdgeInsets.symmetric(vertical: 48),
+              child: Center(child: CircularProgressIndicator()),
+            ),
+          ]
+        : state.items.isEmpty
+        ? <Widget>[
+            Padding(
+              padding: const EdgeInsets.symmetric(vertical: 48),
+              child: Center(
+                child: Text(
+                  state.error ?? 'No notifications yet.',
+                  textAlign: TextAlign.center,
+                ),
               ),
             ),
-          ),
-          const SizedBox(height: 18),
-          const Text(
-            'Notifications',
-            style: TextStyle(fontSize: 22, fontWeight: FontWeight.w900),
-          ),
-          const SizedBox(height: 12),
-          Expanded(
-            child: ListView(
-              children: const [
-                _DemoNotificationTile(
-                  icon: Icons.auto_awesome,
-                  title: 'New story available',
-                  message: 'A fresh Malayalam story is ready to listen.',
-                  time: 'Just now',
+          ]
+        : state.items
+              .map(
+                (notification) => _NotificationTile(
+                  notification: notification,
+                  onTap: notification.bookId == null
+                      ? null
+                      : () => _openNotificationBook(
+                            context,
+                            ref,
+                            notification.bookId!,
+                          ),
                 ),
-                _DemoNotificationTile(
-                  icon: Icons.headphones,
-                  title: 'Continue listening',
-                  message: 'Your saved episode is waiting for you.',
-                  time: 'Today',
+              )
+              .toList();
+
+    return SafeArea(
+      child: Container(
+        constraints: const BoxConstraints(maxHeight: 520),
+        decoration: BoxDecoration(
+          color: Theme.of(context).colorScheme.surface,
+          borderRadius: const BorderRadius.vertical(top: Radius.circular(24)),
+        ),
+        padding: const EdgeInsets.fromLTRB(20, 12, 20, 20),
+        child: Column(
+          crossAxisAlignment: CrossAxisAlignment.stretch,
+          children: [
+            Center(
+              child: Container(
+                width: 42,
+                height: 4,
+                decoration: BoxDecoration(
+                  color: AppColors.muted,
+                  borderRadius: BorderRadius.circular(4),
                 ),
-                _DemoNotificationTile(
-                  icon: Icons.local_library_outlined,
-                  title: 'New story available',
-                  message: 'Purchase a story once to unlock all its episodes.',
-                  time: 'Yesterday',
+              ),
+            ),
+            const SizedBox(height: 18),
+            Row(
+              children: [
+                const Expanded(
+                  child: Text(
+                    'Notifications',
+                    style: TextStyle(fontSize: 22, fontWeight: FontWeight.w900),
+                  ),
+                ),
+                IconButton(
+                  tooltip: 'Refresh notifications',
+                  onPressed: () => ref
+                      .read(notificationsControllerProvider)
+                      .load(forceRefresh: true),
+                  icon: const Icon(Icons.refresh),
                 ),
               ],
             ),
-          ),
-        ],
+            const SizedBox(height: 12),
+            Expanded(child: ListView(children: children)),
+          ],
+        ),
       ),
-    ),
-  );
+    );
+  }
 }
 
-class _DemoNotificationTile extends StatelessWidget {
-  const _DemoNotificationTile({
-    required this.icon,
-    required this.title,
-    required this.message,
-    required this.time,
-  });
+class _NotificationTile extends StatelessWidget {
+  const _NotificationTile({required this.notification, this.onTap});
 
-  final IconData icon;
-  final String title;
-  final String message;
-  final String time;
+  final AppNotification notification;
+  final VoidCallback? onTap;
 
   @override
   Widget build(BuildContext context) => ListTile(
     contentPadding: const EdgeInsets.symmetric(vertical: 6),
     leading: CircleAvatar(
       backgroundColor: AppColors.coral.withValues(alpha: .16),
-      child: Icon(icon, color: AppColors.coral),
+      child: Icon(
+        notification.type == 'new_episode'
+            ? Icons.headphones
+            : notification.type == 'new_book'
+            ? Icons.auto_awesome
+            : Icons.notifications_none,
+        color: AppColors.coral,
+      ),
     ),
-    title: Text(title, style: const TextStyle(fontWeight: FontWeight.w800)),
-    subtitle: Text('$message\n$time'),
+    title: Text(
+      notification.title,
+      style: const TextStyle(fontWeight: FontWeight.w800),
+    ),
+    subtitle: Text(
+      '${notification.message}\n${_notificationAge(notification.createdAt)}',
+    ),
     isThreeLine: true,
+    onTap: onTap,
   );
+}
+
+String _notificationAge(DateTime value) {
+  final elapsed = DateTime.now().difference(value);
+  if (elapsed.inMinutes < 1) return 'Just now';
+  if (elapsed.inMinutes < 60) return '${elapsed.inMinutes}m ago';
+  if (elapsed.inHours < 24) return '${elapsed.inHours}h ago';
+  if (elapsed.inDays == 1) return 'Yesterday';
+  return '${elapsed.inDays}d ago';
+}
+
+Future<void> _openNotificationBook(
+  BuildContext context,
+  WidgetRef ref,
+  String bookId,
+) async {
+  final books = ref.read(booksControllerProvider);
+  Book? book;
+  for (final candidate in [...books.books, ...books.upcoming, ...books.library]) {
+    if (candidate.id == bookId) {
+      book = candidate;
+      break;
+    }
+  }
+  if (book == null) {
+    await books.loadBooks(forceRefresh: true);
+    for (final candidate in [...books.books, ...books.upcoming, ...books.library]) {
+      if (candidate.id == bookId) {
+        book = candidate;
+        break;
+      }
+    }
+  }
+  if (!context.mounted || book == null) return;
+  Navigator.of(context).pop();
+  openBook(context, book);
 }
 
 void openBook(BuildContext context, Book b) =>

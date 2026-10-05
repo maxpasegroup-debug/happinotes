@@ -17,16 +17,34 @@ class BooksController extends ChangeNotifier {
   bool collectionLoaded = false;
   bool loading = false;
   bool hasLoaded = false;
+  bool _defaultFeedLoaded = false;
   String? error;
-  Future<void> loadBooks({String? query, String? language, bool forceRefresh = false}) async {
+  Future<void> loadBooks({
+    String? query,
+    String? language,
+    bool forceRefresh = false,
+  }) async {
     // Avoid duplicate catalogue requests during startup. The session restore,
     // MainShell, and first-language flow can all request the feed at nearly
     // the same time; overlapping requests made the home screen appear empty
     // for a long time on a cold backend.
     if (loading) return;
-    final canUseCache = query?.isEmpty != false &&
-        (language == null || language == 'all');
-    if (!forceRefresh && canUseCache && await _restoreCacheIfFresh()) return;
+    final isDefaultFeed =
+        query?.isNotEmpty != true && (language == null || language == 'all');
+    // Session restoration, MainShell.initState, and the first build can all
+    // request the default feed during the same startup window. Once that
+    // feed has completed, reuse it until an explicit refresh is requested.
+    if (hasLoaded && isDefaultFeed && _defaultFeedLoaded && !forceRefresh) {
+      return;
+    }
+    final canUseCache =
+        query?.isEmpty != false && (language == null || language == 'all');
+    if (!isDefaultFeed) _defaultFeedLoaded = false;
+    if (!forceRefresh && canUseCache && await _restoreCacheIfFresh()) {
+      hasLoaded = true;
+      _defaultFeedLoaded = true;
+      return;
+    }
     loading = true;
     error = null;
     notifyListeners();
@@ -42,6 +60,7 @@ class BooksController extends ChangeNotifier {
       error = client.errorMessage(e);
     } finally {
       hasLoaded = true;
+      _defaultFeedLoaded = isDefaultFeed && error == null;
       loading = false;
       notifyListeners();
     }
@@ -101,13 +120,15 @@ class BooksController extends ChangeNotifier {
     'status': book.status,
     'totalDurationSeconds': book.duration,
     'lessons': book.episodes
-        .map((episode) => {
-              'title': episode.title,
-              'description': episode.description,
-              'mediaUrl': episode.audioUrl,
-              'mediaType': 'audio',
-              'order': episode.order,
-            })
+        .map(
+          (episode) => {
+            'title': episode.title,
+            'description': episode.description,
+            'mediaUrl': episode.audioUrl,
+            'mediaType': 'audio',
+            'order': episode.order,
+          },
+        )
         .toList(),
   };
 
@@ -130,10 +151,24 @@ class BooksController extends ChangeNotifier {
     }
   }
 
+  void reset() {
+    books = const [];
+    upcoming = const [];
+    library = const [];
+    collectionLoading = false;
+    collectionLoaded = false;
+    loading = false;
+    hasLoaded = false;
+    _defaultFeedLoaded = false;
+    error = null;
+    notifyListeners();
+  }
+
   Future<String?> addToCollection(Book book) async {
     try {
       await repository.addToCollection(book.id);
-      if (!library.any((item) => item.id == book.id)) library = [...library, book];
+      if (!library.any((item) => item.id == book.id))
+        library = [...library, book];
       notifyListeners();
       return null;
     } catch (e) {
@@ -151,5 +186,4 @@ class BooksController extends ChangeNotifier {
       return client.errorMessage(e);
     }
   }
-
 }

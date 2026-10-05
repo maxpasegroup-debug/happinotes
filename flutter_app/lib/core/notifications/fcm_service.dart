@@ -9,6 +9,7 @@ import '../network/api_client.dart';
 typedef FcmNotificationTapHandler = Future<void> Function(
   Map<String, String> data,
 );
+typedef FcmMessageHandler = Future<void> Function(Map<String, String> data);
 
 @pragma('vm:entry-point')
 Future<void> firebaseMessagingBackgroundHandler(RemoteMessage message) async {
@@ -22,16 +23,23 @@ class FcmService {
 
   final ApiClient _client;
   StreamSubscription<String>? _tokenSubscription;
+  StreamSubscription<RemoteMessage>? _messageSubscription;
   StreamSubscription<RemoteMessage>? _messageOpenedSubscription;
   Future<void>? _initialization;
   bool _initialized = false;
 
-  Future<void> initialize({required FcmNotificationTapHandler onNotificationTap}) {
+  Future<void> initialize({
+    required FcmNotificationTapHandler onNotificationTap,
+    FcmMessageHandler? onForegroundMessage,
+  }) {
     if (_initialized) return Future<void>.value();
-    return _initialization ??= _initialize(onNotificationTap);
+    return _initialization ??= _initialize(onNotificationTap, onForegroundMessage);
   }
 
-  Future<void> _initialize(FcmNotificationTapHandler onNotificationTap) async {
+  Future<void> _initialize(
+    FcmNotificationTapHandler onNotificationTap,
+    FcmMessageHandler? onForegroundMessage,
+  ) async {
     try {
       await Firebase.initializeApp(
         options: DefaultFirebaseOptions.currentPlatform,
@@ -49,6 +57,13 @@ class FcmService {
       if (token != null && token.isNotEmpty) await _registerToken(token);
 
       _tokenSubscription = messaging.onTokenRefresh.listen(_registerToken);
+      if (onForegroundMessage != null) {
+        _messageSubscription = FirebaseMessaging.onMessage.listen(
+          (message) => unawaited(
+            onForegroundMessage(Map<String, String>.from(message.data)),
+          ),
+        );
+      }
       _messageOpenedSubscription = FirebaseMessaging.onMessageOpenedApp.listen(
         (message) => unawaited(
           onNotificationTap(Map<String, String>.from(message.data)),
@@ -81,8 +96,10 @@ class FcmService {
 
   Future<void> dispose() async {
     await _tokenSubscription?.cancel();
+    await _messageSubscription?.cancel();
     await _messageOpenedSubscription?.cancel();
     _tokenSubscription = null;
+    _messageSubscription = null;
     _messageOpenedSubscription = null;
   }
 }

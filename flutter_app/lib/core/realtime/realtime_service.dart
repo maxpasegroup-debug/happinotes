@@ -4,7 +4,9 @@ import 'package:socket_io_client/socket_io_client.dart' as io;
 import '../network/api_client.dart';
 
 class RealtimeService with WidgetsBindingObserver {
-  RealtimeService({required this.onCatalogChanged}) {
+  RealtimeService({
+    required this.onCatalogChanged,
+  }) {
     WidgetsBinding.instance.addObserver(this);
     final serverUrl = ApiClient.baseUrl.replaceFirst(RegExp(r'/api/?$'), '');
     _socket = io.io(

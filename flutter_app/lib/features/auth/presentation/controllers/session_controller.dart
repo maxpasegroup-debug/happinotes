@@ -20,7 +20,9 @@ class SessionController extends ChangeNotifier {
       }),
       // Keep the branded splash visible briefly, but do not make startup feel
       // frozen while the saved session is restored.
-      Future<void>.delayed(const Duration(milliseconds: 350)),
+      // Keep the branded splash visible long enough for the native launch
+      // window to hand off smoothly, even when session restoration is fast.
+      Future<void>.delayed(const Duration(milliseconds: 1200)),
     ]);
     if (!_disposed) {
       initialized = true;

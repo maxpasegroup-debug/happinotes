@@ -1,4 +1,10 @@
 export { User, IUser, UserRole } from './User';
+export {
+  Notification,
+  INotification,
+  NotificationType,
+  NotificationTarget,
+} from './Notification';
 export { Otp, IOtp } from './Otp';
 export {
   Content,
