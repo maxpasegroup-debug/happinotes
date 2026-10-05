@@ -66,6 +66,8 @@ class HappiNotesApp extends ConsumerWidget {
   Widget build(BuildContext context, WidgetRef ref) {
     ref.watch(realtimeServiceProvider);
     final state = ref.watch(sessionControllerProvider);
+    final purchases = ref.watch(storePurchaseControllerProvider);
+    Future.microtask(() => purchases.setUser(state.user?.id));
     final books = ref.watch(booksControllerProvider);
     final theme = ref.watch(themeControllerProvider);
     if (state.initialized && state.isLoggedIn) {

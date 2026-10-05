@@ -15,9 +15,22 @@ import '../features/admin/presentation/controllers/admin_controller.dart';
 import '../core/realtime/realtime_service.dart';
 import '../core/notifications/fcm_service.dart';
 import '../core/notifications/notifications_controller.dart';
+import '../core/payments/store_purchase_controller.dart';
 import 'theme_controller.dart';
 
 final apiClientProvider = Provider<ApiClient>((ref) => ApiClient());
+final storePurchaseControllerProvider = ChangeNotifierProvider<StorePurchaseController>(
+  (ref) => StorePurchaseController(ref.read(apiClientProvider), (userId, ids) async {
+    final session = ref.read(sessionControllerProvider);
+    if (session.user?.id != userId) return;
+    session.updatePurchasedBooks(ids);
+    try {
+      await ref.read(booksControllerProvider).loadBooks(forceRefresh: true);
+    } catch (_) {
+      // Verified ownership is retained; the catalogue can be refreshed later.
+    }
+  }),
+);
 final fcmServiceProvider = Provider<FcmService>((ref) {
   final service = FcmService(ref.watch(apiClientProvider));
   ref.onDispose(service.dispose);

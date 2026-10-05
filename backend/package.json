@@ -18,6 +18,7 @@
   "author": "",
   "license": "ISC",
   "dependencies": {
+    "@apple/app-store-server-library": "^3.1.0",
     "bcryptjs": "^2.4.3",
     "cloudinary": "^2.9.0",
     "cors": "^2.8.5",
@@ -26,12 +27,13 @@
     "express-rate-limit": "^7.4.1",
     "express-validator": "^7.0.1",
     "firebase-admin": "^13.6.0",
+    "google-auth-library": "^11.1.0",
     "helmet": "^7.1.0",
     "jsonwebtoken": "^9.0.2",
     "mongoose": "^8.0.3",
     "multer": "^2.1.0",
-    "socket.io": "^4.8.3",
-    "resend": "^6.1.0"
+    "resend": "^6.1.0",
+    "socket.io": "^4.8.3"
   },
   "devDependencies": {
     "@types/bcryptjs": "^2.4.6",

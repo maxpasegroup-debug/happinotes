@@ -7,6 +7,8 @@ import adminContentRoutes from './adminContentRoutes';
 import favouritesRoutes from './favouritesRoutes';
 import testPurchaseRoutes from './testPurchaseRoutes';
 import notificationRoutes from './notificationRoutes';
+import storePurchaseRoutes from './storePurchaseRoutes';
+import storeNotificationRoutes from './storeNotificationRoutes';
 import { authenticate } from '../middleware';
 
 const router = Router();
@@ -18,6 +20,8 @@ router.use('/admin', adminRoutes);
 router.use('/admin/contents', adminContentRoutes);
 router.use('/favourites', authenticate, favouritesRoutes);
 router.use('/payments/test', testPurchaseRoutes);
+router.use('/payments/store', storePurchaseRoutes);
+router.use('/payments/notifications', storeNotificationRoutes);
 router.use('/notifications', authenticate, notificationRoutes);
 
 export default router;

@@ -7,6 +7,7 @@ import '../theme.dart';
 import '../widgets/app_message.dart';
 import '../widgets/loading_skeleton.dart';
 import 'episode_player_screen.dart';
+import 'book_purchase_screen.dart';
 
 class BookDetail extends ConsumerStatefulWidget {
   const BookDetail({super.key, required Book book}) : initialBook = book;
@@ -18,7 +19,6 @@ class BookDetail extends ConsumerStatefulWidget {
 
 class _BookDetailState extends ConsumerState<BookDetail> {
   double _edgeDragDistance = 0;
-  bool _locallyUnlocked = false;
 
   @override
   Widget build(BuildContext context) {
@@ -35,8 +35,7 @@ class _BookDetailState extends ConsumerState<BookDetail> {
         break;
       }
     }
-    final isPurchased =
-        _locallyUnlocked || ((user?.purchasedBookIds.contains(book.id)) ?? false);
+    final isPurchased = (user?.purchasedBookIds.contains(book.id)) ?? false;
     final requiresPurchase =
         !isPurchased && (book.priceInr > 0 || book.accessType == 'premium');
 
@@ -49,10 +48,7 @@ class _BookDetailState extends ConsumerState<BookDetail> {
 
         Future<void> handlePlayback() async {
           if (requiresPurchase) {
-            final unlocked = await _openTestCheckout(context, book);
-            if (unlocked == true && mounted) {
-              setState(() => _locallyUnlocked = true);
-            }
+            await _openStoreCheckout(context, book);
             return;
           }
           try {
@@ -515,196 +511,10 @@ Route<void> _slideUpPageRoute(Widget page) => PageRouteBuilder<void>(
   ),
 );
 
-Future<bool?> _openTestCheckout(BuildContext context, Book book) {
+Future<bool?> _openStoreCheckout(BuildContext context, Book book) {
   return Navigator.of(context).push<bool>(
     MaterialPageRoute<bool>(
-      builder: (_) => TestBookPurchaseScreen(book: book),
-    ),
-  );
-}
-
-class TestBookPurchaseScreen extends ConsumerStatefulWidget {
-  const TestBookPurchaseScreen({super.key, required this.book});
-
-  final Book book;
-
-  @override
-  ConsumerState<TestBookPurchaseScreen> createState() =>
-      _TestBookPurchaseScreenState();
-}
-
-class _TestBookPurchaseScreenState
-    extends ConsumerState<TestBookPurchaseScreen> {
-  bool _processing = false;
-
-  Future<void> _proceed() async {
-    if (_processing) return;
-    setState(() => _processing = true);
-    try {
-      await Future<void>.delayed(const Duration(milliseconds: 700));
-      final response = await ref.read(apiClientProvider).dio.post(
-        '/payments/test/purchase-book',
-        data: {'bookId': widget.book.id},
-      );
-      if (!mounted) return;
-      final ids = (response.data['purchasedBookIds'] as List? ?? const [])
-          .map((value) => value.toString())
-          .toList();
-      if (!ids.contains(widget.book.id)) {
-        ids.add(widget.book.id);
-      }
-      ref.read(sessionControllerProvider).updatePurchasedBooks(ids);
-      try {
-        await ref.read(sessionControllerProvider).refreshUser();
-      } catch (_) {
-        // The verified test response already contains the entitlement list.
-      }
-      try {
-        await ref.read(booksControllerProvider).loadBooks(forceRefresh: true);
-      } catch (_) {
-        // Keep the current book in memory if a catalogue refresh is offline.
-      }
-      Navigator.of(context).pushReplacement(
-        MaterialPageRoute<void>(
-          builder: (_) => const TestPaymentSuccessScreen(),
-        ),
-      );
-    } catch (error) {
-      if (!mounted) return;
-      setState(() => _processing = false);
-      AppMessage.show(
-        context,
-        ref.read(apiClientProvider).errorMessage(error),
-        success: false,
-      );
-    }
-  }
-
-  @override
-  Widget build(BuildContext context) => Scaffold(
-    appBar: AppBar(title: const Text('Confirm purchase')),
-    body: SafeArea(
-      child: Padding(
-        padding: const EdgeInsets.all(24),
-        child: Column(
-          crossAxisAlignment: CrossAxisAlignment.stretch,
-          children: [
-            const Icon(Icons.lock_open_rounded, size: 64, color: AppColors.coral),
-            const SizedBox(height: 20),
-            Text(
-              widget.book.title,
-              textAlign: TextAlign.center,
-              style: Theme.of(context).textTheme.headlineSmall,
-            ),
-            const SizedBox(height: 12),
-            Text(
-              'Test payment for this premium story. All episodes will be unlocked.',
-              textAlign: TextAlign.center,
-              style: Theme.of(context).textTheme.bodyLarge?.copyWith(
-                color: AppColors.muted,
-              ),
-            ),
-            const SizedBox(height: 24),
-            Card(
-              child: Padding(
-                padding: const EdgeInsets.all(18),
-                child: Row(
-                  mainAxisAlignment: MainAxisAlignment.spaceBetween,
-                  children: [
-                    const Text('Total', style: TextStyle(fontWeight: FontWeight.w700)),
-                    Text(
-                      'INR ${widget.book.priceInr.toStringAsFixed(0)}',
-                      style: const TextStyle(fontSize: 20, fontWeight: FontWeight.w900),
-                    ),
-                  ],
-                ),
-              ),
-            ),
-            const Spacer(),
-            OutlinedButton(
-              onPressed: _processing ? null : () => Navigator.of(context).pop(),
-              child: const Text('Cancel'),
-            ),
-            const SizedBox(height: 10),
-            FilledButton(
-              onPressed: _processing ? null : _proceed,
-              child: Text(_processing ? 'Processing...' : 'Proceed to Pay'),
-            ),
-          ],
-        ),
-      ),
-    ),
-  );
-}
-
-class TestPaymentSuccessScreen extends StatefulWidget {
-  const TestPaymentSuccessScreen({super.key});
-
-  @override
-  State<TestPaymentSuccessScreen> createState() =>
-      _TestPaymentSuccessScreenState();
-}
-
-class _TestPaymentSuccessScreenState extends State<TestPaymentSuccessScreen> {
-  @override
-  Widget build(BuildContext context) => PopScope<bool>(
-    canPop: false,
-    onPopInvokedWithResult: (didPop, _) {
-      if (!didPop) Navigator.of(context).pop(true);
-    },
-    child: Scaffold(
-      body: SafeArea(
-        child: Center(
-          child: Padding(
-            padding: const EdgeInsets.all(28),
-            child: Column(
-              mainAxisSize: MainAxisSize.min,
-              children: [
-              Container(
-                width: 104,
-                height: 104,
-                decoration: const BoxDecoration(
-                  color: AppColors.success,
-                  shape: BoxShape.circle,
-                ),
-                child: const Icon(Icons.check_rounded, color: Colors.white, size: 68),
-              ),
-              const SizedBox(height: 24),
-              Text(
-                'Payment successful',
-                style: Theme.of(context).textTheme.headlineSmall,
-                textAlign: TextAlign.center,
-              ),
-              const SizedBox(height: 8),
-              const Text(
-                'This story has been purchased and unlocked for this account.',
-                textAlign: TextAlign.center,
-              ),
-              const SizedBox(height: 12),
-              Text(
-                'Your story is ready to play.',
-                style: Theme.of(context).textTheme.bodyMedium?.copyWith(
-                  color: AppColors.muted,
-                ),
-              ),
-              const SizedBox(height: 28),
-              SizedBox(
-                width: double.infinity,
-                child: FilledButton.icon(
-                  onPressed: () => Navigator.of(context).pop(true),
-                  icon: const Icon(Icons.done_rounded),
-                  label: const Text('Done'),
-                  style: FilledButton.styleFrom(
-                    backgroundColor: AppColors.success,
-                    padding: const EdgeInsets.symmetric(vertical: 16),
-                  ),
-                ),
-              ),
-              ],
-            ),
-          ),
-        ),
-      ),
+      builder: (_) => BookPurchaseScreen(book: book),
     ),
   );
 }

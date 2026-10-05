@@ -9,7 +9,7 @@ export const testPurchaseBook = async (
   next: NextFunction,
 ): Promise<void> => {
   try {
-    if (process.env.PAYMENTS_TEST_MODE !== 'true') {
+    if (process.env.NODE_ENV === 'production' || process.env.PAYMENTS_TEST_MODE !== 'true') {
       return next(new BadRequestError('Test purchases are disabled'));
     }
     if (!req.user) return next(new BadRequestError('Authentication required'));

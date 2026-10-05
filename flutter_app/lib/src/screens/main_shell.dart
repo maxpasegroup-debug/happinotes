@@ -1143,7 +1143,18 @@ class PurchasedStoriesScreen extends ConsumerWidget {
     }
 
     return Scaffold(
-      appBar: AppBar(title: const Text('Purchased stories')),
+      appBar: AppBar(title: const Text('Purchased stories'), actions: [
+        TextButton(
+          onPressed: ref.watch(storePurchaseControllerProvider).busy ? null : () async {
+            final purchases = ref.read(storePurchaseControllerProvider);
+            await purchases.restore();
+            if (context.mounted && purchases.message != null) {
+              AppMessage.show(context, purchases.message!, success: false);
+            }
+          },
+          child: const Text('Restore'),
+        ),
+      ]),
       body: booksState.loading && purchased.isEmpty
           ? const GridLoadingSkeleton()
           : purchased.isEmpty
