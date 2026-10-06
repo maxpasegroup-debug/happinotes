@@ -5,7 +5,16 @@ The Flutter app uses Google's and Apple's native payment sheets through Flutter'
 Books are unlocked only after backend verification. Prices displayed at checkout
 come from the store, including its currency and formatting, rather than `priceInr`.
 
-## Create store products
+## Automatic product provisioning
+
+New premium books now queue independent Google Play and App Store Connect provisioning
+jobs on the backend. Flutter checkout is unchanged. Follow
+[backend product provisioning setup](backend/STORE_PRODUCT_PROVISIONING.md) for credentials,
+pricing policy, migration, admin status/retry endpoints, and testing.
+Apple review screenshots and submission remain manual; the first IAP must accompany
+an app binary. A configured product is not automatically approved.
+
+## Existing/manual store products and legacy mapping
 
 1. Register the app in both consoles using the identifiers in the native projects:
    Android `com.happinotes.happinotes_flutter`; iOS
@@ -73,6 +82,31 @@ On a Mac, enable the In-App Purchase capability for the Runner target and verify
 StoreKit 2 support on the test device. Use Sandbox Apple Accounts or TestFlight.
 
 ## Deployment and verification
+
+Use a new test HappiNotes account with no previous simulated book unlocks. The
+premium book screen refreshes account ownership and store prices on opening; the
+checkout also fetches fresh product details before launching the native sheet.
+Pending payments keep the book locked and disable another purchase of that book,
+while Restore remains available. Purchased/restored callbacks use the existing
+`POST /payments/store/verify` endpoint. Duplicate deliveries are serialized and
+deduplicated; an explicit Restore re-verifies previous transactions.
+
+The default API remains the existing production backend. To test against a separate
+sandbox backend without editing source code, pass its public URL when building:
+
+```sh
+flutter build appbundle --dart-define=API_BASE_URL=https://YOUR_SANDBOX_BACKEND
+flutter build ipa --dart-define=API_BASE_URL=https://YOUR_SANDBOX_BACKEND
+```
+
+The iOS build requires macOS/Xcode. Configure this backend with
+`APPLE_IAP_ENVIRONMENT=Sandbox` for TestFlight/Apple sandbox transactions. This
+build setting contains only a public backend URL; store credentials stay on the server.
+
+Local automated tests use fake store callbacks and backend responses, not real
+Google Play or Apple payments. They cover pending, cancellation, failure,
+restoration, verification retries, repeated callbacks, product unavailability,
+store completion retries, and signing out during verification.
 
 1. Configure products, mapping, and backend secrets, then deploy the backend.
 2. Ship rebuilt Flutter apps; a Railway deployment does not update installed mobile apps.

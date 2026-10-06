@@ -21,9 +21,32 @@ class _BookDetailState extends ConsumerState<BookDetail> {
   double _edgeDragDistance = 0;
 
   @override
+  void initState() {
+    super.initState();
+    Future.microtask(() async {
+      if (!mounted) return;
+      final session = ref.read(sessionControllerProvider);
+      try {
+        await session.refreshUser();
+      } catch (_) {
+        // Keep previously verified ownership while offline; never grant new access.
+      }
+      if (!mounted) return;
+      final book = widget.initialBook;
+      if ((book.priceInr > 0 || book.accessType == 'premium') &&
+          !(session.user?.purchasedBookIds.contains(book.id) ?? false)) {
+        final purchases = ref.read(storePurchaseControllerProvider);
+        purchases.setUser(session.user?.id);
+        await purchases.reload();
+      }
+    });
+  }
+
+  @override
   Widget build(BuildContext context) {
     final player = ref.watch(playerControllerProvider);
     final user = ref.watch(sessionControllerProvider).user;
+    final purchases = ref.watch(storePurchaseControllerProvider);
     final booksState = ref.watch(booksControllerProvider);
     // Realtime catalogue updates replace the controller's book instance. Use
     // that latest instance so newly saved episodes appear while this screen is
@@ -48,6 +71,31 @@ class _BookDetailState extends ConsumerState<BookDetail> {
 
         Future<void> handlePlayback() async {
           if (requiresPurchase) {
+            final session = ref.read(sessionControllerProvider);
+            try {
+              await session.refreshUser();
+            } catch (error) {
+              if (context.mounted) {
+                AppMessage.show(
+                  context,
+                  ref.read(apiClientProvider).errorMessage(error),
+                  success: false,
+                );
+              }
+              return;
+            }
+            if (!context.mounted) return;
+            if (session.user?.purchasedBookIds.contains(book.id) ?? false) {
+              return;
+            }
+            if (session.user == null) {
+              AppMessage.show(
+                context,
+                'Sign in to purchase this story.',
+                success: false,
+              );
+              return;
+            }
             await _openStoreCheckout(context, book);
             return;
           }
@@ -231,14 +279,14 @@ class _BookDetailState extends ConsumerState<BookDetail> {
                           decoration: BoxDecoration(
                             color: isPurchased
                                 ? AppColors.success.withValues(alpha: .12)
-                                : book.priceInr > 0
+                                : requiresPurchase
                                 ? AppColors.coral.withValues(alpha: .12)
                                 : AppColors.success.withValues(alpha: .12),
                             borderRadius: BorderRadius.circular(999),
                             border: Border.all(
                               color: isPurchased
                                   ? AppColors.success.withValues(alpha: .35)
-                                  : book.priceInr > 0
+                                  : requiresPurchase
                                   ? AppColors.coral.withValues(alpha: .35)
                                   : AppColors.success.withValues(alpha: .35),
                             ),
@@ -249,13 +297,13 @@ class _BookDetailState extends ConsumerState<BookDetail> {
                               Icon(
                                 isPurchased
                                     ? Icons.verified_rounded
-                                    : book.priceInr > 0
+                                    : requiresPurchase
                                     ? Icons.sell_outlined
                                     : Icons.check_circle_outline,
                                 size: 17,
                                 color: isPurchased
                                     ? AppColors.success
-                                    : book.priceInr > 0
+                                    : requiresPurchase
                                     ? AppColors.coral
                                     : AppColors.success,
                               ),
@@ -263,11 +311,12 @@ class _BookDetailState extends ConsumerState<BookDetail> {
                               Text(
                                 isPurchased
                                     ? 'Purchased'
-                                    : book.priceInr > 0
-                                    ? 'INR ${book.priceInr.toStringAsFixed(0)}'
+                                    : requiresPurchase
+                                    ? (purchases.productFor(book.id)?.price ??
+                                          'Premium')
                                     : 'Free',
                                 style: TextStyle(
-                                  color: isPurchased || book.priceInr <= 0
+                                  color: !requiresPurchase
                                       ? AppColors.success
                                       : AppColors.coral,
                                   fontWeight: FontWeight.w800,
@@ -480,9 +529,9 @@ class _BookDetailState extends ConsumerState<BookDetail> {
                 ),
                 label: Text(
                   requiresPurchase
-                      ? (book.priceInr > 0
-                            ? 'Buy now · INR ${book.priceInr.toStringAsFixed(0)}'
-                            : 'Price unavailable')
+                      ? (purchases.productFor(book.id) == null
+                            ? 'Buy now'
+                            : 'Buy now · ${purchases.productFor(book.id)!.price}')
                       : (isPlaying ? 'Stop listening' : 'Start listening'),
                 ),
                 style: FilledButton.styleFrom(
@@ -513,8 +562,6 @@ Route<void> _slideUpPageRoute(Widget page) => PageRouteBuilder<void>(
 
 Future<bool?> _openStoreCheckout(BuildContext context, Book book) {
   return Navigator.of(context).push<bool>(
-    MaterialPageRoute<bool>(
-      builder: (_) => BookPurchaseScreen(book: book),
-    ),
+    MaterialPageRoute<bool>(builder: (_) => BookPurchaseScreen(book: book)),
   );
 }

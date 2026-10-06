@@ -20,6 +20,21 @@ class _StartupRepository implements AuthRepository {
 }
 
 void main() {
+  test('ownership refresh cannot sign a user back in after logout', () async {
+    final response = Completer<User?>();
+    final controller = SessionController(
+      _StartupRepository(() => response.future),
+    );
+    addTearDown(controller.dispose);
+    const user = User(id: 'user', name: 'Listener', role: 'user');
+    controller.user = user;
+    final refresh = controller.refreshUser();
+    controller.user = null;
+    response.complete(user.copyWith(purchasedBookIds: ['book']));
+    await refresh;
+    expect(controller.user, isNull);
+  });
+
   testWidgets('storage failure finishes startup as signed out', (tester) async {
     final controller = SessionController(
       _StartupRepository(() async => throw PlatformException(code: 'storage')),

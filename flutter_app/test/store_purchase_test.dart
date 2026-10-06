@@ -15,6 +15,9 @@ class _Api extends ApiClient {
 
 class _Adapter implements HttpClientAdapter {
   bool failVerification = false;
+  bool malformedVerification = false;
+  Completer<void>? verificationGate;
+  Map<String, dynamic>? verificationPayload;
   int verifications = 0;
   @override
   Future<ResponseBody> fetch(
@@ -27,7 +30,11 @@ class _Adapter implements HttpClientAdapter {
         jsonEncode({
           'accountToken': 'account-token',
           'products': [
-            {'bookId': 'book', 'android': 'book.product'},
+            {
+              'bookId': 'book',
+              'android': 'book.product',
+              'ios': 'book.product',
+            },
           ],
         }),
         200,
@@ -37,6 +44,8 @@ class _Adapter implements HttpClientAdapter {
       );
     }
     verifications++;
+    verificationPayload = Map<String, dynamic>.from(options.data as Map);
+    await verificationGate?.future;
     return ResponseBody.fromString(
       jsonEncode(
         failVerification
@@ -44,7 +53,7 @@ class _Adapter implements HttpClientAdapter {
             : {
                 'success': true,
                 'bookId': 'book',
-                'purchasedBookIds': ['book'],
+                'purchasedBookIds': malformedVerification ? [] : ['book'],
               },
       ),
       failVerification ? 503 : 200,
@@ -61,40 +70,57 @@ class _Adapter implements HttpClientAdapter {
 class _Store extends InAppPurchasePlatform {
   final updates = StreamController<List<PurchaseDetails>>.broadcast();
   int completions = 0;
+  int restorations = 0;
+  int queries = 0;
+  bool available = true;
+  bool missingProduct = false;
+  bool checkoutStarted = true;
+  bool completionFails = false;
+  List<PurchaseDetails> restored = [];
   PurchaseParam? purchasedWith;
   @override
   Stream<List<PurchaseDetails>> get purchaseStream => updates.stream;
   @override
-  Future<bool> isAvailable() async => true;
+  Future<bool> isAvailable() async => available;
   @override
   Future<ProductDetailsResponse> queryProductDetails(
     Set<String> identifiers,
-  ) async => ProductDetailsResponse(
-    productDetails: [
-      ProductDetails(
-        id: 'book.product',
-        title: 'Book',
-        description: 'Story',
-        price: '₹99',
-        rawPrice: 99,
-        currencyCode: 'INR',
-      ),
-    ],
-    notFoundIDs: [],
-  );
+  ) async {
+    queries++;
+    return ProductDetailsResponse(
+      productDetails: missingProduct
+          ? []
+          : [
+              ProductDetails(
+                id: 'book.product',
+                title: 'Book',
+                description: 'Story',
+                price: '₹99',
+                rawPrice: 99,
+                currencyCode: 'INR',
+              ),
+            ],
+      notFoundIDs: missingProduct ? ['book.product'] : [],
+    );
+  }
+
   @override
   Future<bool> buyNonConsumable({required PurchaseParam purchaseParam}) async {
     purchasedWith = purchaseParam;
-    return true;
+    return checkoutStarted;
   }
 
   @override
   Future<void> completePurchase(PurchaseDetails purchase) async {
+    if (completionFails) throw StateError('Store completion unavailable');
     completions++;
   }
 
   @override
-  Future<void> restorePurchases({String? applicationUserName}) async {}
+  Future<void> restorePurchases({String? applicationUserName}) async {
+    restorations++;
+    if (restored.isNotEmpty) updates.add(restored);
+  }
 }
 
 PurchaseDetails _purchase(PurchaseStatus status) => PurchaseDetails(
@@ -159,6 +185,11 @@ void main() {
     expect(adapter.verifications, 0);
     expect(unlocked, isEmpty);
     expect(store.completions, 0);
+    expect(controller.pendingFor('book'), isTrue);
+    expect(controller.busy, isFalse);
+    await controller.restore();
+    expect(store.restorations, 1);
+    expect(unlocked, isEmpty);
   });
 
   test(
@@ -195,6 +226,147 @@ void main() {
       expect(store.completions, 0);
       controller.setUser('user');
       await _settle();
+      expect(unlocked, ['book']);
+    },
+  );
+
+  for (final status in [PurchaseStatus.canceled, PurchaseStatus.error]) {
+    test('$status releases checkout without unlocking a book', () async {
+      await controller.buy('book');
+      expect(controller.busy, isTrue);
+      store.updates.add([_purchase(status)]);
+      await _settle();
+      expect(controller.busy, isFalse);
+      expect(adapter.verifications, 0);
+      expect(unlocked, isEmpty);
+    });
+  }
+
+  test(
+    'pending purchase cannot start a second checkout and later verifies normally',
+    () async {
+      store.updates.add([_purchase(PurchaseStatus.pending)]);
+      await _settle();
+      await controller.buy('book');
+      expect(store.purchasedWith, isNull);
+      store.updates.add([_purchase(PurchaseStatus.purchased)]);
+      await _settle();
+      expect(controller.pendingFor('book'), isFalse);
+      expect(unlocked, ['book']);
+    },
+  );
+
+  test(
+    'repeated callbacks are processed once until the user explicitly restores',
+    () async {
+      final purchase = _purchase(PurchaseStatus.purchased);
+      store.updates.add([purchase, purchase]);
+      await _settle();
+      expect(adapter.verifications, 1);
+      expect(store.completions, 1);
+      store.restored = [_purchase(PurchaseStatus.restored)];
+      await controller.restore();
+      expect(adapter.verifications, 2);
+    },
+  );
+
+  test(
+    'restore sends the transaction through verification before granting access',
+    () async {
+      adapter.verificationGate = Completer<void>();
+      store.restored = [_purchase(PurchaseStatus.restored)];
+      final restore = controller.restore();
+      await _settle();
+      expect(controller.busy, isTrue);
+      expect(unlocked, isEmpty);
+      expect(store.completions, 0);
+      adapter.verificationGate!.complete();
+      await restore;
+      expect(unlocked, ['book']);
+      expect(controller.busy, isFalse);
+    },
+  );
+
+  test(
+    'empty restore ends checking without reporting a verified unlock',
+    () async {
+      await controller.restore();
+      expect(controller.busy, isFalse);
+      expect(controller.message, contains('Restore requested'));
+      expect(unlocked, isEmpty);
+    },
+  );
+
+  test(
+    'signing out during verification prevents applying the previous account result',
+    () async {
+      adapter.verificationGate = Completer<void>();
+      store.updates.add([_purchase(PurchaseStatus.purchased)]);
+      await _settle();
+      controller.setUser(null);
+      adapter.verificationGate!.complete();
+      await _settle();
+      expect(unlocked, isEmpty);
+      expect(store.completions, 0);
+    },
+  );
+
+  test(
+    'missing product and unavailable store cannot use a stale checkout product',
+    () async {
+      store.missingProduct = true;
+      await controller.buy('book');
+      expect(store.purchasedWith, isNull);
+      store.missingProduct = false;
+      store.available = false;
+      await controller.reload();
+      expect(controller.productFor('book'), isNull);
+      expect(unlocked, isEmpty);
+    },
+  );
+
+  test('native checkout refusal clears the busy state', () async {
+    store.checkoutStarted = false;
+    await controller.buy('book');
+    expect(controller.busy, isFalse);
+    expect(unlocked, isEmpty);
+  });
+
+  test(
+    'malformed verification response cannot grant access or finish the transaction',
+    () async {
+      adapter.malformedVerification = true;
+      store.updates.add([_purchase(PurchaseStatus.purchased)]);
+      await _settle();
+      expect(unlocked, isEmpty);
+      expect(store.completions, 0);
+    },
+  );
+
+  test(
+    'a failed store completion remains retryable after backend verified ownership',
+    () async {
+      store.completionFails = true;
+      store.updates.add([_purchase(PurchaseStatus.purchased)]);
+      await _settle();
+      expect(unlocked, ['book']);
+      expect(store.completions, 0);
+      store.completionFails = false;
+      await controller.restore();
+      expect(store.completions, 1);
+    },
+  );
+
+  test(
+    'iOS restoration uses transaction ID and the existing verification endpoint',
+    () async {
+      debugDefaultTargetPlatformOverride = TargetPlatform.iOS;
+      await controller.reload();
+      store.restored = [_purchase(PurchaseStatus.restored)];
+      await controller.restore();
+      expect(adapter.verificationPayload!['store'], 'ios');
+      expect(adapter.verificationPayload!['transactionId'], 'transaction');
+      expect(adapter.verificationPayload!['verificationData'], '');
       expect(unlocked, ['book']);
     },
   );

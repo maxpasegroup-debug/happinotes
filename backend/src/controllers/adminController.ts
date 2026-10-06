@@ -1,3 +1,4 @@
+import { ensureBookProducts, validatePremiumPrice } from '../services/storeProductProvisioning';
 import { Request, Response, NextFunction } from 'express';
 import { validationResult } from 'express-validator';
 import { User, Content } from '../models';
@@ -241,6 +242,7 @@ export const createBook = async (
       lessons,
       conclusion,
     });
+    await ensureBookProducts(book);
     emitCatalogChanged('created', book.id, book.contentType);
     if (book.contentType === 'lifebook' && book.status === 'live') {
       void notifyCatalogUsers({
@@ -291,12 +293,14 @@ export const updateBook = async (
     if (payload.lessons !== undefined) {
       payload.lessons = normalizeLessons(payload.lessons);
     }
+    validatePremiumPrice({ contentType: String(payload.contentType ?? existing.contentType), type: String(payload.type ?? existing.type), priceInr: Number(payload.priceInr ?? existing.priceInr) });
     const book = await Content.findByIdAndUpdate(
       req.params.id,
       payload,
       { new: true, runValidators: true }
     );
     if (!book) return next(new NotFoundError('Book not found'));
+    await ensureBookProducts(book);
     emitCatalogChanged('updated', book.id, book.contentType);
     const lessonsAdded =
       book.contentType === 'lifebook' &&

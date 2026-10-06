@@ -1,3 +1,4 @@
+import { ensureBookProducts, validatePremiumPrice } from '../services/storeProductProvisioning';
 import { Request, Response, NextFunction } from 'express';
 import { mkdir, writeFile } from 'fs/promises';
 import path from 'path';
@@ -360,6 +361,7 @@ export const createContent = async (
         category: contentType === 'silence' ? category || 'General' : undefined,
       });
     }
+    await ensureBookProducts(content as { id: string; contentType: string; type: string; priceInr: number });
     const createdContent = content as { id: string; contentType?: string };
     emitCatalogChanged('created', createdContent.id, createdContent.contentType);
     const created = content as {
@@ -600,11 +602,13 @@ export const updateContent = async (
       return;
     }
 
+    validatePremiumPrice({ contentType: String(payload.contentType ?? existing.contentType), type: String(payload.type ?? existing.type), priceInr: Number(payload.priceInr ?? existing.priceInr) });
     const content = await Content.findByIdAndUpdate(req.params.id, payload, {
       new: true,
       runValidators: true,
     });
     if (!content) return next(new NotFoundError('Content not found'));
+    await ensureBookProducts(content);
     emitCatalogChanged('updated', content.id, content.contentType);
     const lessonsAdded =
       finalContentType === 'lifebook' &&

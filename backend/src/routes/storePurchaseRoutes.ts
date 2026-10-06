@@ -3,7 +3,8 @@ import rateLimit from 'express-rate-limit';
 import { Content, User } from '../models';
 import { StorePurchase } from '../models/StorePurchase';
 import { authenticate } from '../middleware';
-import { accountToken, productMapping, verifyStorePurchase, Store } from '../services/storePurchase';
+import { accountToken, verifyStorePurchase, Store } from '../services/storePurchase';
+import { databaseProductMapping } from '../services/storeProductProvisioning';
 import { BadRequestError, ForbiddenError, AppError } from '../utils/errors';
 
 const router = Router();
@@ -12,7 +13,7 @@ router.use(rateLimit({ windowMs: 60000, limit: 30 }));
 
 router.get('/products', async (req, res, next) => {
   try {
-    const mapping = productMapping();
+    const mapping = await databaseProductMapping(true);
     const books = await Content.find({ _id: { $in: Object.keys(mapping) }, contentType: 'lifebook', status: 'live',
       $or: [{ type: 'premium' }, { priceInr: { $gt: 0 } }] }).select('_id');
     res.json({ accountToken: accountToken(String(req.user!._id)),
@@ -30,10 +31,11 @@ router.post('/verify', async (req, res, next) => {
     if (typeof proof !== 'string' || !proof || proof.length > 10000) {
       throw new BadRequestError('Purchase verification data is required');
     }
-    const bookId = Object.entries(productMapping()).find(([, ids]) => ids[store as Store] === productId)?.[0];
+    const bookId = Object.entries(await databaseProductMapping()).find(([, ids]) => ids[store as Store] === productId)?.[0];
     if (!bookId) throw new BadRequestError('Unknown store product');
-    const book = await Content.findOne({ _id: bookId, contentType: 'lifebook', status: 'live' });
-    if (!book || (book.type !== 'premium' && book.priceInr <= 0)) throw new BadRequestError('Book is not available for purchase');
+    // Historical mapped transactions remain verifiable after unpublishing or making a book free.
+    const book = await Content.findOne({ _id: bookId, contentType: 'lifebook' });
+    if (!book) throw new BadRequestError('Book no longer exists');
     const verified = await verifyStorePurchase(store, productId, proof, accountToken(String(req.user!._id)));
     // Initialize the unique index before the first claim; simultaneous retries cannot transfer ownership.
     await StorePurchase.init();

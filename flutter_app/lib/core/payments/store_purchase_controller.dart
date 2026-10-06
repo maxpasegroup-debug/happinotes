@@ -8,12 +8,12 @@ class StorePurchaseController extends ChangeNotifier {
     if (!supported) return;
     _subscription = _store.purchaseStream.listen(
       (purchases) {
-        _queue = _queue.then((_) => _process(purchases));
+        _enqueue(purchases);
       },
       onError: (Object error) {
         message =
             'Could not receive purchase updates. Please restore purchases.';
-        busy = false;
+        _checkout = false;
         _notify();
       },
     );
@@ -27,12 +27,19 @@ class StorePurchaseController extends ChangeNotifier {
   final Map<String, String> _bookProducts = {};
   final Map<String, ProductDetails> _products = {};
   final Map<String, PurchaseDetails> _retryPurchases = {};
+  final Set<String> _completedTransactions = {};
+  final Set<String> _pendingProducts = {};
+  Future<void>? _reloadFuture;
+  int _sessionRevision = 0;
+  int _verifying = 0;
+  bool _checkout = false;
+  bool _restoring = false;
   String? _userId;
   String? _accountToken;
   bool _disposed = false;
   bool available = false;
   bool loading = false;
-  bool busy = false;
+  bool get busy => _checkout || _restoring || _verifying > 0;
   String? message;
   String? verifiedBookId;
   bool get supported =>
@@ -42,20 +49,38 @@ class StorePurchaseController extends ChangeNotifier {
   String get _platform =>
       defaultTargetPlatform == TargetPlatform.android ? 'android' : 'ios';
   ProductDetails? productFor(String bookId) => _products[_bookProducts[bookId]];
+  bool pendingFor(String bookId) =>
+      _pendingProducts.contains(_bookProducts[bookId]);
 
   void setUser(String? userId) {
     if (_userId == userId) return;
     _userId = userId;
+    _sessionRevision++;
+    _reloadFuture = null;
     _accountToken = null;
     _bookProducts.clear();
     _products.clear();
     message = null;
     verifiedBookId = null;
-    busy = false;
+    _checkout = false;
+    _restoring = false;
+    _pendingProducts.clear();
+    _completedTransactions.clear();
     unawaited(reload());
   }
 
-  Future<void> reload() async {
+  Future<void> reload() {
+    if (_disposed) return Future<void>.value();
+    if (_reloadFuture != null) return _reloadFuture!;
+    final revision = _sessionRevision;
+    final future = _reload(revision);
+    _reloadFuture = future;
+    return future.whenComplete(() {
+      if (revision == _sessionRevision) _reloadFuture = null;
+    });
+  }
+
+  Future<void> _reload(int revision) async {
     final userId = _userId;
     if (userId == null || !supported) {
       available = false;
@@ -64,17 +89,18 @@ class StorePurchaseController extends ChangeNotifier {
       return;
     }
     loading = true;
+    _products.clear();
     message = null;
     _notify();
     try {
       final storeAvailable = await _store.isAvailable();
-      if (userId != _userId || _disposed) return;
+      if (revision != _sessionRevision || _disposed) return;
       available = storeAvailable;
       if (!available) {
         throw StateError('The app store is unavailable on this device.');
       }
       final response = await api.dio.get('/payments/store/products');
-      if (userId != _userId || _disposed) return;
+      if (revision != _sessionRevision || _disposed) return;
       _accountToken = response.data['accountToken'] as String;
       _bookProducts.clear();
       for (final item in response.data['products'] as List) {
@@ -88,7 +114,7 @@ class StorePurchaseController extends ChangeNotifier {
         final details = await _store.queryProductDetails(
           _bookProducts.values.toSet(),
         );
-        if (userId != _userId || _disposed) return;
+        if (revision != _sessionRevision || _disposed) return;
         if (details.error != null) throw StateError(details.error!.message);
         for (final product in details.productDetails) {
           _products[product.id] = product;
@@ -100,12 +126,12 @@ class StorePurchaseController extends ChangeNotifier {
       // Retry deliveries received before login or during a network outage.
       if (_retryPurchases.isNotEmpty) {
         final retries = _retryPurchases.values.toList();
-        _queue = _queue.then((_) => _process(retries));
+        _enqueue(retries);
       }
     } catch (error) {
-      if (userId == _userId) message = api.errorMessage(error);
+      if (revision == _sessionRevision) message = api.errorMessage(error);
     } finally {
-      if (userId == _userId) {
+      if (revision == _sessionRevision) {
         loading = false;
         _notify();
       }
@@ -113,8 +139,12 @@ class StorePurchaseController extends ChangeNotifier {
   }
 
   Future<void> buy(String bookId) async {
+    if (_disposed || busy || loading || pendingFor(bookId)) return;
+    final revision = _sessionRevision;
+    // Store product details may become stale while a screen is open.
+    await reload();
+    if (_disposed || revision != _sessionRevision || busy || loading) return;
     final product = productFor(bookId);
-    if (busy || loading) return;
     if (_userId == null ||
         _accountToken == null ||
         !available ||
@@ -123,7 +153,7 @@ class StorePurchaseController extends ChangeNotifier {
       _notify();
       return;
     }
-    busy = true;
+    _checkout = true;
     message = null;
     verifiedBookId = null;
     _notify();
@@ -134,61 +164,100 @@ class StorePurchaseController extends ChangeNotifier {
           applicationUserName: _accountToken,
         ),
       );
+      if (revision != _sessionRevision || _disposed) return;
       if (!started) {
-        busy = false;
+        _checkout = false;
         message = 'The store could not start this purchase.';
         _notify();
       }
     } catch (error) {
-      busy = false;
+      if (revision != _sessionRevision || _disposed) return;
+      _checkout = false;
       message = api.errorMessage(error);
       _notify();
     }
   }
 
   Future<void> restore() async {
-    if (busy || loading || _userId == null || !supported) return;
-    busy = true;
+    if (_disposed || busy || loading || _userId == null || !supported) return;
+    if (_accountToken == null) await reload();
+    if (_disposed || _accountToken == null || !available || busy) return;
+    final revision = _sessionRevision;
+    _restoring = true;
+    // An explicit restore must query the backend again, even for previously delivered books.
+    _completedTransactions.clear();
     message = 'Checking previous purchases…';
     _notify();
     try {
       await _store.restorePurchases(applicationUserName: _accountToken);
+      if (revision != _sessionRevision || _disposed) return;
       await _queue;
       if (_retryPurchases.isNotEmpty) {
-        await _process(_retryPurchases.values.toList());
+        await _enqueue(_retryPurchases.values.toList());
       }
-      message ??=
-          'Restore requested. Verified books will appear in your library.';
+      if (message == 'Checking previous purchases…') {
+        message =
+            'Restore requested. Verified books will appear in your library.';
+      }
     } catch (error) {
-      message = api.errorMessage(error);
+      if (revision == _sessionRevision) message = api.errorMessage(error);
     } finally {
-      busy = false;
-      _notify();
+      if (revision == _sessionRevision) {
+        _restoring = false;
+        _notify();
+      }
     }
+  }
+
+  Future<void> _enqueue(List<PurchaseDetails> purchases) {
+    final updates = List<PurchaseDetails>.of(purchases);
+    _queue = _queue.then((_) => _process(updates));
+    return _queue;
   }
 
   Future<void> _process(List<PurchaseDetails> purchases) async {
     for (final purchase in purchases) {
       if (_disposed) return;
       if (purchase.status == PurchaseStatus.pending) {
-        busy = true;
+        _checkout = false;
+        _pendingProducts.add(purchase.productID);
         message = 'Payment is pending. Your book unlocks after confirmation.';
         _notify();
         continue;
       }
       if (purchase.status == PurchaseStatus.error ||
           purchase.status == PurchaseStatus.canceled) {
-        busy = false;
+        _checkout = false;
+        _pendingProducts.remove(purchase.productID);
         message = purchase.status == PurchaseStatus.canceled
             ? 'Purchase cancelled.'
             : (purchase.error?.message ?? 'Purchase failed.');
         _notify();
+        if (purchase.pendingCompletePurchase) {
+          try {
+            await _store.completePurchase(purchase);
+          } catch (_) {
+            // Failed/cancelled transactions never grant ownership.
+          }
+        }
         continue;
       }
-      final key = '${purchase.productID}:${purchase.purchaseID}';
+      _checkout = false;
+      _pendingProducts.remove(purchase.productID);
+      final proof = _platform == 'android'
+          ? purchase.verificationData.serverVerificationData
+          : purchase.purchaseID;
+      final key = '${purchase.productID}:$proof';
+      if (_completedTransactions.contains(key)) {
+        _notify();
+        continue;
+      }
       _retryPurchases[key] = purchase;
       final userId = _userId;
       if (userId == null) continue;
+      final revision = _sessionRevision;
+      _verifying++;
+      _notify();
       try {
         final response = await api.dio.post(
           '/payments/store/verify',
@@ -201,26 +270,33 @@ class StorePurchaseController extends ChangeNotifier {
                 : '',
           },
         );
-        if (userId != _userId || _disposed) continue;
-        if (response.data['success'] != true) {
+        if (revision != _sessionRevision || _disposed) continue;
+        if (response.data['success'] != true ||
+            response.data['bookId'] is! String ||
+            response.data['purchasedBookIds'] is! List ||
+            !(response.data['purchasedBookIds'] as List).contains(
+              response.data['bookId'],
+            )) {
           throw StateError('Purchase was not verified.');
         }
         final ids = (response.data['purchasedBookIds'] as List)
             .map((id) => id.toString())
             .toList();
         await onVerified(userId, ids);
+        if (revision != _sessionRevision || _disposed) continue;
         if (purchase.pendingCompletePurchase) {
           await _store.completePurchase(purchase);
         }
         _retryPurchases.remove(key);
-        if (userId != _userId || _disposed) continue;
+        _completedTransactions.add(key);
+        if (revision != _sessionRevision || _disposed) continue;
         verifiedBookId = response.data['bookId'] as String;
         message = 'Purchase verified. Your story is unlocked.';
       } catch (error) {
         // Keep the transaction unfinished; Restore retries server verification.
-        if (userId == _userId) message = api.errorMessage(error);
+        if (revision == _sessionRevision) message = api.errorMessage(error);
       } finally {
-        busy = false;
+        _verifying--;
         _notify();
       }
     }

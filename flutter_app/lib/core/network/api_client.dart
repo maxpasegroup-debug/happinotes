@@ -24,8 +24,10 @@ class ApiClient {
             ),
           );
   }
-  static const baseUrl =
-      'https://happinotes-production-6b44.up.railway.app';
+  static const baseUrl = String.fromEnvironment(
+    'API_BASE_URL',
+    defaultValue: 'https://happinotes-production-6b44.up.railway.app',
+  );
   static const _tokenKey = 'jwt_token';
   final FlutterSecureStorage _storage;
   late final Dio dio;
@@ -38,7 +40,8 @@ class ApiClient {
       final response = error.response;
       if (response?.data is Map) {
         final data = response!.data as Map;
-        return (data['message'] ?? data['error'] ??
+        return (data['message'] ??
+                data['error'] ??
                 'Request failed (${response.statusCode})')
             .toString();
       }

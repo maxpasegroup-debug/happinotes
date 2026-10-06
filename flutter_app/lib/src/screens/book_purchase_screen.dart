@@ -66,11 +66,14 @@ class BookPurchaseScreen extends ConsumerWidget {
             else
               FilledButton(
                 onPressed:
-                    purchases.busy || purchases.loading || product == null
+                    purchases.busy ||
+                        purchases.loading ||
+                        product == null ||
+                        purchases.pendingFor(book.id)
                     ? null
                     : () => purchases.buy(book.id),
                 child: Text(
-                  purchases.busy
+                  purchases.busy || purchases.pendingFor(book.id)
                       ? 'Waiting for confirmation…'
                       : 'Buy once${product == null ? '' : ' • ${product.price}'}',
                 ),

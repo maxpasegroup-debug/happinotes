@@ -5,6 +5,7 @@ import { env } from './config/env';
 import { createServer } from 'http';
 import { Server } from 'socket.io';
 import { registerRealtimeServer } from './services/realtime';
+import { startProductProvisioningWorker } from './services/storeProductProvisioning';
 
 if (!process.env.PORT && process.env.NODE_ENV === 'production') {
   throw new Error('PORT is not defined in production');
@@ -23,6 +24,7 @@ const start = async (): Promise<void> => {
 
   await connectDB();
   await ensureAdminUser();
+  startProductProvisioningWorker();
   const httpServer = createServer(app);
   const configuredOrigins = (process.env.CORS_ORIGINS || '')
     .split(',')
