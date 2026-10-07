@@ -78,11 +78,15 @@ flutter:
   assets:
     - assets/images/
 
+# Regenerate with tool/generate_splash.ps1 to retain Android 12 safe icon padding.
 flutter_native_splash:
-  color: "#FFFFFF"
+  web: false
+  color: "#FFF8EC"
+  color_dark: "#FFF8EC"
   image: assets/images/splash-icon.png
   android_12:
-    color: "#FFFFFF"
+    color: "#FFF8EC"
+    color_dark: "#FFF8EC"
     image: assets/images/splash-icon.png
 
 flutter_launcher_icons:

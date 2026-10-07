@@ -1,0 +1,9 @@
+<?xml version="1.0" encoding="utf-8"?>
+<!-- Android 12 masks the splash icon to a circle. Fit the entire square mascot
+     inside that circle rather than cutting off the headphones/book corners. -->
+<inset xmlns:android="http://schemas.android.com/apk/res/android"
+    android:drawable="@drawable/android12splash"
+    android:insetLeft="27%"
+    android:insetTop="27%"
+    android:insetRight="27%"
+    android:insetBottom="27%" />
