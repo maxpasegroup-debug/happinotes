@@ -371,12 +371,18 @@ export const createContent = async (
       title?: string;
       thumbnailUrl?: string;
     };
-    if (created.contentType === 'lifebook' && created.status === 'live') {
+    if (
+      created.contentType === 'lifebook' &&
+      (created.status === 'live' || created.status === 'coming_soon')
+    ) {
+      const comingSoon = created.status === 'coming_soon';
       void notifyCatalogUsers({
         eventType: 'new_book',
         bookId: created.id,
-        title: 'New story book available',
-        message: `${created.title || 'A new story book'} is now available to listen.`,
+        title: comingSoon ? 'New story coming soon' : 'New story book available',
+        message: comingSoon
+          ? `${created.title || 'A new story book'} is coming soon. Stay tuned!`
+          : `${created.title || 'A new story book'} is now available to listen.`,
         imageUrl: created.thumbnailUrl,
         baseUrl: `${req.protocol}://${req.get('host')}`,
       });

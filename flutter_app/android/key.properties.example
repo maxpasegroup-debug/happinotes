@@ -1,0 +1,6 @@
+# Copy to key.properties only when configuring an existing upload keystore.
+# The actual key.properties and keystore are private and ignored by Git.
+storePassword=REPLACE_WITH_YOUR_KEYSTORE_PASSWORD
+keyPassword=REPLACE_WITH_YOUR_KEY_PASSWORD
+keyAlias=upload
+storeFile=../upload-keystore.jks

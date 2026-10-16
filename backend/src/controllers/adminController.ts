@@ -244,12 +244,18 @@ export const createBook = async (
     });
     await ensureBookProducts(book);
     emitCatalogChanged('created', book.id, book.contentType);
-    if (book.contentType === 'lifebook' && book.status === 'live') {
+    if (
+      book.contentType === 'lifebook' &&
+      (book.status === 'live' || book.status === 'coming_soon')
+    ) {
+      const comingSoon = book.status === 'coming_soon';
       void notifyCatalogUsers({
         eventType: 'new_book',
         bookId: book.id,
-        title: 'New story book available',
-        message: `${book.title} is now available to listen.`,
+        title: comingSoon ? 'New story coming soon' : 'New story book available',
+        message: comingSoon
+          ? `${book.title} is coming soon. Stay tuned!`
+          : `${book.title} is now available to listen.`,
         imageUrl: book.thumbnailUrl,
         baseUrl: `${req.protocol}://${req.get('host')}`,
       });

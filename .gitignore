@@ -50,6 +50,11 @@ android/
 logs/
 *.log
 
+# Private Android upload signing material (after the native-project allow rules).
+**/key.properties
+*.jks
+*.keystore
+
 # =========================
 # OS Files
 # =========================

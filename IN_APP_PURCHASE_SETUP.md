@@ -52,8 +52,9 @@ an app binary. A configured product is not automatically approved.
 - Set `GOOGLE_PLAY_SERVICE_ACCOUNT_JSON` to the service account JSON as a secret
   environment variable. Never commit it or put it in the Flutter app.
 - Upload a properly release-signed Android build to an internal testing track.
-  The project's release configuration currently uses a debug signing key;
-  configure your upload key before publishing.
+  Release builds use the private upload key configured in `flutter_app/android/key.properties`.
+  Back up that file and `flutter_app/android/upload-keystore.jks` securely; both are Git-ignored.
+  A fresh checkout needs its own local signing configuration before building a release.
 - Add license testers and install through the test track using a tester account.
 
 ## Apple backend configuration

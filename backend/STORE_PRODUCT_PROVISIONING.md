@@ -101,8 +101,9 @@ the existing store verification succeeds.
    Console with catalogue-management permissions plus purchase read/acknowledge permissions.
 3. Configure the Google variables on the backend. Choose a currently supported
    [RegionsVersion](https://developers.google.com/android-publisher/api-ref/rest/v3/RegionsVersion).
-4. Upload a properly signed internal-track build; the current Flutter release config
-   uses debug signing and must be configured with your upload key before publication.
+4. Upload a properly signed internal-track build. Release builds require local
+   `flutter_app/android/key.properties` and its upload keystore; debug signing is
+   prohibited for release builds. Back up the private signing files securely.
 5. Add license testers and install through the internal testing track.
 
 The backend uses official `monetization.onetimeproducts.patch` with `allowMissing=true`

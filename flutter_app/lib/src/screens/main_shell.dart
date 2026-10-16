@@ -1034,13 +1034,6 @@ class NotificationsSheet extends ConsumerWidget {
                     style: TextStyle(fontSize: 22, fontWeight: FontWeight.w900),
                   ),
                 ),
-                IconButton(
-                  tooltip: 'Refresh notifications',
-                  onPressed: () => ref
-                      .read(notificationsControllerProvider)
-                      .load(forceRefresh: true),
-                  icon: const Icon(Icons.refresh),
-                ),
               ],
             ),
             const SizedBox(height: 12),
@@ -1061,17 +1054,37 @@ class _NotificationTile extends StatelessWidget {
   @override
   Widget build(BuildContext context) => ListTile(
     contentPadding: const EdgeInsets.symmetric(vertical: 6),
-    leading: CircleAvatar(
-      backgroundColor: AppColors.coral.withValues(alpha: .16),
-      child: Icon(
-        notification.type == 'new_episode'
-            ? Icons.headphones
-            : notification.type == 'new_book'
-            ? Icons.auto_awesome
-            : Icons.notifications_none,
-        color: AppColors.coral,
-      ),
-    ),
+    leading: notification.imageUrl?.isNotEmpty == true
+        ? ClipOval(
+            child: Image.network(
+              notification.imageUrl!,
+              width: 48,
+              height: 48,
+              fit: BoxFit.cover,
+              errorBuilder: (context, error, stackTrace) => CircleAvatar(
+                backgroundColor: AppColors.coral.withValues(alpha: .16),
+                child: Icon(
+                  notification.type == 'new_episode'
+                      ? Icons.headphones
+                      : notification.type == 'new_book'
+                      ? Icons.auto_awesome
+                      : Icons.notifications_none,
+                  color: AppColors.coral,
+                ),
+              ),
+            ),
+          )
+        : CircleAvatar(
+            backgroundColor: AppColors.coral.withValues(alpha: .16),
+            child: Icon(
+              notification.type == 'new_episode'
+                  ? Icons.headphones
+                  : notification.type == 'new_book'
+                  ? Icons.auto_awesome
+                  : Icons.notifications_none,
+              color: AppColors.coral,
+            ),
+          ),
     title: Text(
       notification.title,
       style: const TextStyle(fontWeight: FontWeight.w800),
