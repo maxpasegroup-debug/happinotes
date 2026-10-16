@@ -1,8 +1,5 @@
 import { ensureBookProducts, validatePremiumPrice } from '../services/storeProductProvisioning';
 import { Request, Response, NextFunction } from 'express';
-import { mkdir, writeFile } from 'fs/promises';
-import path from 'path';
-import crypto from 'crypto';
 import { validationResult } from 'express-validator';
 import { Content } from '../models';
 import type { ILifebookSection, ILesson } from '../models/Content';
@@ -10,6 +7,7 @@ import type { Multer } from 'multer';
 import { BadRequestError, NotFoundError } from '../utils/errors';
 import { emitCatalogChanged } from '../services/realtime';
 import { notifyCatalogUsers } from '../services/catalogNotification';
+import { cloudinary, configureCloudinary, isCloudinaryConfigured } from '../config/cloudinary';
 
 const CONTENT_UPDATE_FIELDS = [
   'title',
@@ -83,17 +81,39 @@ async function uploadToCloudinary(
   file: UploadedFile,
   folder: string
 ): Promise<{ url: string; resourceType: string }> {
-  const storageDir = process.env.MEDIA_STORAGE_DIR || path.join(process.cwd(), 'uploads');
-  await mkdir(storageDir, { recursive: true });
-  const extension = path.extname(file.originalname).toLowerCase() ||
-    (file.mimetype === 'image/png' ? '.png' : file.mimetype.startsWith('image/') ? '.jpg' : '.mp3');
-  const filename = `${crypto.randomUUID()}${extension}`;
-  await writeFile(path.join(storageDir, filename), file.buffer);
-  const publicBase = (process.env.MEDIA_PUBLIC_URL || '/uploads').replace(/\/$/, '');
-  return {
-    url: `${publicBase}/${filename}`,
-    resourceType: file.mimetype.startsWith('image/') ? 'image' : 'audio',
-  };
+  if (!isCloudinaryConfigured()) {
+    throw new Error(
+      'Cloudinary media storage is not configured. Set CLOUDINARY_CLOUD_NAME, CLOUDINARY_API_KEY, and CLOUDINARY_API_SECRET.',
+    );
+  }
+
+  configureCloudinary();
+  const resourceType = file.mimetype.startsWith('image/') ? 'image' : 'video';
+  return await new Promise((resolve, reject) => {
+    const stream = cloudinary.uploader.upload_stream(
+      {
+        folder,
+        resource_type: resourceType,
+        unique_filename: true,
+        overwrite: false,
+      },
+      (error, result) => {
+        if (error) {
+          reject(new Error(`Cloudinary upload failed: ${error.message}`));
+          return;
+        }
+        if (!result?.secure_url) {
+          reject(new Error('Cloudinary upload returned no secure URL'));
+          return;
+        }
+        resolve({
+          url: result.secure_url,
+          resourceType: result.resource_type || resourceType,
+        });
+      },
+    );
+    stream.end(file.buffer);
+  });
 }
 
 /** POST /admin/contents/upload-media — upload single audio/video file and return URL */

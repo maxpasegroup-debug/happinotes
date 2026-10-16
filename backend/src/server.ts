@@ -6,6 +6,7 @@ import { createServer } from 'http';
 import { Server } from 'socket.io';
 import { registerRealtimeServer } from './services/realtime';
 import { startProductProvisioningWorker } from './services/storeProductProvisioning';
+import { configureCloudinary, isCloudinaryConfigured } from './config/cloudinary';
 
 if (!process.env.PORT && process.env.NODE_ENV === 'production') {
   throw new Error('PORT is not defined in production');
@@ -14,10 +15,15 @@ if (!process.env.PORT && process.env.NODE_ENV === 'production') {
 const PORT = Number(process.env.PORT);
 
 const start = async (): Promise<void> => {
+  configureCloudinary();
   console.log('ADMIN_EMAIL:', process.env.ADMIN_EMAIL ? 'SET' : 'MISSING');
   console.log('RESEND_API_KEY:', process.env.RESEND_API_KEY ? 'SET' : 'MISSING');
   console.log('RESEND_FROM_EMAIL:', process.env.RESEND_FROM_EMAIL ? 'SET' : 'MISSING');
   console.log('FIREBASE_SERVICE_ACCOUNT_JSON:', process.env.FIREBASE_SERVICE_ACCOUNT_JSON ? 'SET' : 'MISSING');
+  console.log('CLOUDINARY_MEDIA_STORAGE:', isCloudinaryConfigured() ? 'SET' : 'MISSING');
+  if (!isCloudinaryConfigured()) {
+    console.error('Cloudinary media storage is MISSING - admin image/audio uploads will fail');
+  }
   if (!process.env.RESEND_API_KEY?.trim()) {
     console.error('RESEND_API_KEY is MISSING - email OTP delivery will fail');
   }
