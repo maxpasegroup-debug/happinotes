@@ -4,6 +4,14 @@ This extends the existing one-time book checkout. No Flutter purchase code or UI
 changed for provisioning. No real store requests have been tested locally: all provider
 and database calls in the new unit tests are mocks.
 
+## Shared subscriptions
+
+Premium books created with `priceInr=0` use the shared `monthly` and `yearly` plans.
+The admin subscription settings page saves each plan price and synchronizes the matching
+Google Play subscription/base plan through the Android Publisher API. The mobile app reads
+the resulting store prices, verifies purchases on the backend, and grants access to every
+premium story while the entitlement is active. Legacy one-time book purchases remain valid.
+
 ## Data and lifecycle
 
 `StoreProduct` creates MongoDB collection `storeproducts` with one unique record per
@@ -62,6 +70,8 @@ Existing Google verification credentials are reused:
 | `GOOGLE_PLAY_PACKAGE_NAME` | Published Android package name |
 | `GOOGLE_PLAY_SERVICE_ACCOUNT_JSON` | Secret Google service-account JSON |
 | `GOOGLE_PLAY_REGIONS_VERSION` | New: supported region configuration version for creation |
+| `GOOGLE_PLAY_SUBSCRIPTION_MONTHLY_PRODUCT_ID` | Optional monthly subscription product ID; defaults to `happinotes_premium_monthly` |
+| `GOOGLE_PLAY_SUBSCRIPTION_YEARLY_PRODUCT_ID` | Optional yearly subscription product ID; defaults to `happinotes_premium_yearly` |
 | `APP_STORE_CONNECT_APP_ID` | New: App Store Connect app resource ID |
 | `APP_STORE_CONNECT_KEY_ID` | New: catalogue API key ID |
 | `APP_STORE_CONNECT_ISSUER_ID` | New: catalogue API issuer ID |

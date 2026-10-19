@@ -3,6 +3,7 @@ import { authenticate, requireAdmin } from '../middleware';
 import { BadRequestError, NotFoundError } from '../utils/errors';
 import { ensureSubscriptionPlans } from '../services/subscriptionPlans';
 import { SubscriptionPlan, SubscriptionPlanKey } from '../models/SubscriptionPlan';
+import { syncGoogleSubscriptionPlan } from '../services/googleSubscriptionCatalog';
 
 const router = Router();
 router.use(authenticate, requireAdmin);
@@ -18,10 +19,19 @@ router.patch('/:key', async (req, res, next) => {
     const key = req.params.key as SubscriptionPlanKey;
     if (key !== 'monthly' && key !== 'yearly') throw new BadRequestError('Plan must be monthly or yearly');
     const priceInr = Number(req.body?.priceInr);
-    if (!Number.isFinite(priceInr) || priceInr < 0 || Math.round(priceInr * 100) !== priceInr * 100) {
-      throw new BadRequestError('priceInr must be a non-negative amount with at most two decimals');
+    if (!Number.isFinite(priceInr) || priceInr <= 0 || Math.round(priceInr * 100) !== priceInr * 100) {
+      throw new BadRequestError('priceInr must be a positive amount with at most two decimals');
     }
     await ensureSubscriptionPlans();
+    const current = await SubscriptionPlan.findOne({ key }).lean();
+    if (!current) throw new NotFoundError('Subscription plan not found');
+    await syncGoogleSubscriptionPlan({
+      productId: current.productId,
+      basePlanId: key,
+      billingPeriod: current.billingPeriod,
+      priceInr,
+    });
+    console.info('[Subscriptions] Google Play plan synced', { key, priceInr });
     const plan = await SubscriptionPlan.findOneAndUpdate(
       { key }, { $set: { priceInr } }, { new: true, runValidators: true },
     ).lean();

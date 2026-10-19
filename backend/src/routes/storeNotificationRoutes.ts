@@ -5,7 +5,9 @@ import { OAuth2Client } from 'google-auth-library';
 import { Type } from '@apple/app-store-server-library';
 import { StorePurchase } from '../models/StorePurchase';
 import { User } from '../models';
+import { SubscriptionPurchase } from '../models/SubscriptionPurchase';
 import { applePurchaseClient, googlePurchase, accountToken } from '../services/storePurchase';
+import { googleSubscription } from '../services/subscriptionPurchase';
 import { AppError, BadRequestError, UnauthorizedError } from '../utils/errors';
 
 const router = Router();
@@ -25,6 +27,24 @@ async function updateAccess(claim: { _id: Types.ObjectId; userId: Types.ObjectId
   }
 }
 
+async function updateSubscriptionAccess(
+  claim: { _id: Types.ObjectId; userId: Types.ObjectId; planKey: 'monthly' | 'yearly'; productId: string; store: 'android' | 'ios' },
+  active: boolean,
+  expiresAt: Date | undefined,
+  autoRenewing: boolean | undefined,
+  transactionKey: string,
+) {
+  await SubscriptionPurchase.updateOne({ _id: claim._id }, { $set: {
+    active, expiresAt, autoRenewing, transactionKey,
+  } });
+  await User.updateOne({ _id: claim.userId }, { $set: {
+    subscription: {
+      store: claim.store, planKey: claim.planKey, productId: claim.productId,
+      transactionKey, active, expiresAt, autoRenewing, lastVerifiedAt: new Date(),
+    },
+  } });
+}
+
 // Google Pub/Sub authenticated push, configured for Play RTDN including voided purchases.
 router.post('/google', async (req, res, next) => {
   try {
@@ -42,6 +62,19 @@ router.post('/google', async (req, res, next) => {
     if (typeof encoded !== 'string' || encoded.length > 50000) throw new BadRequestError('Invalid notification');
     const event = JSON.parse(Buffer.from(encoded, 'base64').toString('utf8'));
     if (event.packageName !== process.env.GOOGLE_PLAY_PACKAGE_NAME) throw new BadRequestError('Unexpected app');
+    const subscription = event.subscriptionNotification;
+    if (subscription?.purchaseToken && subscription.subscriptionId) {
+      const verified = await googleSubscription(subscription.subscriptionId, subscription.purchaseToken, '');
+      const claim = await SubscriptionPurchase.findOne({
+        store: 'android', transactionKey: verified.transactionKey,
+      });
+      if (claim && claim.productId === subscription.subscriptionId) {
+        await updateSubscriptionAccess(claim, verified.active, verified.expiresAt, verified.autoRenewing,
+          verified.transactionKey);
+      }
+      res.sendStatus(204);
+      return;
+    }
     const proof = event.oneTimeProductNotification?.purchaseToken ?? event.voidedPurchaseNotification?.purchaseToken;
     if (typeof proof !== 'string') { res.sendStatus(204); return; }
     const transactionKey = createHash('sha256').update(proof).digest('hex');
@@ -83,6 +116,19 @@ router.post('/apple', async (req, res, next) => {
       const active = current.revocationDate == null && current.type === Type.NON_CONSUMABLE &&
         current.productId === claim.productId && current.appAccountToken === accountToken(String(claim.userId));
       await updateAccess(claim, active);
+    }
+    const subscriptionClaim = await SubscriptionPurchase.findOne({ store: 'ios',
+      transactionKey: `${environment}:${transaction.originalTransactionId}` });
+    if (subscriptionClaim) {
+      const latest = await client.getTransactionInfo(transaction.transactionId);
+      if (!latest.signedTransactionInfo) throw new AppError('Transaction lookup failed', 503);
+      const current = await verifier.verifyAndDecodeTransaction(latest.signedTransactionInfo);
+      const expiresAt = current.expiresDate ? new Date(current.expiresDate) : undefined;
+      const active = current.revocationDate == null && current.type === Type.AUTO_RENEWABLE_SUBSCRIPTION &&
+        current.productId === subscriptionClaim.productId && current.appAccountToken === accountToken(String(subscriptionClaim.userId)) &&
+        Boolean(expiresAt && expiresAt.getTime() > Date.now());
+      await updateSubscriptionAccess(subscriptionClaim, active, expiresAt, active,
+        `${environment}:${current.originalTransactionId || transaction.originalTransactionId}`);
     }
     res.sendStatus(204);
   } catch (error) {

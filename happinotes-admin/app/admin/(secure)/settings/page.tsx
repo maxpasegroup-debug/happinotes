@@ -35,7 +35,7 @@ export default function AdminSettingsPage() {
     <div style={{ maxWidth: 760 }}>
       <h1 style={{ marginTop: 0 }}>Subscription plans</h1>
       <p style={{ color: "#a1a1aa" }}>
-        Premium stories use a subscription. Set the monthly and yearly prices here; books do not have individual prices.
+        Premium stories use a subscription. Set the monthly and yearly prices here; books do not have individual prices. Saving also syncs the Google Play subscription product.
       </p>
       <div style={{ display: "grid", gap: 14 }}>
         {plans.map((plan) => (

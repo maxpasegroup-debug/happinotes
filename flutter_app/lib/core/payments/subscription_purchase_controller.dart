@@ -47,7 +47,10 @@ class SubscriptionPurchaseController extends ChangeNotifier {
   String get _platform => defaultTargetPlatform == TargetPlatform.android ? 'android' : 'ios';
   bool get busy => _checkout || _restoring || _verifying > 0;
   List<SubscriptionPlanDetails> get plans => _plans.values.toList(growable: false);
-  ProductDetails? productFor(String key) => _products[_plans[key]?.productId];
+  ProductDetails? productFor(String key) {
+    final plan = _plans[key];
+    return plan == null ? null : _products[plan.productId];
+  }
   bool pendingFor(String key) => _pendingProducts.contains(_plans[key]?.productId);
 
   void setUser(String? userId) {

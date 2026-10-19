@@ -97,10 +97,18 @@ class SessionController extends ChangeNotifier {
 
   void updateSubscription({required bool active, String? plan, DateTime? expiresAt}) {
     if (user == null) return;
-    user = user!.copyWith(
+    final current = user!;
+    user = User(
+      id: current.id,
+      name: current.name,
+      role: current.role,
+      email: current.email,
+      phoneNumber: current.phoneNumber,
+      languagePreference: current.languagePreference,
+      purchasedBookIds: current.purchasedBookIds,
       subscriptionActive: active,
-      subscriptionPlan: plan,
-      subscriptionExpiresAt: expiresAt,
+      subscriptionPlan: active ? plan : null,
+      subscriptionExpiresAt: active ? expiresAt : null,
     );
     notifyListeners();
   }

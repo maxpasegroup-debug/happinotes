@@ -536,9 +536,7 @@ class _BookDetailState extends ConsumerState<BookDetail> {
                 ),
                 label: Text(
                   requiresPurchase
-                      ? false
-                            ? 'Buy now'
-                            : 'Buy now · ${purchases.productFor(book.id)!.price}')
+                      ? 'View plans'
                       : (isPlaying ? 'Stop listening' : 'Start listening'),
                 ),
                 style: FilledButton.styleFrom(
@@ -567,8 +565,8 @@ Route<void> _slideUpPageRoute(Widget page) => PageRouteBuilder<void>(
   ),
 );
 
-Future<bool?> _openStoreCheckout(BuildContext context, Book book) {
+Future<bool?> _openStoreCheckout(BuildContext context) {
   return Navigator.of(context).push<bool>(
-    MaterialPageRoute<bool>(builder: (_) => BookPurchaseScreen(book: book)),
+    MaterialPageRoute<bool>(builder: (_) => const SubscriptionScreen()),
   );
 }

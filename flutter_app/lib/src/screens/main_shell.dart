@@ -12,6 +12,7 @@ import '../widgets/loading_skeleton.dart';
 import 'book_detail.dart';
 import 'episode_player_screen.dart';
 import 'legal_screen.dart';
+import 'subscription_screen.dart';
 
 class MainShell extends ConsumerStatefulWidget {
   const MainShell({super.key});
@@ -736,6 +737,24 @@ class ProfileTab extends ConsumerWidget {
                 ),
               );
             },
+          ),
+          const Divider(),
+          ListTile(
+            leading: Icon(
+              s.user?.subscriptionActive == true
+                  ? Icons.verified_rounded
+                  : Icons.workspace_premium_outlined,
+            ),
+            title: const Text('HappiNotes Premium'),
+            subtitle: Text(
+              s.user?.subscriptionActive == true
+                  ? '${s.user?.subscriptionPlan == 'yearly' ? 'Yearly' : 'Monthly'} subscription active'
+                  : 'Choose a monthly or yearly plan',
+            ),
+            trailing: const Icon(Icons.chevron_right),
+            onTap: () => Navigator.of(context).push(
+              MaterialPageRoute(builder: (_) => const SubscriptionScreen()),
+            ),
           ),
           const Divider(),
           ListTile(

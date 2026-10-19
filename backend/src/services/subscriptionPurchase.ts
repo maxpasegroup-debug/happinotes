@@ -25,6 +25,7 @@ function safeDate(value: unknown): Date | undefined {
 }
 
 function accountMatches(value: unknown, expected: string): boolean {
+  if (!expected) return true;
   return typeof value !== 'string' || value.length === 0 || value === expected;
 }
 
