@@ -42,7 +42,10 @@ class SubscriptionScreen extends ConsumerWidget {
                           child: Column(crossAxisAlignment: CrossAxisAlignment.start, children: [
                             Text(plan.key == 'monthly' ? 'Monthly' : 'Yearly', style: Theme.of(context).textTheme.titleLarge),
                             const SizedBox(height: 4),
-                            Text(product?.price ?? 'Price unavailable', style: Theme.of(context).textTheme.titleMedium?.copyWith(color: AppColors.coral)),
+                            Text(
+                              product?.price ?? _backendPrice(plan.priceInr),
+                              style: Theme.of(context).textTheme.titleMedium?.copyWith(color: AppColors.coral),
+                            ),
                           ]),
                         ),
                         FilledButton(
@@ -63,6 +66,14 @@ class SubscriptionScreen extends ConsumerWidget {
       ),
     );
   }
+}
+
+String _backendPrice(double priceInr) {
+  if (priceInr <= 0) return 'Price unavailable';
+  final value = priceInr == priceInr.roundToDouble()
+      ? priceInr.toStringAsFixed(0)
+      : priceInr.toStringAsFixed(2);
+  return '₹$value';
 }
 
 class _ActiveSubscription extends StatelessWidget {

@@ -4,10 +4,11 @@ import 'package:in_app_purchase/in_app_purchase.dart';
 import '../network/api_client.dart';
 
 class SubscriptionPlanDetails {
-  const SubscriptionPlanDetails({required this.key, required this.productId, required this.billingPeriod});
+  const SubscriptionPlanDetails({required this.key, required this.productId, required this.billingPeriod, required this.priceInr});
   final String key;
   final String productId;
   final String billingPeriod;
+  final double priceInr;
 }
 
 class SubscriptionPurchaseController extends ChangeNotifier {
@@ -98,7 +99,12 @@ class SubscriptionPurchaseController extends ChangeNotifier {
         final key = raw['key']?.toString();
         final productId = raw[_platform]?.toString() ?? raw['productId']?.toString();
         if (key != null && productId != null && productId.isNotEmpty) {
-          _plans[key] = SubscriptionPlanDetails(key: key, productId: productId, billingPeriod: raw['billingPeriod']?.toString() ?? '');
+          _plans[key] = SubscriptionPlanDetails(
+            key: key,
+            productId: productId,
+            billingPeriod: raw['billingPeriod']?.toString() ?? '',
+            priceInr: (raw['priceInr'] as num?)?.toDouble() ?? 0,
+          );
         }
       }
       if (_plans.isNotEmpty) {
