@@ -1,6 +1,19 @@
 import mongoose, { Document, Schema } from 'mongoose';
 
 export type UserRole = 'admin' | 'user';
+export type SubscriptionStore = 'android' | 'ios';
+export type SubscriptionPlanKey = 'monthly' | 'yearly';
+
+export interface ISubscriptionEntitlement {
+  store: SubscriptionStore;
+  planKey: SubscriptionPlanKey;
+  productId: string;
+  transactionKey: string;
+  active: boolean;
+  expiresAt?: Date;
+  autoRenewing?: boolean;
+  lastVerifiedAt?: Date;
+}
 
 export interface IUser extends Document {
   name: string;
@@ -13,6 +26,7 @@ export interface IUser extends Document {
   purchasedBooks: mongoose.Types.ObjectId[];
   favourites: { contentId: mongoose.Types.ObjectId; contentType: string }[];
   fcmTokens: string[];
+  subscription?: ISubscriptionEntitlement;
   blocked: boolean;
   createdAt: Date;
   updatedAt: Date;
@@ -38,6 +52,16 @@ const userSchema = new Schema<IUser>(
       default: [],
     },
     fcmTokens: { type: [String], default: [] },
+    subscription: {
+      store: { type: String, enum: ['android', 'ios'] },
+      planKey: { type: String, enum: ['monthly', 'yearly'] },
+      productId: String,
+      transactionKey: String,
+      active: { type: Boolean, default: false },
+      expiresAt: Date,
+      autoRenewing: Boolean,
+      lastVerifiedAt: Date,
+    },
     blocked: { type: Boolean, default: false },
   },
   { timestamps: true }

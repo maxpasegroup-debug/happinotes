@@ -3,7 +3,9 @@ import { Content } from '../models';
 import { NotFoundError } from '../utils/errors';
 
 function canAccessPremiumContent(req: Request): boolean {
-  return req.user?.role === 'admin';
+  if (req.user?.role === 'admin') return true;
+  const subscription = req.user?.subscription;
+  return Boolean(subscription?.active && (!subscription.expiresAt || subscription.expiresAt > new Date()));
 }
 
 function hasPurchasedContent(req: Request, contentId: unknown): boolean {
@@ -157,7 +159,7 @@ export const getContents = async (
     const adminAccess = canAccessPremiumContent(req);
     const shaped = ordered.map((c) => {
       const doc = c as Record<string, unknown>;
-      return shapeContentForPublic(doc, adminAccess || hasPurchasedContent(req, doc._id));
+      return shapeContentForPublic(doc, adminAccess || canAccessPremiumContent(req) || hasPurchasedContent(req, doc._id));
     });
     res.json({ success: true, contents: shaped });
   } catch (err) {

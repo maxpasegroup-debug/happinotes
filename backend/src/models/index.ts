@@ -1,4 +1,4 @@
-export { User, IUser, UserRole } from './User';
+export { User, IUser, UserRole, ISubscriptionEntitlement, SubscriptionStore } from './User';
 export {
   Notification,
   INotification,

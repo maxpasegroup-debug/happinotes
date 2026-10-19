@@ -10,7 +10,9 @@ export function stableProductId(bookId: string): string {
   return `happinotes.book.${bookId.toLowerCase()}`;
 }
 export function isPremiumBook(book: { contentType: string; type: string; priceInr: number }): boolean {
-  return book.contentType === 'lifebook' && (book.type === 'premium' || book.priceInr > 0);
+  // New premium books use the shared subscription plans and do not have an
+  // individual price. Keep provisioning only for legacy priced books.
+  return book.contentType === 'lifebook' && book.type === 'premium' && book.priceInr > 0;
 }
 export function validatePremiumPrice(book: { contentType: string; type: string; priceInr: number }): void {
   if (isPremiumBook(book) && (!Number.isFinite(book.priceInr) || book.priceInr <= 0)) {

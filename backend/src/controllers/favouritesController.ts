@@ -3,7 +3,9 @@ import { User, Content } from '../models';
 import { ForbiddenError, NotFoundError } from '../utils/errors';
 
 function canAccessPremiumContent(req: Request): boolean {
-  return req.user?.role === 'admin';
+  if (req.user?.role === 'admin') return true;
+  const subscription = req.user?.subscription;
+  return Boolean(subscription?.active && (!subscription.expiresAt || subscription.expiresAt > new Date()));
 }
 
 function hasPurchasedContent(req: Request, contentId: unknown): boolean {

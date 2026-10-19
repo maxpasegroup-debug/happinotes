@@ -7,7 +7,7 @@ import '../theme.dart';
 import '../widgets/app_message.dart';
 import '../widgets/loading_skeleton.dart';
 import 'episode_player_screen.dart';
-import 'book_purchase_screen.dart';
+import 'subscription_screen.dart';
 
 class BookDetail extends ConsumerStatefulWidget {
   const BookDetail({super.key, required Book book}) : initialBook = book;
@@ -34,10 +34,11 @@ class _BookDetailState extends ConsumerState<BookDetail> {
       if (!mounted) return;
       final book = widget.initialBook;
       if ((book.priceInr > 0 || book.accessType == 'premium') &&
-          !(session.user?.purchasedBookIds.contains(book.id) ?? false)) {
-        final purchases = ref.read(storePurchaseControllerProvider);
-        purchases.setUser(session.user?.id);
-        await purchases.reload();
+          !(session.user?.purchasedBookIds.contains(book.id) ?? false) &&
+          !(session.user?.subscriptionActive ?? false)) {
+        final subscriptions = ref.read(subscriptionPurchaseControllerProvider);
+        subscriptions.setUser(session.user?.id);
+        await subscriptions.reload();
       }
     });
   }
@@ -46,7 +47,6 @@ class _BookDetailState extends ConsumerState<BookDetail> {
   Widget build(BuildContext context) {
     final player = ref.watch(playerControllerProvider);
     final user = ref.watch(sessionControllerProvider).user;
-    final purchases = ref.watch(storePurchaseControllerProvider);
     final booksState = ref.watch(booksControllerProvider);
     // Realtime catalogue updates replace the controller's book instance. Use
     // that latest instance so newly saved episodes appear while this screen is
@@ -59,8 +59,11 @@ class _BookDetailState extends ConsumerState<BookDetail> {
       }
     }
     final isPurchased = (user?.purchasedBookIds.contains(book.id)) ?? false;
+    final hasSubscription = user?.subscriptionActive == true;
     final requiresPurchase =
-        !isPurchased && (book.priceInr > 0 || book.accessType == 'premium');
+        !isPurchased &&
+        !hasSubscription &&
+        (book.priceInr > 0 || book.accessType == 'premium');
 
     return StreamBuilder<bool>(
       stream: player.audioPlayer.playingStream,
@@ -88,15 +91,18 @@ class _BookDetailState extends ConsumerState<BookDetail> {
             if (session.user?.purchasedBookIds.contains(book.id) ?? false) {
               return;
             }
+            if (session.user?.subscriptionActive ?? false) {
+              return;
+            }
             if (session.user == null) {
               AppMessage.show(
                 context,
-                'Sign in to purchase this story.',
+                'Sign in to subscribe.',
                 success: false,
               );
               return;
             }
-            await _openStoreCheckout(context, book);
+            await _openStoreCheckout(context);
             return;
           }
           try {
@@ -277,14 +283,14 @@ class _BookDetailState extends ConsumerState<BookDetail> {
                             vertical: 8,
                           ),
                           decoration: BoxDecoration(
-                            color: isPurchased
+                            color: isPurchased || hasSubscription
                                 ? AppColors.success.withValues(alpha: .12)
                                 : requiresPurchase
                                 ? AppColors.coral.withValues(alpha: .12)
                                 : AppColors.success.withValues(alpha: .12),
                             borderRadius: BorderRadius.circular(999),
                             border: Border.all(
-                              color: isPurchased
+                              color: isPurchased || hasSubscription
                                   ? AppColors.success.withValues(alpha: .35)
                                   : requiresPurchase
                                   ? AppColors.coral.withValues(alpha: .35)
@@ -295,13 +301,13 @@ class _BookDetailState extends ConsumerState<BookDetail> {
                             mainAxisSize: MainAxisSize.min,
                             children: [
                               Icon(
-                                isPurchased
+                                isPurchased || hasSubscription
                                     ? Icons.verified_rounded
                                     : requiresPurchase
                                     ? Icons.sell_outlined
                                     : Icons.check_circle_outline,
                                 size: 17,
-                                color: isPurchased
+                                color: isPurchased || hasSubscription
                                     ? AppColors.success
                                     : requiresPurchase
                                     ? AppColors.coral
@@ -311,9 +317,10 @@ class _BookDetailState extends ConsumerState<BookDetail> {
                               Text(
                                 isPurchased
                                     ? 'Purchased'
+                                    : hasSubscription
+                                    ? 'Subscribed'
                                     : requiresPurchase
-                                    ? (purchases.productFor(book.id)?.price ??
-                                          'Premium')
+                                    ? 'Subscription required'
                                     : 'Free',
                                 style: TextStyle(
                                   color: !requiresPurchase
@@ -349,7 +356,7 @@ class _BookDetailState extends ConsumerState<BookDetail> {
                               const SizedBox(width: 10),
                               Expanded(
                                 child: Text(
-                                  'Premium story \u2022 One-time purchase required to unlock all episodes.',
+                                  'Premium story \u2022 A monthly or yearly subscription unlocks all premium stories.',
                                   style: const TextStyle(
                                     fontWeight: FontWeight.w700,
                                   ),
@@ -385,7 +392,7 @@ class _BookDetailState extends ConsumerState<BookDetail> {
                                 AppMessage.show(
                                   context,
                                   requiresPurchase
-                                      ? 'Purchase this story to listen.'
+                                      ? 'Subscribe to listen to this story.'
                                       : 'This episode is not available yet.',
                                   success: false,
                                 );
@@ -476,7 +483,7 @@ class _BookDetailState extends ConsumerState<BookDetail> {
                                   AppMessage.show(
                                     context,
                                     requiresPurchase
-                                        ? 'Purchase this story to listen.'
+                                        ? 'Subscribe to listen to this story.'
                                         : 'This episode is not available yet.',
                                     success: false,
                                   );
@@ -529,7 +536,7 @@ class _BookDetailState extends ConsumerState<BookDetail> {
                 ),
                 label: Text(
                   requiresPurchase
-                      ? (purchases.productFor(book.id) == null
+                      ? false
                             ? 'Buy now'
                             : 'Buy now · ${purchases.productFor(book.id)!.price}')
                       : (isPlaying ? 'Stop listening' : 'Start listening'),

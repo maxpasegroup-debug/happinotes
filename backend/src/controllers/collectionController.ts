@@ -34,7 +34,9 @@ export const addToCollection = async (
 
     const requiresPurchase = book.type === 'premium' || book.priceInr > 0;
     const owned = req.user.purchasedBooks.some((id) => id.toString() === book._id.toString());
-    if (requiresPurchase && req.user.role !== 'admin' && !owned) {
+    const subscriptionActive = req.user.subscription?.active === true &&
+      (!req.user.subscription.expiresAt || req.user.subscription.expiresAt > new Date());
+    if (requiresPurchase && req.user.role !== 'admin' && !owned && !subscriptionActive) {
       return next(new ForbiddenError('Purchase this story before adding it to your library'));
     }
 

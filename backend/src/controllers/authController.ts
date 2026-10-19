@@ -29,6 +29,17 @@ const userResponse = (user: typeof User.prototype) => ({
   phoneNumber: user.phoneNumber,
   role: user.role,
   purchasedBookIds: (user.purchasedBooks ?? []).map((id: unknown) => String(id)),
+  subscription: user.subscription ? {
+    store: user.subscription.store,
+    planKey: user.subscription.planKey,
+    productId: user.subscription.productId,
+    active: user.subscription.active === true && (!user.subscription.expiresAt || user.subscription.expiresAt > new Date()),
+    expiresAt: user.subscription.expiresAt,
+    autoRenewing: user.subscription.autoRenewing,
+  } : null,
+  subscriptionActive: user.subscription?.active === true && (!user.subscription.expiresAt || user.subscription.expiresAt > new Date()),
+  subscriptionPlan: user.subscription?.planKey ?? null,
+  subscriptionExpiresAt: user.subscription?.expiresAt ?? null,
   languagePreference: user.languagePreference ?? 'all',
 });
 
@@ -427,6 +438,12 @@ export const getMe = async (
       u.purchasedBookIds = Array.isArray(u.purchasedBooks)
         ? (u.purchasedBooks as unknown[]).map((id) => String(id))
         : [];
+      const subscription = u.subscription as { active?: boolean; expiresAt?: Date; planKey?: string } | undefined;
+      const subscriptionActive = subscription?.active === true &&
+        (!subscription.expiresAt || new Date(subscription.expiresAt) > new Date());
+      u.subscriptionActive = subscriptionActive;
+      u.subscriptionPlan = subscription?.planKey ?? null;
+      u.subscriptionExpiresAt = subscription?.expiresAt ?? null;
       delete u.purchasedBooks;
       delete u.fcmTokens;
     }

@@ -95,6 +95,16 @@ class SessionController extends ChangeNotifier {
     notifyListeners();
   }
 
+  void updateSubscription({required bool active, String? plan, DateTime? expiresAt}) {
+    if (user == null) return;
+    user = user!.copyWith(
+      subscriptionActive: active,
+      subscriptionPlan: plan,
+      subscriptionExpiresAt: expiresAt,
+    );
+    notifyListeners();
+  }
+
   Future<void> signupWithEmail(String name, String email, String password) async {
     user = await repository.signupWithEmail(name: name, email: email, password: password);
     notifyListeners();

@@ -219,7 +219,7 @@ export const createContent = async (
     if (!language) return next(new BadRequestError('language is required'));
     if (!type) return next(new BadRequestError('type must be free or premium'));
     if (!Number.isFinite(priceInr) || priceInr < 0) return next(new BadRequestError('priceInr must be a non-negative number'));
-    if (type === 'premium' && priceInr <= 0) return next(new BadRequestError('Premium books must have a priceInr greater than 0'));
+    // Premium books use the shared subscription plans. priceInr is legacy-only.
     if (!contentType) {
       return next(new BadRequestError('contentType must be lifebook, note, or silence'));
     }

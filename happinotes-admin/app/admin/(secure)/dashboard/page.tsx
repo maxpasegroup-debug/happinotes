@@ -328,9 +328,6 @@ export default function AdminDashboardPage() {
     if (!token) return setMessage("Admin token missing");
     if (!form.title.trim()) return setMessage("Title is required");
     if (!form.thumbnail) return setMessage("Thumbnail is required");
-    if (form.type === "premium" && (!Number.isFinite(Number(form.priceInr)) || Number(form.priceInr) <= 0)) {
-      return setMessage("Enter a price greater than 0 for premium books");
-    }
     if (form.status === "live" && createKind === "lifebook" && !form.chapters[0]?.mediaUrl && !form.chapters[0]?.file) return setMessage("Add at least one episode MP3");
     if (form.status === "live" && createKind !== "lifebook" && !form.media && !form.mediaUploadedUrl) {
       return setMessage("Live note/happiness requires media audio");
@@ -342,7 +339,8 @@ export default function AdminDashboardPage() {
     fd.append("language", form.language || "English");
     fd.append("contentType", createKind);
     fd.append("type", form.type);
-    fd.append("priceInr", form.type === "premium" ? (form.priceInr || "0") : "0");
+    // Premium books are unlocked by the shared subscription plans.
+    fd.append("priceInr", "0");
     fd.append("status", form.status);
     fd.append("featured", String(form.featured));
     fd.append("thumbnail", form.thumbnail);
@@ -408,16 +406,13 @@ export default function AdminDashboardPage() {
     const token = window.localStorage.getItem("admin_token") || "";
     if (!token) return setMessage("Admin token missing");
     if (!form.title.trim()) return setMessage("Title is required");
-    if (form.type === "premium" && (!Number.isFinite(Number(form.priceInr)) || Number(form.priceInr) <= 0)) {
-      return setMessage("Enter a price greater than 0 for premium books");
-    }
 
     const fd = new FormData();
     fd.append("title", form.title);
     fd.append("description", form.description);
     fd.append("contentType", editing.contentType);
     fd.append("type", form.type);
-    fd.append("priceInr", form.type === "premium" ? (form.priceInr || "0") : "0");
+    fd.append("priceInr", "0");
     fd.append("featured", String(form.featured));
     if (form.thumbnail) fd.append("thumbnail", form.thumbnail);
 
@@ -640,7 +635,7 @@ export default function AdminDashboardPage() {
                   <div className="flex flex-wrap gap-2">
                     <Badge text={item.status} tone={item.status === "live" ? "green" : item.status === "coming_soon" ? "amber" : "gray"} />
                     <Badge text={item.type} tone={item.type === "premium" ? "purple" : "blue"} />
-                    {item.type === "premium" && Number(item.priceInr || 0) > 0 ? <Badge text={`₹${item.priceInr}`} tone="amber" /> : null}
+                    {item.type === "premium" ? <Badge text="Subscription" tone="amber" /> : null}
                   </div>
                   <p className="text-xs text-[#a1a1aa]">
                     {item.lessons?.length || 0} episode{item.lessons?.length === 1 ? "" : "s"} saved
@@ -958,20 +953,9 @@ export default function AdminDashboardPage() {
                     </label>
                   </div>
                   {form.type === "premium" ? (
-                    <label className="grid gap-1 text-sm text-[#d4d4d8]">
-                      Book price (INR)
-                      <input
-                        value={form.priceInr ?? ""}
-                        onChange={(e) => setForm((prev) => ({ ...prev, priceInr: e.target.value.replace(/[^0-9.]/g, "") }))}
-                        inputMode="decimal"
-                        type="number"
-                        min="0.01"
-                        step="0.01"
-                        placeholder="e.g. 99"
-                        className="rounded-lg border border-white/10 bg-[#12131a] px-3 py-2 text-white outline-none"
-                      />
-                      <span className="text-xs text-[#a1a1aa]">Users pay this one-time price to unlock the book.</span>
-                    </label>
+                    <p className="rounded-lg border border-amber-400/20 bg-amber-400/5 px-3 py-2 text-sm text-amber-200">
+                      Premium access is provided through the monthly or yearly subscription plan. This story has no individual price.
+                    </p>
                   ) : null}
                   <label className="grid gap-1 text-sm text-[#d4d4d8]">
                     Title
