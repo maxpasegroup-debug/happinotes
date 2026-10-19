@@ -88,8 +88,6 @@ class SubscriptionPurchaseController extends ChangeNotifier {
     _products.clear();
     _notify();
     try {
-      available = await _store.isAvailable();
-      if (!available) throw StateError('The app store is unavailable on this device.');
       final response = await api.dio.get('/payments/store/subscription-plans');
       if (revision != _revision || _disposed) return;
       _accountToken = response.data['accountToken']?.toString();
@@ -106,6 +104,11 @@ class SubscriptionPurchaseController extends ChangeNotifier {
             priceInr: (raw['priceInr'] as num?)?.toDouble() ?? 0,
           );
         }
+      }
+      available = await _store.isAvailable();
+      if (!available) {
+        message = 'The app store is unavailable on this device.';
+        return;
       }
       if (_plans.isNotEmpty) {
         final details = await _store.queryProductDetails(_plans.values.map((p) => p.productId).toSet());
