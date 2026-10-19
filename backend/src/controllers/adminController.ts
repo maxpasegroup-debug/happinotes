@@ -29,11 +29,19 @@ export const getAdminStats = async (
   next: NextFunction
 ): Promise<void> => {
   try {
+    const now = new Date();
     const [totalUsers, totalBooksPublished, activePremiumSubscribers, books] =
       await Promise.all([
         User.countDocuments(),
         Content.countDocuments({ contentType: 'lifebook', status: 'live' }),
-        User.countDocuments({ purchasedBooks: { $exists: true, $ne: [] } }),
+        User.countDocuments({
+          'subscription.active': true,
+          $or: [
+            { 'subscription.expiresAt': { $exists: false } },
+            { 'subscription.expiresAt': null },
+            { 'subscription.expiresAt': { $gt: now } },
+          ],
+        }),
         Content.find({ contentType: 'lifebook', status: 'live' })
           .sort({ listenCount: -1 })
           .limit(1)
@@ -78,10 +86,19 @@ export const sendNotification = async (
     } catch (error) {
       console.error('[Notifications] Failed to save admin notification:', error);
     }
-    const userFilter = target === 'premium'
-      ? { purchasedBooks: { $exists: true, $ne: [] } }
+    const now = new Date();
+    const activeSubscription = {
+      'subscription.active': true,
+      $or: [
+        { 'subscription.expiresAt': { $exists: false } },
+        { 'subscription.expiresAt': null },
+        { 'subscription.expiresAt': { $gt: now } },
+      ],
+    };
+    const userFilter: Record<string, unknown> = target === 'premium'
+      ? activeSubscription
       : target === 'free'
-        ? { $or: [{ purchasedBooks: { $exists: false } }, { purchasedBooks: { $size: 0 } }] }
+        ? { $nor: [activeSubscription] }
         : {};
     const recipients = await User.find(userFilter).select({ fcmTokens: 1 }).lean();
     const tokens = recipients.flatMap((user) => user.fcmTokens ?? []);
@@ -151,7 +168,7 @@ function normalizeLessons(v: unknown): ILesson[] {
   return out.sort((a, b) => a.order - b.order);
 }
 
-const USER_ADMIN_KEYS = ['_id', 'name', 'email', 'role', 'blocked', 'createdAt', 'purchasedBooks'] as const;
+const USER_ADMIN_KEYS = ['_id', 'name', 'email', 'role', 'blocked', 'createdAt'] as const;
 
 function formatUserForAdmin(doc: Record<string, unknown>): Record<string, unknown> {
   const out: Record<string, unknown> = {};
@@ -163,7 +180,7 @@ function formatUserForAdmin(doc: Record<string, unknown>): Record<string, unknow
   return out;
 }
 
-/** GET /admin/users — account and purchased-book metadata; exclude password */
+/** GET /admin/users — account and subscription metadata; exclude password */
 export const getUsers = async (
   _req: Request,
   res: Response,

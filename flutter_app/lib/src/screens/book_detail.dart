@@ -58,9 +58,11 @@ class _BookDetailState extends ConsumerState<BookDetail> {
         break;
       }
     }
+    // Historical one-time purchases remain playable; new premium access uses
+    // the shared monthly/yearly subscription plans.
     final isPurchased = (user?.purchasedBookIds.contains(book.id)) ?? false;
     final hasSubscription = user?.subscriptionActive == true;
-    final requiresPurchase =
+    final requiresSubscription =
         !isPurchased &&
         !hasSubscription &&
         (book.priceInr > 0 || book.accessType == 'premium');
@@ -73,7 +75,7 @@ class _BookDetailState extends ConsumerState<BookDetail> {
             player.currentBook?.id == book.id && (snapshot.data ?? false);
 
         Future<void> handlePlayback() async {
-          if (requiresPurchase) {
+          if (requiresSubscription) {
             final session = ref.read(sessionControllerProvider);
             try {
               await session.refreshUser();
@@ -102,7 +104,7 @@ class _BookDetailState extends ConsumerState<BookDetail> {
               );
               return;
             }
-            await _openStoreCheckout(context);
+            await _openSubscription(context);
             return;
           }
           try {
@@ -285,14 +287,14 @@ class _BookDetailState extends ConsumerState<BookDetail> {
                           decoration: BoxDecoration(
                             color: isPurchased || hasSubscription
                                 ? AppColors.success.withValues(alpha: .12)
-                                : requiresPurchase
+                                : requiresSubscription
                                 ? AppColors.coral.withValues(alpha: .12)
                                 : AppColors.success.withValues(alpha: .12),
                             borderRadius: BorderRadius.circular(999),
                             border: Border.all(
                               color: isPurchased || hasSubscription
                                   ? AppColors.success.withValues(alpha: .35)
-                                  : requiresPurchase
+                                  : requiresSubscription
                                   ? AppColors.coral.withValues(alpha: .35)
                                   : AppColors.success.withValues(alpha: .35),
                             ),
@@ -303,13 +305,13 @@ class _BookDetailState extends ConsumerState<BookDetail> {
                               Icon(
                                 isPurchased || hasSubscription
                                     ? Icons.verified_rounded
-                                    : requiresPurchase
+                                    : requiresSubscription
                                     ? Icons.sell_outlined
                                     : Icons.check_circle_outline,
                                 size: 17,
                                 color: isPurchased || hasSubscription
                                     ? AppColors.success
-                                    : requiresPurchase
+                                    : requiresSubscription
                                     ? AppColors.coral
                                     : AppColors.success,
                               ),
@@ -319,11 +321,11 @@ class _BookDetailState extends ConsumerState<BookDetail> {
                                     ? 'Purchased'
                                     : hasSubscription
                                     ? 'Subscribed'
-                                    : requiresPurchase
+                                    : requiresSubscription
                                     ? 'Subscription required'
                                     : 'Free',
                                 style: TextStyle(
-                                  color: !requiresPurchase
+                                  color: !requiresSubscription
                                       ? AppColors.success
                                       : AppColors.coral,
                                   fontWeight: FontWeight.w800,
@@ -333,7 +335,7 @@ class _BookDetailState extends ConsumerState<BookDetail> {
                           ),
                         ),
                       ),
-                      if (requiresPurchase) ...[
+                      if (requiresSubscription) ...[
                         const SizedBox(height: 14),
                         Container(
                           padding: const EdgeInsets.symmetric(
@@ -387,11 +389,11 @@ class _BookDetailState extends ConsumerState<BookDetail> {
                           return ListTile(
                             contentPadding: EdgeInsets.zero,
                             onTap: () async {
-                              if (requiresPurchase ||
+                              if (requiresSubscription ||
                                   episode.audioUrl.isEmpty) {
                                 AppMessage.show(
                                   context,
-                                  requiresPurchase
+                                  requiresSubscription
                                       ? 'Subscribe to listen to this story.'
                                       : 'This episode is not available yet.',
                                   success: false,
@@ -466,23 +468,23 @@ class _BookDetailState extends ConsumerState<BookDetail> {
                                         )),
                             trailing: IconButton(
                               icon: Icon(
-                                requiresPurchase || episode.audioUrl.isEmpty
+                                requiresSubscription || episode.audioUrl.isEmpty
                                     ? Icons.lock_rounded
                                     : isPlaying &&
                                           player.currentEpisode == episode
                                     ? Icons.stop_rounded
                                     : Icons.play_arrow_rounded,
                                 color:
-                                    requiresPurchase || episode.audioUrl.isEmpty
+                                    requiresSubscription || episode.audioUrl.isEmpty
                                     ? AppColors.muted
                                     : AppColors.coral,
                               ),
                               onPressed: () async {
-                                if (requiresPurchase ||
+                                if (requiresSubscription ||
                                     episode.audioUrl.isEmpty) {
                                   AppMessage.show(
                                     context,
-                                    requiresPurchase
+                                    requiresSubscription
                                         ? 'Subscribe to listen to this story.'
                                         : 'This episode is not available yet.',
                                     success: false,
@@ -526,7 +528,7 @@ class _BookDetailState extends ConsumerState<BookDetail> {
             bottomNavigationBar: SafeArea(
               minimum: const EdgeInsets.all(16),
               child: FilledButton.icon(
-                onPressed: requiresPurchase
+                onPressed: requiresSubscription
                     ? handlePlayback
                     : (book.audioUrl.isEmpty && book.episodes.isEmpty)
                     ? null
@@ -535,7 +537,7 @@ class _BookDetailState extends ConsumerState<BookDetail> {
                   isPlaying ? Icons.stop_rounded : Icons.play_arrow_rounded,
                 ),
                 label: Text(
-                  requiresPurchase
+                  requiresSubscription
                       ? 'View plans'
                       : (isPlaying ? 'Stop listening' : 'Start listening'),
                 ),
@@ -565,7 +567,7 @@ Route<void> _slideUpPageRoute(Widget page) => PageRouteBuilder<void>(
   ),
 );
 
-Future<bool?> _openStoreCheckout(BuildContext context) {
+Future<bool?> _openSubscription(BuildContext context) {
   return Navigator.of(context).push<bool>(
     MaterialPageRoute<bool>(builder: (_) => const SubscriptionScreen()),
   );

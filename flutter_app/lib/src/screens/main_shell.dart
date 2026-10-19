@@ -724,22 +724,6 @@ class ProfileTab extends ConsumerWidget {
           ),
           const Divider(),
           ListTile(
-            leading: const Icon(Icons.auto_stories_outlined),
-            title: const Text('Purchased stories'),
-            subtitle: Text(
-              '${s.user?.purchasedBookIds.length ?? 0} stories unlocked',
-            ),
-            trailing: const Icon(Icons.chevron_right),
-            onTap: () {
-              Navigator.of(context).push(
-                MaterialPageRoute(
-                  builder: (_) => const PurchasedStoriesScreen(),
-                ),
-              );
-            },
-          ),
-          const Divider(),
-          ListTile(
             leading: Icon(
               s.user?.subscriptionActive == true
                   ? Icons.verified_rounded
@@ -1154,69 +1138,3 @@ Future<void> _openNotificationBook(
 
 void openBook(BuildContext context, Book b) =>
     Navigator.of(context).push(_slideUpRoute(BookDetail(book: b)));
-
-class PurchasedStoriesScreen extends ConsumerWidget {
-  const PurchasedStoriesScreen({super.key});
-
-  @override
-  Widget build(BuildContext context, WidgetRef ref) {
-    final session = ref.watch(sessionControllerProvider);
-    final booksState = ref.watch(booksControllerProvider);
-    final purchasedIds =
-        session.user?.purchasedBookIds.toSet() ?? const <String>{};
-    final purchased = booksState.books
-        .where((book) => purchasedIds.contains(book.id))
-        .toList();
-
-    if (!booksState.loading && purchasedIds.isNotEmpty && purchased.isEmpty) {
-      Future.microtask(
-        () => ref.read(booksControllerProvider).loadBooks(forceRefresh: true),
-      );
-    }
-
-    return Scaffold(
-      appBar: AppBar(title: const Text('Purchased stories'), actions: [
-        TextButton(
-          onPressed: ref.watch(storePurchaseControllerProvider).busy ? null : () async {
-            final purchases = ref.read(storePurchaseControllerProvider);
-            await purchases.restore();
-            if (context.mounted && purchases.message != null) {
-              AppMessage.show(context, purchases.message!, success: false);
-            }
-          },
-          child: const Text('Restore'),
-        ),
-      ]),
-      body: booksState.loading && purchased.isEmpty
-          ? const GridLoadingSkeleton()
-          : purchased.isEmpty
-          ? const Center(
-              child: Padding(
-                padding: EdgeInsets.all(24),
-                child: Text(
-                  'You have not purchased any stories yet.',
-                  textAlign: TextAlign.center,
-                  style: TextStyle(color: AppColors.muted),
-                ),
-              ),
-            )
-          : GridView.builder(
-              padding: const EdgeInsets.fromLTRB(20, 20, 20, 28),
-              gridDelegate: SliverGridDelegateWithFixedCrossAxisCount(
-                crossAxisCount: 2,
-                crossAxisSpacing: 18,
-                mainAxisSpacing: 18,
-                mainAxisExtent: BookCard.shelfHeight(context) + 14,
-              ),
-              itemCount: purchased.length,
-              itemBuilder: (_, index) {
-                final book = purchased[index];
-                return BookCard(
-                  book: book,
-                  onTap: () => openBook(context, book),
-                );
-              },
-            ),
-    );
-  }
-}

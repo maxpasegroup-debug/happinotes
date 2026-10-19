@@ -269,7 +269,7 @@ class _Users extends ConsumerWidget {
                   itemBuilder: (_) => const [
                     PopupMenuItem(value: 'delete', child: Text('Delete user')),
                   ],
-                  child: Chip(label: Text('${(u['purchasedBooks'] as List?)?.length ?? 0} purchased')),
+                  child: const Icon(Icons.more_vert),
                 ),
         );
       },

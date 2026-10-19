@@ -10,7 +10,9 @@ export const getNotifications = async (
   try {
     if (!req.user) return next(new UnauthorizedError('Not authenticated'));
 
-    const isPremium = (req.user.purchasedBooks ?? []).length > 0;
+    const subscription = req.user.subscription;
+    const isPremium = subscription?.active === true &&
+      (!subscription.expiresAt || subscription.expiresAt > new Date());
     const visibility = req.user.role === 'admin'
       ? {}
       : { $or: [{ target: 'all' }, { target: isPremium ? 'premium' : 'free' }] };

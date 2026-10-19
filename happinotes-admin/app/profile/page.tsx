@@ -44,7 +44,7 @@ export default function ProfilePage() {
   }, []);
 
   const name = me?.name || "Guest User";
-  const sub = "Individual book purchases";
+  const sub = "HappiNotes subscription";
   const initial = name.charAt(0).toUpperCase();
 
   async function startForgotPassword() {
@@ -149,9 +149,9 @@ export default function ProfilePage() {
           Favourites
         </Link>
         <div className="rounded-xl border border-white/10 bg-[#141a2a] px-4 py-3">
-          <p className="text-sm font-medium text-white">Billing History</p>
+          <p className="text-sm font-medium text-white">Premium access</p>
           <p className="mt-1 text-xs text-[#b7c0d8]">
-            Individual premium book purchases are handled by the app payment flow.
+            Monthly and yearly subscriptions unlock all premium stories in the app.
           </p>
         </div>
         <div className="rounded-xl border border-white/10 bg-[#141a2a] px-4 py-3">
