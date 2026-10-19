@@ -20,7 +20,14 @@ class AuthFormController extends ChangeNotifier {
   bool _disposed = false;
   void _notify() { if (!_disposed) notifyListeners(); }
   void setName(String v) { name = v; _notify(); }
-  void setEmail(String v) { email = v.trim(); _notify(); }
+  void setEmail(String v) {
+    email = v.trim();
+    // Clear a previous lookup/login error as soon as the user edits the
+    // address. Otherwise an error for an old email remains under the new one.
+    error = null;
+    successMessage = null;
+    _notify();
+  }
   void setOtp(String v) { otp = v.replaceAll(RegExp(r'\D'), '').split('').take(6).join(); _notify(); }
   void setPassword(String v) { password = v; _notify(); }
   void setConfirmPassword(String v) { confirmPassword = v; _notify(); }
