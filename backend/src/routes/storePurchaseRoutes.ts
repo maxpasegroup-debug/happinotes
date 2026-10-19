@@ -6,10 +6,21 @@ import { authenticate } from '../middleware';
 import { accountToken, verifyStorePurchase, Store } from '../services/storePurchase';
 import { databaseProductMapping } from '../services/storeProductProvisioning';
 import { BadRequestError, ForbiddenError, AppError } from '../utils/errors';
+import { ensureSubscriptionPlans } from '../services/subscriptionPlans';
 
 const router = Router();
 router.use(authenticate);
 router.use(rateLimit({ windowMs: 60000, limit: 30 }));
+
+// Subscription settings are shared by the monthly and yearly plans. Purchase
+// verification is still handled by the existing one-time product flow until
+// the subscription checkout is enabled in the mobile client.
+router.get('/subscription-plans', async (_req, res, next) => {
+  try {
+    const plans = await ensureSubscriptionPlans();
+    res.json({ success: true, plans: plans.filter((plan) => plan.active) });
+  } catch (error) { next(error); }
+});
 
 router.get('/products', async (req, res, next) => {
   try {

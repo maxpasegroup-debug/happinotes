@@ -16,3 +16,4 @@ export {
   ContentKind,
   MediaType,
 } from './Content';
+export { SubscriptionPlan, ISubscriptionPlan, SubscriptionPlanKey } from './SubscriptionPlan';

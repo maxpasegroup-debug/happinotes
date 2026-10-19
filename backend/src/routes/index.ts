@@ -10,6 +10,7 @@ import notificationRoutes from './notificationRoutes';
 import storePurchaseRoutes from './storePurchaseRoutes';
 import storeNotificationRoutes from './storeNotificationRoutes';
 import adminStoreProductRoutes from './adminStoreProductRoutes';
+import adminSubscriptionPlanRoutes from './adminSubscriptionPlanRoutes';
 import { authenticate } from '../middleware';
 
 const router = Router();
@@ -19,6 +20,7 @@ router.use('/contents', contentRoutes);
 router.use('/collection', collectionRoutes);
 router.use('/admin', adminRoutes);
 router.use('/admin/store-products', adminStoreProductRoutes);
+router.use('/admin/subscription-plans', adminSubscriptionPlanRoutes);
 router.use('/admin/contents', adminContentRoutes);
 router.use('/favourites', authenticate, favouritesRoutes);
 router.use('/payments/test', testPurchaseRoutes);
