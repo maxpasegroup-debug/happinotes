@@ -97,11 +97,15 @@ class SubscriptionPurchaseController extends ChangeNotifier {
         final key = raw['key']?.toString();
         final productId = raw[_platform]?.toString() ?? raw['productId']?.toString();
         if (key != null && productId != null && productId.isNotEmpty) {
+          final rawPrice = raw['priceInr'];
+          final priceInr = rawPrice is num
+              ? rawPrice.toDouble()
+              : double.tryParse(rawPrice?.toString() ?? '') ?? 0;
           _plans[key] = SubscriptionPlanDetails(
             key: key,
             productId: productId,
             billingPeriod: raw['billingPeriod']?.toString() ?? '',
-            priceInr: (raw['priceInr'] as num?)?.toDouble() ?? 0,
+            priceInr: priceInr,
           );
         }
       }

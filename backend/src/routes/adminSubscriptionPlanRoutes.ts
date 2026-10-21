@@ -1,6 +1,6 @@
 import { Router } from 'express';
 import { authenticate, requireAdmin } from '../middleware';
-import { BadRequestError, NotFoundError } from '../utils/errors';
+import { AppError, BadRequestError, NotFoundError } from '../utils/errors';
 import { ensureSubscriptionPlans } from '../services/subscriptionPlans';
 import { SubscriptionPlan, SubscriptionPlanKey } from '../models/SubscriptionPlan';
 import { syncGoogleSubscriptionPlan } from '../services/googleSubscriptionCatalog';
@@ -23,20 +23,30 @@ router.patch('/:key', async (req, res, next) => {
       throw new BadRequestError('priceInr must be a positive amount with at most two decimals');
     }
     await ensureSubscriptionPlans();
-    const current = await SubscriptionPlan.findOne({ key }).lean();
-    if (!current) throw new NotFoundError('Subscription plan not found');
-    await syncGoogleSubscriptionPlan({
-      productId: current.productId,
-      basePlanId: key,
-      billingPeriod: current.billingPeriod,
-      priceInr,
-    });
-    console.info('[Subscriptions] Google Play plan synced', { key, priceInr });
     const plan = await SubscriptionPlan.findOneAndUpdate(
       { key }, { $set: { priceInr } }, { new: true, runValidators: true },
     ).lean();
     if (!plan) throw new NotFoundError('Subscription plan not found');
-    res.json({ success: true, plan });
+
+    // Persist the admin's price before contacting Google Play. This keeps the
+    // mobile app's backend price display working even when Play synchronization
+    // is temporarily unavailable or the service account needs attention.
+    try {
+      await syncGoogleSubscriptionPlan({
+        productId: plan.productId,
+        basePlanId: key,
+        billingPeriod: plan.billingPeriod,
+        priceInr,
+      });
+      console.info('[Subscriptions] Google Play plan synced', { key, priceInr });
+      res.json({ success: true, plan, googlePlaySync: 'synced' });
+    } catch (error) {
+      const warning = error instanceof AppError
+        ? error.message
+        : 'Google Play synchronization failed; retry it before accepting purchases.';
+      console.error('[Subscriptions] Price saved but Google Play plan sync failed', { key, priceInr, warning });
+      res.json({ success: true, plan, googlePlaySync: 'failed', warning });
+    }
   } catch (error) { next(error); }
 });
 

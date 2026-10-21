@@ -4,6 +4,7 @@ import { useEffect, useState } from "react";
 import { apiRequest } from "@/lib/api";
 
 type Plan = { key: "monthly" | "yearly"; productId: string; priceInr: number; billingPeriod: string };
+type SavePlanResponse = { success: boolean; plan: Plan; googlePlaySync?: "synced" | "failed"; warning?: string };
 
 export default function AdminSettingsPage() {
   const [plans, setPlans] = useState<Plan[]>([]);
@@ -24,8 +25,11 @@ export default function AdminSettingsPage() {
     const token = window.localStorage.getItem("admin_token") || "";
     setSaving(key); setMessage("");
     try {
-      await apiRequest(`/admin/subscription-plans/${key}`, "PATCH", { priceInr: Number(values[key]) }, token);
-      setMessage(`${key === "monthly" ? "Monthly" : "Yearly"} plan updated.`);
+      const response = await apiRequest<SavePlanResponse>(`/admin/subscription-plans/${key}`, "PATCH", { priceInr: Number(values[key]) }, token);
+      const label = key === "monthly" ? "Monthly" : "Yearly";
+      setMessage(response.googlePlaySync === "failed"
+        ? `${label} price saved. Google Play sync warning: ${response.warning ?? "retry synchronization before accepting purchases."}`
+        : `${label} plan updated.`);
       await load();
     } catch (error) { setMessage(error instanceof Error ? error.message : "Could not save plan"); }
     finally { setSaving(null); }
