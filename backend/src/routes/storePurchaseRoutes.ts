@@ -16,6 +16,9 @@ router.use(rateLimit({ windowMs: 60000, limit: 30 }));
 
 router.get('/subscription-plans', async (req, res, next) => {
   try {
+    // Prices can be changed from the admin panel at any time. Do not let a
+    // browser, proxy, or mobile HTTP cache keep returning an older plan.
+    res.set('Cache-Control', 'no-store, no-cache, must-revalidate, proxy-revalidate');
     const plans = await ensureSubscriptionPlans();
     res.json({ success: true, accountToken: accountToken(String(req.user!._id)), plans: plans.filter((plan) => plan.active) });
   } catch (error) { next(error); }

@@ -4,6 +4,7 @@ import { AppError, BadRequestError, NotFoundError } from '../utils/errors';
 import { ensureSubscriptionPlans } from '../services/subscriptionPlans';
 import { SubscriptionPlan, SubscriptionPlanKey } from '../models/SubscriptionPlan';
 import { syncGoogleSubscriptionPlan } from '../services/googleSubscriptionCatalog';
+import { emitSubscriptionPlansChanged } from '../services/realtime';
 
 const router = Router();
 router.use(authenticate, requireAdmin);
@@ -27,6 +28,11 @@ router.patch('/:key', async (req, res, next) => {
       { key }, { $set: { priceInr } }, { new: true, runValidators: true },
     ).lean();
     if (!plan) throw new NotFoundError('Subscription plan not found');
+
+    // The database value is available to the mobile app immediately. Emit
+    // after the write (and before the potentially slower Play sync) so an open
+    // app reloads the backend price without waiting for a page/app refresh.
+    emitSubscriptionPlansChanged(key);
 
     // Persist the admin's price before contacting Google Play. This keeps the
     // mobile app's backend price display working even when Play synchronization

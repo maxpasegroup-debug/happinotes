@@ -4,7 +4,9 @@ import '../../app/providers.dart';
 import '../theme.dart';
 
 class SubscriptionScreen extends ConsumerWidget {
-  const SubscriptionScreen({super.key});
+  const SubscriptionScreen({super.key, this.showCloseButton = false});
+
+  final bool showCloseButton;
 
   @override
   Widget build(BuildContext context, WidgetRef ref) {
@@ -12,7 +14,17 @@ class SubscriptionScreen extends ConsumerWidget {
     final session = ref.watch(sessionControllerProvider);
     final active = session.user?.subscriptionActive == true;
     return Scaffold(
-      appBar: AppBar(title: const Text('HappiNotes Premium')),
+      appBar: AppBar(
+        title: const Text('HappiNotes Premium'),
+        automaticallyImplyLeading: !showCloseButton,
+        leading: showCloseButton
+            ? IconButton(
+                tooltip: 'Close',
+                icon: const Icon(Icons.close),
+                onPressed: () => Navigator.of(context).pop(),
+              )
+            : null,
+      ),
       body: SafeArea(
         child: ListView(
           padding: const EdgeInsets.all(24),

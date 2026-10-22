@@ -106,6 +106,14 @@ final realtimeServiceProvider = Provider<RealtimeService>((ref) {
         ref.read(adminControllerProvider).loadAll();
       }
     },
+    onSubscriptionPlansChanged: () {
+      final session = ref.read(sessionControllerProvider);
+      if (!session.isLoggedIn || session.user?.role == 'admin') return;
+      // The backend has already persisted the new price. Reload the plans so
+      // an open subscription screen updates automatically, while reload()'s
+      // in-flight guard prevents duplicate requests.
+      ref.read(subscriptionPurchaseControllerProvider).reload();
+    },
   );
   ref.onDispose(service.dispose);
   return service;

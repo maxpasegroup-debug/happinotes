@@ -30,7 +30,7 @@ class _MainShellState extends ConsumerState<MainShell> {
       ref.read(booksControllerProvider).loadBooks();
       ref.read(booksControllerProvider).loadCollection();
       ref.read(notificationsControllerProvider).load();
-      _showFirstLanguagePicker();
+      _showFirstLanguagePicker().then((_) => _showFirstSubscriptionPrompt());
     });
   }
 
@@ -52,6 +52,30 @@ class _MainShellState extends ConsumerState<MainShell> {
           language: preference == 'all' ? null : preference,
           forceRefresh: true,
         );
+  }
+
+  Future<void> _showFirstSubscriptionPrompt() async {
+    final user = ref.read(sessionControllerProvider).user;
+    if (user == null || user.role == 'admin' || user.subscriptionActive) return;
+
+    final prefs = await SharedPreferences.getInstance();
+    final key = 'subscription_prompt_seen_${user.id}';
+    if (prefs.getBool(key) == true || !mounted) return;
+
+    // Mark it before opening the screen so closing the prompt does not make it
+    // reappear on every rebuild or app restart.
+    await prefs.setBool(key, true);
+    if (!mounted) return;
+
+    final subscriptions = ref.read(subscriptionPurchaseControllerProvider);
+    subscriptions.setUser(user.id);
+    await subscriptions.reload();
+    if (!mounted) return;
+    await Navigator.of(context).push(
+      MaterialPageRoute(
+        builder: (_) => const SubscriptionScreen(showCloseButton: true),
+      ),
+    );
   }
 
   @override
