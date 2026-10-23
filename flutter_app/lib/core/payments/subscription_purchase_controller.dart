@@ -207,8 +207,9 @@ class SubscriptionPurchaseController extends ChangeNotifier {
       await _store.restorePurchases(applicationUserName: _accountToken);
       await _queue;
       if (revision == _revision &&
-          message == 'Checking previous subscriptions…')
+          message == 'Checking previous subscriptions…') {
         message = 'Restore requested.';
+      }
     } catch (error) {
       if (revision == _revision) message = api.errorMessage(error);
     } finally {
