@@ -3,9 +3,13 @@ const assert = require('node:assert/strict');
 const { OAuth2Client } = require('google-auth-library');
 const { Type } = require('@apple/app-store-server-library');
 const service = require('../dist/services/storePurchase');
+const subscriptionService = require('../dist/services/subscriptionPurchase');
 const { StorePurchase } = require('../dist/models/StorePurchase');
+const { SubscriptionPurchase } = require('../dist/models/SubscriptionPurchase');
 const { User } = require('../dist/models');
-const router = require('../dist/routes/storeNotificationRoutes').default;
+const { AccountDeletionRequest } = require('../dist/models/AccountDeletionRequest');
+const notificationRoutes = require('../dist/routes/storeNotificationRoutes');
+const router = notificationRoutes.default;
 
 afterEach(() => mock.restoreAll());
 const claim = { _id: 'claim', userId: 'user', bookId: 'book', productId: 'book.product' };
@@ -20,9 +24,14 @@ async function dispatch(path, req) {
 function ledger(otherPurchase = false) {
   const changes = [], users = [];
   mock.method(StorePurchase, 'findOne', async () => claim);
+  // Apple non-consumable fixtures do not include a subscription claim. Keep
+  // the unrelated lifecycle lookup deterministic instead of waiting on Mongo.
+  mock.method(SubscriptionPurchase, 'findOne', async () => null);
   mock.method(StorePurchase, 'updateOne', async (_, update) => { changes.push(update); });
   mock.method(StorePurchase, 'exists', async () => otherPurchase);
   mock.method(User, 'updateOne', async (_, update) => { users.push(update); });
+  mock.method(User, 'findById', () => ({ select: async () => ({ blocked: false, deletionState: 'active' }) }));
+  mock.method(AccountDeletionRequest, 'exists', async () => false);
   return { changes, users };
 }
 
@@ -47,10 +56,108 @@ test('Google rejects a push from an unexpected identity without modifying owners
   assert.equal(state.changes.length, 0);
 });
 
+test('Google subscription notification ownership must match the existing ledger claim', () => {
+  const { googleNotificationClaimMatches } = notificationRoutes;
+  assert.equal(googleNotificationClaimMatches({ userId: 'user' }, service.accountToken('user')), true);
+  assert.equal(googleNotificationClaimMatches({ userId: 'user' }, service.accountToken('other-user')), false);
+  assert.equal(googleNotificationClaimMatches({ userId: 'user' }, undefined), false);
+});
+
+test('Google RTDN updates only an existing same-owner subscription claim', async () => {
+  const req = googleIdentity();
+  req.body.message.data = Buffer.from(JSON.stringify({
+    packageName: 'com.happinotes.test',
+    subscriptionNotification: { purchaseToken: 'subscription-token', subscriptionId: 'premium.monthly' },
+  })).toString('base64');
+  const changes = [];
+  const updates = [];
+  mock.method(AccountDeletionRequest, 'exists', async () => false);
+  const claim = { _id: 'subclaim', userId: 'user', planKey: 'monthly', productId: 'premium.monthly', store: 'android' };
+  mock.method(SubscriptionPurchase, 'findOne', async () => claim);
+  mock.method(SubscriptionPurchase, 'updateOne', async (_, update) => { changes.push(update); });
+  mock.method(User, 'findById', () => ({ select: async () => ({ subscription: undefined }) }));
+  mock.method(User, 'updateOne', async (_, update) => { updates.push(update); return { matchedCount: 1 }; });
+  mock.method(subscriptionService, 'googleSubscriptionNotification', async () => ({
+    transactionKey: 'stable-key', active: true, expiresAt: new Date(Date.now() + 60_000),
+    autoRenewing: true, externalAccountId: service.accountToken('user'),
+  }));
+  const result = await dispatch('/google', req);
+  assert.equal(result.status, 204);
+  assert.equal(changes.length, 1);
+  assert.equal(updates.length, 1);
+});
+
+test('Google RTDN cannot update an existing claim for another account', async () => {
+  const req = googleIdentity();
+  req.body.message.data = Buffer.from(JSON.stringify({
+    packageName: 'com.happinotes.test',
+    subscriptionNotification: { purchaseToken: 'subscription-token', subscriptionId: 'premium.monthly' },
+  })).toString('base64');
+  const claim = { _id: 'subclaim', userId: 'user', planKey: 'monthly', productId: 'premium.monthly', store: 'android' };
+  mock.method(SubscriptionPurchase, 'findOne', async () => claim);
+  mock.method(subscriptionService, 'googleSubscriptionNotification', async () => ({
+    transactionKey: 'stable-key', active: true, expiresAt: new Date(Date.now() + 60_000),
+    autoRenewing: true, externalAccountId: service.accountToken('other-user'),
+  }));
+  const result = await dispatch('/google', req);
+  assert.equal(result.error.statusCode, 400);
+});
+
+test('duplicate RTDN delivery is idempotent for the existing owner claim', async () => {
+  const req = googleIdentity();
+  req.body.message.data = Buffer.from(JSON.stringify({
+    packageName: 'com.happinotes.test',
+    subscriptionNotification: { purchaseToken: 'subscription-token', subscriptionId: 'premium.monthly' },
+  })).toString('base64');
+  const claim = { _id: 'subclaim', userId: 'user', planKey: 'monthly', productId: 'premium.monthly', store: 'android' };
+  let ledgerWrites = 0;
+  let entitlementWrites = 0;
+  mock.method(AccountDeletionRequest, 'exists', async () => false);
+  mock.method(SubscriptionPurchase, 'findOne', async () => claim);
+  mock.method(SubscriptionPurchase, 'updateOne', async () => { ledgerWrites += 1; });
+  mock.method(User, 'findById', () => ({ select: async () => ({ subscription: {
+    store: 'android', planKey: 'monthly', productId: 'premium.monthly', transactionKey: 'stable-key',
+    active: true, expiresAt: new Date(Date.now() + 60_000), autoRenewing: true,
+  } }) }));
+  mock.method(User, 'updateOne', async () => { entitlementWrites += 1; return { matchedCount: 1 }; });
+  mock.method(subscriptionService, 'googleSubscriptionNotification', async () => ({
+    transactionKey: 'stable-key', active: true, expiresAt: new Date(Date.now() + 60_000),
+    autoRenewing: true, externalAccountId: service.accountToken('user'),
+  }));
+  assert.equal((await dispatch('/google', req)).status, 204);
+  assert.equal((await dispatch('/google', req)).status, 204);
+  assert.equal(ledgerWrites, 2);
+  assert.equal(entitlementWrites, 2);
+});
+
+test('RTDN records provider state but cannot grant entitlement after deletion begins', async () => {
+  const req = googleIdentity();
+  req.body.message.data = Buffer.from(JSON.stringify({
+    packageName: 'com.happinotes.test',
+    subscriptionNotification: { purchaseToken: 'subscription-token', subscriptionId: 'premium.monthly' },
+  })).toString('base64');
+  const claim = { _id: 'subclaim', userId: 'user', planKey: 'monthly', productId: 'premium.monthly', store: 'android' };
+  let entitlementWrites = 0;
+  mock.method(SubscriptionPurchase, 'findOne', async () => claim);
+  mock.method(SubscriptionPurchase, 'updateOne', async () => {});
+  mock.method(AccountDeletionRequest, 'exists', async () => true);
+  mock.method(User, 'findById', () => ({ select: async () => ({ blocked: false, deletionState: 'active', subscription: undefined }) }));
+  mock.method(User, 'updateOne', async () => { entitlementWrites += 1; });
+  mock.method(subscriptionService, 'googleSubscriptionNotification', async () => ({
+    transactionKey: 'stable-key', active: true, expiresAt: new Date(Date.now() + 60_000),
+    autoRenewing: true, externalAccountId: service.accountToken('user'),
+  }));
+  const result = await dispatch('/google', req);
+  assert.equal(result.status, 204);
+  assert.equal(entitlementWrites, 0);
+});
+
 test('Google refund removes access when no other purchase is active', async () => {
   const req = googleIdentity();
   const state = ledger();
-  mock.method(service, 'googlePurchase', async () => ({ purchase: { purchaseState: 1 } }));
+  mock.method(service, 'googlePurchase', async () => ({ purchase: {
+    purchaseState: 1, obfuscatedExternalAccountId: service.accountToken('user'),
+  } }));
   const result = await dispatch('/google', req);
   assert.equal(result.status, 204);
   assert.deepEqual(state.changes[0], { $set: { active: false } });
@@ -60,7 +167,9 @@ test('Google refund removes access when no other purchase is active', async () =
 test('a refund preserves access granted by another active store purchase', async () => {
   const req = googleIdentity();
   const state = ledger(true);
-  mock.method(service, 'googlePurchase', async () => ({ purchase: { purchaseState: 1 } }));
+  mock.method(service, 'googlePurchase', async () => ({ purchase: {
+    purchaseState: 1, obfuscatedExternalAccountId: service.accountToken('user'),
+  } }));
   await dispatch('/google', req);
   assert.equal(state.users.length, 0);
 });
@@ -74,6 +183,18 @@ test('a delayed Google cancellation uses current purchased state and preserves a
   await dispatch('/google', req);
   assert.deepEqual(state.changes[0], { $set: { active: true } });
   assert.deepEqual(state.users[0], { $addToSet: { purchasedBooks: 'book' } });
+});
+
+test('Google one-time notifications reject a token whose verified owner differs', async () => {
+  const req = googleIdentity();
+  const state = ledger();
+  mock.method(service, 'googlePurchase', async () => ({ purchase: {
+    purchaseState: 0, consumptionState: 0, obfuscatedExternalAccountId: service.accountToken('other-user'),
+  } }));
+  const result = await dispatch('/google', req);
+  assert.equal(result.error.statusCode, 400);
+  assert.equal(state.changes.length, 0);
+  assert.equal(state.users.length, 0);
 });
 
 test('provider outage leaves ownership untouched and returns a retryable error', async () => {

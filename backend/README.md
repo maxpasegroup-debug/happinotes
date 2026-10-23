@@ -64,7 +64,15 @@ Dependencies: `express`, `mongoose`, `bcryptjs`, `jsonwebtoken`, `helmet`, `cors
    - Copy `.env.example` to `.env`
    - Set `MONGODB_URI` (e.g. local MongoDB or MongoDB Atlas)
    - Set `JWT_SECRET` (strong secret for production)
-   - `ADMIN_EMAIL=admin@happinotes.in` is already in `.env.example`
+   - Set `ADMIN_EMAIL` to the real administrator account.
+   - If that account is not yet in MongoDB, set a strong, unique
+     `ADMIN_BOOTSTRAP_PASSWORD` for one startup only, then remove the variable
+     and restart. The backend never replaces an existing admin password and
+     never grants the admin role during normal signup.
+   - The repository has no WhatsApp/SMS provider. Set
+     `WHATSAPP_OTP_MODE=test` only for local/test environments; production
+     must set it to `disabled`. Phone OTP routes fail closed until an approved
+     provider is implemented. Production email OTP uses Resend.
    - Set Cloudinary media credentials:
      - `CLOUDINARY_CLOUD_NAME`
      - `CLOUDINARY_API_KEY`
@@ -102,7 +110,11 @@ Dependencies: `express`, `mongoose`, `bcryptjs`, `jsonwebtoken`, `helmet`, `cors
      - `MONGODB_URI` = the MongoDB connection URL from step 2
      - `JWT_SECRET` = a long random secret (e.g. from `openssl rand -base64 32`)
      - `NODE_ENV` = `production`
-    - `ADMIN_EMAIL` = `admin@happinotes.in` (optional if same as default)
+    - `ADMIN_EMAIL` = the real administrator email
+    - `ADMIN_BOOTSTRAP_PASSWORD` = one-time secret only if this admin does not exist yet (remove after first successful startup)
+    - `WHATSAPP_OTP_MODE` = `disabled` (phone OTP is unavailable until a provider is implemented)
+    - `RESEND_API_KEY` = a live Resend API key for email OTP
+    - `RESEND_FROM_EMAIL` = a verified sender address
      - `CLOUDINARY_CLOUD_NAME` = your Cloudinary cloud name
      - `CLOUDINARY_API_KEY` = your Cloudinary API key
      - `CLOUDINARY_API_SECRET` = your Cloudinary API secret
@@ -120,6 +132,46 @@ Dependencies: `express`, `mongoose`, `bcryptjs`, `jsonwebtoken`, `helmet`, `cors
 
 7. **Check**
    - Open `https://<your-app>.up.railway.app/health` to confirm the API is up.
+
+## Subscription verification and lifecycle
+
+- Google Play purchase and RTDN lookups use SHA-256 token keys; raw Play tokens
+  are never persisted. Existing records created by an older raw-token build
+  require an audited migration before they can be restored by the hashed-key
+  lookup path.
+- The verified Google state is authoritative on every purchase and notification:
+  active, grace-period, and canceled-before-expiry retain access until
+  `expiryTime`; account hold, pause, pending, expired, refund, and revocation
+  do not grant access. This mapping should be rechecked against the current
+  Google Play lifecycle policy before production billing certification.
+- RTDN updates an existing, owner-bound ledger claim only. It cannot create a
+  claim for an arbitrary user or transfer a token between users.
+
+### Legacy token migration (offline procedure)
+
+The repository history available to this checkout uses `transactionKey` from
+the first subscription implementation, and current Android keys are SHA-256.
+That does not prove what is stored in a deployed MongoDB database. Before any
+shared-data migration:
+
+1. Export a read-only snapshot and inventory Android records whose key is not
+   a lowercase 64-hex SHA-256 value. Never print the keys.
+2. For each candidate, verify the raw token with the official Google Play API,
+   including package, product, current owner account binding, and purchase
+   state. Unverified or ambiguous 64-hex values stay in manual review.
+3. In a disposable clone, plan `sha256(rawToken)` replacements. Preserve the
+   existing `userId` and product; same-owner duplicates may be merged only
+   after an audit record is written. Any cross-owner/product collision aborts
+   the plan.
+4. Apply the plan in a transaction or resumable batch with a migration ID,
+   before/after key fingerprints, counts, and an ownership audit. Re-running
+   the same migration must produce no further changes.
+5. Validate unique `(store, transactionKey)` indexes and entitlement restores
+   in the clone, retain a rollback snapshot, then obtain explicit approval
+   before touching a shared database.
+
+`src/services/legacyPurchaseTokenMigration.ts` is an offline planner only; it
+is not called by runtime routes and has not been run against production data.
 
 ## API summary
 

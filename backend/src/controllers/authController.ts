@@ -7,11 +7,26 @@ import { Otp, User } from '../models';
 import { PasswordResetToken } from '../models/passwordResetToken';
 import { env } from '../config/env';
 import { sendOTPEmail } from '../services/emailService';
-import { BadRequestError, RateLimitError, UnauthorizedError } from '../utils/errors';
+import { AppError, BadRequestError, RateLimitError, UnauthorizedError } from '../utils/errors';
+import { assertAccountWritable, isAccountWritable } from '../services/accountDeletion';
 
 const OTP_EXPIRY_MINUTES = 5;
 const EMAIL_OTP_RESEND_COOLDOWN_SECONDS = 60;
-const PRIMARY_ADMIN_EMAIL = 'admin@happinotes.in';
+
+const isConfiguredAdminEmail = (email: string): boolean =>
+  Boolean(env.ADMIN_EMAIL && email.trim().toLowerCase() === env.ADMIN_EMAIL.toLowerCase());
+
+export const testOtpResponse = (otp: string): Record<string, string> =>
+  env.WHATSAPP_OTP_MODE === 'test' ? { testOtp: otp } : {};
+
+export function assertPhoneOtpDeliveryAvailable(): void {
+  // No WhatsApp/SMS provider is implemented in this repository. Generated
+  // phone OTPs are intentionally limited to local/test environments and must
+  // never be reported as delivered in production.
+  if (env.WHATSAPP_OTP_MODE !== 'test') {
+    throw new AppError('Phone OTP delivery is not configured; use email OTP or configure an approved provider.', 503);
+  }
+}
 
 const hashOtp = (identifier: string, otp: string): string =>
   crypto
@@ -46,6 +61,7 @@ const userResponse = (user: typeof User.prototype) => ({
 export const updateLanguage = async (req: Request, res: Response, next: NextFunction): Promise<void> => {
   try {
     if (!req.user) return next(new UnauthorizedError('Not authenticated'));
+    await assertAccountWritable(req.user._id);
     const language = req.body?.languagePreference;
     if (!['all', 'english', 'malayalam', 'hindi'].includes(language)) {
       return next(new BadRequestError('languagePreference must be all, english, malayalam, or hindi'));
@@ -59,6 +75,7 @@ export const updateLanguage = async (req: Request, res: Response, next: NextFunc
 export const registerFcmToken = async (req: Request, res: Response, next: NextFunction): Promise<void> => {
   try {
     if (!req.user) return next(new UnauthorizedError('Not authenticated'));
+    await assertAccountWritable(req.user._id);
     const token = typeof req.body?.token === 'string' ? req.body.token.trim() : '';
     if (!token || token.length > 4096) {
       return next(new BadRequestError('A valid FCM token is required'));
@@ -80,6 +97,7 @@ export const registerFcmToken = async (req: Request, res: Response, next: NextFu
 export const unregisterFcmToken = async (req: Request, res: Response, next: NextFunction): Promise<void> => {
   try {
     if (!req.user) return next(new UnauthorizedError('Not authenticated'));
+    await assertAccountWritable(req.user._id);
     const token = typeof req.body?.token === 'string' ? req.body.token.trim() : '';
     if (!token || token.length > 4096) {
       return next(new BadRequestError('A valid FCM token is required'));
@@ -90,6 +108,7 @@ export const unregisterFcmToken = async (req: Request, res: Response, next: Next
 };
 
 const createPhoneOtp = async (phoneNumber: string, purpose: 'signup' | 'login' | 'reset-pin') => {
+  assertPhoneOtpDeliveryAvailable();
   const otp = generateOtp();
   await Otp.updateMany({ identifier: phoneNumber, purpose, used: false }, { used: true });
   await Otp.create({
@@ -178,7 +197,9 @@ export const signup = async (
         name,
         phoneNumber,
         password: await bcrypt.hash(pin, 12),
-        role: phoneNumber === env.ADMIN_PHONE_NUMBER ? 'admin' : 'user',
+        // Administrator accounts are created only by ensureAdminUser. A phone
+        // number must never become an implicit privilege escalation path.
+        role: 'user',
       });
       otpRecord.used = true;
       await otpRecord.save();
@@ -195,13 +216,12 @@ export const signup = async (
     }
 
     const hashedPassword = await bcrypt.hash(password, 12);
-    const role = email.toLowerCase() === PRIMARY_ADMIN_EMAIL ? 'admin' : 'user';
 
     const user = await User.create({
       name,
       email: normalizedEmail,
       password: hashedPassword,
-      role,
+      role: 'user',
     });
 
     const token = signToken(user._id.toString());
@@ -250,17 +270,14 @@ export const login = async (
         return next(new UnauthorizedError('Invalid WhatsApp number or PIN'));
       }
       if (phoneUser.blocked) return next(new UnauthorizedError('Account is blocked'));
-      if (phoneNumber === env.ADMIN_PHONE_NUMBER && phoneUser.role !== 'admin') {
-        phoneUser.role = 'admin';
-        await phoneUser.save();
-      }
+      if (!(await isAccountWritable(phoneUser._id))) return next(new UnauthorizedError('Account deletion is in progress'));
       res.json({ success: true, token: signToken(phoneUser.id), user: userResponse(phoneUser) });
       return;
     }
     const normalizedEmail = email.toLowerCase();
     // The admin dashboard uses a dedicated email/password login. Regular
     // users still require the email OTP challenge from the mobile flow.
-    if (normalizedEmail !== PRIMARY_ADMIN_EMAIL &&
+    if (!isConfiguredAdminEmail(normalizedEmail) &&
         !verifyEmailChallenge(emailChallenge, normalizedEmail, 'email-login')) {
       return next(new UnauthorizedError('Verify the email OTP before signing in'));
     }
@@ -275,6 +292,9 @@ export const login = async (
     const match = await bcrypt.compare(password, user.password);
     if (!match) {
       return next(new UnauthorizedError('Invalid email or password'));
+    }
+    if (!(await isAccountWritable(user._id))) {
+      return next(new UnauthorizedError('Account deletion is in progress'));
     }
 
     const token = signToken(user._id.toString());
@@ -296,6 +316,7 @@ export const login = async (
 
 export const requestSignupOtp = async (req: Request, res: Response, next: NextFunction) => {
   try {
+    assertPhoneOtpDeliveryAvailable();
     const { phoneNumber } = req.body;
     if (await User.exists({ phoneNumber })) {
       return next(new BadRequestError('WhatsApp number already registered'));
@@ -304,22 +325,24 @@ export const requestSignupOtp = async (req: Request, res: Response, next: NextFu
     res.json({
       success: true,
       message: 'OTP generated',
-      ...(env.WHATSAPP_OTP_MODE === 'test' ? { testOtp: otp } : {}),
+      ...testOtpResponse(otp),
     });
   } catch (err) { next(err); }
 };
 
 export const requestLoginOtp = async (req: Request, res: Response, next: NextFunction) => {
   try {
+    assertPhoneOtpDeliveryAvailable();
     const { phoneNumber } = req.body;
-    if (!(await User.exists({ phoneNumber }))) {
+    const user = await User.findOne({ phoneNumber });
+    if (!user || !(await isAccountWritable(user._id))) {
       return next(new BadRequestError('No account found for this WhatsApp number'));
     }
     const otp = await createPhoneOtp(phoneNumber, 'login');
     res.json({
       success: true,
       message: 'OTP generated',
-      ...(env.WHATSAPP_OTP_MODE === 'test' ? { testOtp: otp } : {}),
+      ...testOtpResponse(otp),
     });
   } catch (err) { next(err); }
 };
@@ -330,7 +353,12 @@ export const requestEmailOtp = async (req: Request, res: Response, next: NextFun
     const purpose = req.body.purpose === 'signup' ? 'email-signup' : 'email-login';
     const exists = await User.exists({ email });
     if (purpose === 'email-signup' && exists) return next(new BadRequestError('Email already registered'));
-    if (purpose === 'email-login' && !exists) return next(new UnauthorizedError('No account found for this email'));
+    if (purpose === 'email-login') {
+      const user = await User.findOne({ email });
+      if (!user || !(await isAccountWritable(user._id))) {
+        return next(new UnauthorizedError('No account found for this email'));
+      }
+    }
     await createEmailOtp(email, purpose);
     res.json({
       success: true,
@@ -357,15 +385,17 @@ export const verifyEmailOtp = async (req: Request, res: Response, next: NextFunc
 
 export const requestResetPinOtp = async (req: Request, res: Response, next: NextFunction) => {
   try {
+    assertPhoneOtpDeliveryAvailable();
     const phoneNumber = (req.body.phoneNumber ?? '').toString().trim();
-    if (!(await User.exists({ phoneNumber }))) {
+    const user = await User.findOne({ phoneNumber });
+    if (!user || !(await isAccountWritable(user._id))) {
       return next(new BadRequestError('No account found for this WhatsApp number'));
     }
     const otp = await createPhoneOtp(phoneNumber, 'reset-pin');
     res.json({
       success: true,
       message: 'OTP generated',
-      ...(env.WHATSAPP_OTP_MODE === 'test' ? { testOtp: otp } : {}),
+      ...testOtpResponse(otp),
     });
   } catch (err) { next(err); }
 };
@@ -386,7 +416,7 @@ export const resetPin = async (req: Request, res: Response, next: NextFunction) 
       used: false,
       expiresAt: { $gt: new Date() },
     });
-    if (!user || !record) return next(new BadRequestError('Invalid or expired OTP'));
+    if (!user || !(await isAccountWritable(user._id)) || !record) return next(new BadRequestError('Invalid or expired OTP'));
     user.password = await bcrypt.hash(pin, 12);
     await user.save();
     record.used = true;
@@ -473,6 +503,10 @@ export const forgotPassword = async (
       });
       return;
     }
+    if (!(await isAccountWritable(user._id))) {
+      res.status(200).json({ message: 'If an account exists, an OTP has been sent.' });
+      return;
+    }
 
     const otp = generateOtp();
     const otpHash = await bcrypt.hash(otp, 10);
@@ -513,6 +547,10 @@ export const verifyOTP = async (
 
     const user = await User.findOne({ email });
     if (!user) {
+      res.status(400).json({ message: 'Invalid or expired OTP' });
+      return;
+    }
+    if (!(await isAccountWritable(user._id))) {
       res.status(400).json({ message: 'Invalid or expired OTP' });
       return;
     }
@@ -564,6 +602,10 @@ export const resetPassword = async (
 
     const user = await User.findOne({ email });
     if (!user) {
+      res.status(400).json({ message: 'Invalid request' });
+      return;
+    }
+    if (!(await isAccountWritable(user._id))) {
       res.status(400).json({ message: 'Invalid request' });
       return;
     }

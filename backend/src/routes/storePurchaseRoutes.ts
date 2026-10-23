@@ -1,5 +1,6 @@
 import { Router } from 'express';
 import rateLimit from 'express-rate-limit';
+import { createHash } from 'crypto';
 import { Content, User } from '../models';
 import { StorePurchase } from '../models/StorePurchase';
 import { authenticate } from '../middleware';
@@ -9,6 +10,8 @@ import { BadRequestError, ForbiddenError, AppError } from '../utils/errors';
 import { ensureSubscriptionPlans } from '../services/subscriptionPlans';
 import { SubscriptionPurchase } from '../models/SubscriptionPurchase';
 import { verifySubscriptionPurchase } from '../services/subscriptionPurchase';
+import { applySubscriptionEntitlement } from '../services/subscriptionEntitlement';
+import { assertAccountWritable } from '../services/accountDeletion';
 
 const router = Router();
 router.use(authenticate);
@@ -26,7 +29,8 @@ router.get('/subscription-plans', async (req, res, next) => {
 
 router.post('/subscription-verify', async (req, res, next) => {
   try {
-    const { store, productId, verificationData, transactionId } = req.body ?? {};
+    await assertAccountWritable(req.user!._id);
+    const { store, productId, verificationData, transactionId, restore } = req.body ?? {};
     if (!['android', 'ios'].includes(store) || typeof productId !== 'string' || productId.length > 200) {
       throw new BadRequestError('A valid store and subscription productId are required');
     }
@@ -38,9 +42,22 @@ router.post('/subscription-verify', async (req, res, next) => {
     const plan = plans.find((item) => item.productId === productId && item.active);
     if (!plan) throw new BadRequestError('Unknown subscription plan');
     const expectedAccount = accountToken(String(req.user!._id));
+    // Play may omit the obfuscated account identifier for an older purchase.
+    // Only an explicit restore of a transaction already owned by this user may
+    // use that compatibility path. Unknown transactions still require a
+    // matching account identifier, and a mismatched identifier never bypasses.
+    const allowUnboundAccount = store === 'android' && restore === true
+      ? Boolean(await SubscriptionPurchase.exists({
+        store: 'android',
+        transactionKey: createHash('sha256').update(proof).digest('hex'),
+        userId: req.user!._id,
+        productId,
+      }))
+      : false;
     const verified = await verifySubscriptionPurchase(
-      store as Store, plan.key, productId, proof, expectedAccount,
+      store as Store, plan.key, productId, proof, expectedAccount, { allowUnboundAccount },
     );
+    await assertAccountWritable(req.user!._id);
     await SubscriptionPurchase.init();
     let claim;
     try {
@@ -56,18 +73,24 @@ router.post('/subscription-verify', async (req, res, next) => {
     if (!claim || String(claim.userId) !== String(req.user!._id) || claim.productId !== productId) {
       throw new ForbiddenError('This subscription is linked to another account');
     }
+    await assertAccountWritable(req.user!._id);
     await SubscriptionPurchase.updateOne({ _id: claim._id }, { $set: {
       active: verified.active, expiresAt: verified.expiresAt, autoRenewing: verified.autoRenewing,
     } });
-    await User.updateOne({ _id: req.user!._id }, { $set: {
-      subscription: {
+    await applySubscriptionEntitlement(req.user!._id, {
         store, planKey: plan.key, productId, transactionKey: verified.transactionKey,
         active: verified.active, expiresAt: verified.expiresAt, autoRenewing: verified.autoRenewing,
         lastVerifiedAt: new Date(),
-      },
-    } });
-    res.json({ success: true, subscriptionActive: verified.active, subscriptionPlan: plan.key,
-      subscriptionExpiresAt: verified.expiresAt ?? null });
+    });
+    // Return the currently stored entitlement. A stale verification request
+    // must not make the client believe a newer entitlement was downgraded.
+    const currentUser = await User.findById(req.user!._id).select('subscription');
+    const current = currentUser?.subscription;
+    const currentActive = current?.active === true &&
+      Boolean(!current.expiresAt || current.expiresAt.getTime() > Date.now());
+    res.json({ success: true, subscriptionActive: currentActive,
+      subscriptionPlan: current?.planKey ?? plan.key,
+      subscriptionExpiresAt: current?.expiresAt ?? null });
   } catch (error) {
     next(error instanceof AppError ? error : new AppError('Could not verify subscription. Please restore purchases to retry.', 503));
   }
@@ -85,6 +108,7 @@ router.get('/products', async (req, res, next) => {
 
 router.post('/verify', async (req, res, next) => {
   try {
+    await assertAccountWritable(req.user!._id);
     const { store, productId, verificationData, transactionId } = req.body ?? {};
     if (!['android', 'ios'].includes(store) || typeof productId !== 'string' || productId.length > 200) {
       throw new BadRequestError('A valid store and productId are required');
@@ -99,6 +123,7 @@ router.post('/verify', async (req, res, next) => {
     const book = await Content.findOne({ _id: bookId, contentType: 'lifebook' });
     if (!book) throw new BadRequestError('Book no longer exists');
     const verified = await verifyStorePurchase(store, productId, proof, accountToken(String(req.user!._id)));
+    await assertAccountWritable(req.user!._id);
     // Initialize the unique index before the first claim; simultaneous retries cannot transfer ownership.
     await StorePurchase.init();
     let claim;
@@ -115,9 +140,13 @@ router.post('/verify', async (req, res, next) => {
     if (!claim || String(claim.userId) !== String(req.user!._id) || String(claim.bookId) !== bookId) {
       throw new ForbiddenError('This purchase is linked to another account');
     }
+    await assertAccountWritable(req.user!._id);
     await StorePurchase.updateOne({ _id: claim._id }, { $set: { active: true } });
     // Idempotent and retryable even if a previous request stopped after recording the claim.
-    await User.updateOne({ _id: req.user!._id }, { $addToSet: { purchasedBooks: bookId } });
+    await User.updateOne({
+      _id: req.user!._id,
+      $or: [{ deletionState: 'active' }, { deletionState: { $exists: false } }],
+    }, { $addToSet: { purchasedBooks: bookId } });
     const user = await User.findById(req.user!._id).select('purchasedBooks');
     res.json({ success: true, bookId, purchasedBookIds: user!.purchasedBooks.map(String) });
   } catch (error) {

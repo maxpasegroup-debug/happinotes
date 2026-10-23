@@ -100,7 +100,12 @@ export const sendNotification = async (
       : target === 'free'
         ? { $nor: [activeSubscription] }
         : {};
-    const recipients = await User.find(userFilter).select({ fcmTokens: 1 }).lean();
+    const recipients = await User.find({
+      $and: [
+        { $or: [{ deletionState: 'active' }, { deletionState: { $exists: false } }] },
+        userFilter,
+      ],
+    }).select({ fcmTokens: 1 }).lean();
     const tokens = recipients.flatMap((user) => user.fcmTokens ?? []);
     const push = await sendPushNotification({
       tokens,

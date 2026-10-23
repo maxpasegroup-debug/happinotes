@@ -7,6 +7,13 @@ export {
 } from './Notification';
 export { Otp, IOtp } from './Otp';
 export {
+  AccountDeletionRequest,
+  ACCOUNT_DELETION_ACTIVE_STATUSES,
+  IAccountDeletionRequest,
+  AccountDeletionStatus,
+} from './AccountDeletionRequest';
+export { AccountDeletionReauth, IAccountDeletionReauth } from './AccountDeletionReauth';
+export {
   Content,
   IContent,
   ILifebookSection,

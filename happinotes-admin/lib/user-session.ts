@@ -7,6 +7,32 @@ export type WebUser = {
 
 const TOKEN_KEY = "user_token";
 const USER_KEY = "user_profile";
+export const USER_SESSION_CHANGE_EVENT = "happinotes-user-session-change";
+
+export function subscribeToUserSession(onStoreChange: () => void): () => void {
+  if (typeof window === "undefined") return () => undefined;
+  window.addEventListener("storage", onStoreChange);
+  window.addEventListener(USER_SESSION_CHANGE_EVENT, onStoreChange);
+  return () => {
+    window.removeEventListener("storage", onStoreChange);
+    window.removeEventListener(USER_SESSION_CHANGE_EVENT, onStoreChange);
+  };
+}
+
+export function getUserSessionSnapshot(): string {
+  if (typeof window === "undefined") return "";
+  return `${window.localStorage.getItem(TOKEN_KEY) || ""}\u0000${window.localStorage.getItem(USER_KEY) || ""}`;
+}
+
+export function getServerUserSessionSnapshot(): string {
+  return "";
+}
+
+function notifyUserSessionChange(): void {
+  if (typeof window !== "undefined") {
+    window.dispatchEvent(new Event(USER_SESSION_CHANGE_EVENT));
+  }
+}
 
 export function getUserToken(): string | null {
   if (typeof window === "undefined") return null;
@@ -22,6 +48,7 @@ export function setUserSession(token: string, user: WebUser): void {
   } else {
     window.localStorage.removeItem("admin_token");
   }
+  notifyUserSessionChange();
 }
 
 export function getStoredUser(): WebUser | null {
@@ -40,4 +67,5 @@ export function clearUserSession(): void {
   window.localStorage.removeItem(TOKEN_KEY);
   window.localStorage.removeItem(USER_KEY);
   window.localStorage.removeItem("admin_token");
+  notifyUserSessionChange();
 }

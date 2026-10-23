@@ -215,6 +215,7 @@ class SubscriptionPurchaseController extends ChangeNotifier {
           'productId': purchase.productID,
           'transactionId': purchase.purchaseID,
           'verificationData': _platform == 'android' ? proof : '',
+          'restore': _restoring,
         });
         final active = response.data['subscriptionActive'] == true;
         final plan = response.data['subscriptionPlan']?.toString();

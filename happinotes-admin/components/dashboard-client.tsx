@@ -1,12 +1,18 @@
 "use client";
 
-import { useEffect, useMemo, useState } from "react";
+import { useEffect, useMemo, useState, useSyncExternalStore } from "react";
 import { useRouter } from "next/navigation";
 import type { LifebookItem } from "@/lib/content-api";
 import { AuthModal } from "@/components/auth-modal";
 import { AuthRequired } from "@/components/auth-required";
 import { apiRequest } from "@/lib/api";
-import { getStoredUser, getUserToken } from "@/lib/user-session";
+import {
+  getServerUserSessionSnapshot,
+  getStoredUser,
+  getUserSessionSnapshot,
+  getUserToken,
+  subscribeToUserSession,
+} from "@/lib/user-session";
 import { LifebooksPremiumLayout } from "@/components/lifebooks/LifebooksPremiumLayout";
 import type { ContinueListeningItem } from "@/components/lifebooks/types";
 
@@ -15,43 +21,51 @@ const FALLBACK_IMAGE =
 const FAV_KEY = "web_favourite_ids";
 const CONTINUE_KEY = "web_continue_listening";
 
+function readFavouriteIds(): string[] {
+  if (typeof window === "undefined") return [];
+  const raw = window.localStorage.getItem(FAV_KEY);
+  if (!raw) return [];
+  try {
+    return JSON.parse(raw) as string[];
+  } catch {
+    return [];
+  }
+}
+
+function readContinueItem(): ContinueListeningItem | null {
+  if (typeof window === "undefined") return null;
+  const raw = window.localStorage.getItem(CONTINUE_KEY);
+  if (!raw) return null;
+  try {
+    return JSON.parse(raw) as ContinueListeningItem;
+  } catch {
+    return null;
+  }
+}
+
 export function DashboardClient({ initialLifebooks }: { initialLifebooks: LifebookItem[] }) {
   const router = useRouter();
   const [search, setSearch] = useState("");
-  const [favouriteIds, setFavouriteIds] = useState<string[]>([]);
-  const [continueItem, setContinueItem] = useState<ContinueListeningItem | null>(null);
+  const [favouriteIds, setFavouriteIds] = useState<string[]>(readFavouriteIds);
+  const [continueItem, setContinueItem] = useState<ContinueListeningItem | null>(readContinueItem);
   const [authOpen, setAuthOpen] = useState(false);
   const subscribeOpen = false;
-  const setSubscribeOpen = (_value: boolean) => undefined;
+  const setSubscribeOpen = () => undefined;
   const subError = "";
   const [comingSoonPreview, setComingSoonPreview] = useState<LifebookItem | null>(null);
   const [selected, setSelected] = useState<LifebookItem | null>(null);
-  const [sessionChecked, setSessionChecked] = useState(false);
-  const [authenticated, setAuthenticated] = useState(false);
+  const sessionSnapshot = useSyncExternalStore(
+    subscribeToUserSession,
+    getUserSessionSnapshot,
+    getServerUserSessionSnapshot
+  );
+  const sessionChecked = true;
+  const authenticated = sessionSnapshot.split("\u0000", 1)[0].length > 0;
   const [authMode, setAuthMode] = useState<"login" | "signup">("login");
   const handleSubscribe = () => undefined;
 
   useEffect(() => {
     if (typeof window === "undefined") return;
-    setAuthenticated(Boolean(window.localStorage.getItem("user_token") || window.localStorage.getItem("admin_token")));
-    setSessionChecked(true);
-    const rawFav = window.localStorage.getItem(FAV_KEY);
-    if (rawFav) {
-      try {
-        setFavouriteIds(JSON.parse(rawFav) as string[]);
-      } catch {
-        setFavouriteIds([]);
-      }
-    }
-    const rawContinue = window.localStorage.getItem(CONTINUE_KEY);
-    if (rawContinue) {
-      try {
-        setContinueItem(JSON.parse(rawContinue) as ContinueListeningItem);
-      } catch {
-        setContinueItem(null);
-      }
-    }
-
     const token = getUserToken();
     if (!token) return;
     apiRequest<{ favourites?: Array<{ _id: string }> }>("/favourites", "GET", undefined, token)
@@ -76,7 +90,7 @@ export function DashboardClient({ initialLifebooks }: { initialLifebooks: Lifebo
     }
   }
 
-  async function tryPlay(item: LifebookItem, opts?: { allowPreview?: boolean }) {
+  async function tryPlay(item: LifebookItem) {
     setSelected(item);
     if (item.status === "coming_soon") {
       setComingSoonPreview(item);
@@ -126,7 +140,7 @@ export function DashboardClient({ initialLifebooks }: { initialLifebooks: Lifebo
   );
 
   if (!sessionChecked || !authenticated) {
-    return <><AuthRequired onLogin={() => { setAuthMode("login"); setAuthOpen(true); }} onCreateAccount={() => { setAuthMode("signup"); setAuthOpen(true); }} /><AuthModal open={authOpen} initialMode={authMode} onClose={() => setAuthOpen(false)} onSuccess={() => { const user = getStoredUser(); if (user?.role === "admin") { router.replace("/admin/dashboard"); return; } setAuthenticated(true); }} /></>;
+    return <><AuthRequired onLogin={() => { setAuthMode("login"); setAuthOpen(true); }} onCreateAccount={() => { setAuthMode("signup"); setAuthOpen(true); }} /><AuthModal open={authOpen} initialMode={authMode} onClose={() => setAuthOpen(false)} onSuccess={() => { const user = getStoredUser(); if (user?.role === "admin") { router.replace("/admin/dashboard"); } }} /></>;
   }
 
   return (
@@ -138,13 +152,13 @@ export function DashboardClient({ initialLifebooks }: { initialLifebooks: Lifebo
         onOpenFavourites={() => router.push("/favourites")}
         onOpenProfile={() => router.push("/profile")}
         onListen={(item) => void tryPlay(item)}
-        onPreview={(item) => void tryPlay(item, { allowPreview: true })}
+        onPreview={(item) => void tryPlay(item)}
         onToggleFavourite={(item) => void toggleFavourite(item)}
         isFavourite={(id) => favouriteIds.includes(id)}
         continueItem={continueItem}
         onResumeContinue={() => {
           const target = initialLifebooks.find((x) => (x.id || x._id) === continueItem?.id) || firstPlayable;
-          if (target) void tryPlay(target, { allowPreview: true });
+          if (target) void tryPlay(target);
         }}
         mobileFirstButtons
       />
@@ -154,9 +168,7 @@ export function DashboardClient({ initialLifebooks }: { initialLifebooks: Lifebo
         initialMode={authMode}
         onClose={() => setAuthOpen(false)}
         onSuccess={() => {
-          setAuthenticated(true);
           if (selected) {
-            const user = getStoredUser();
             rememberContinue(selected, continueItem?.progressPercent || 10);
             router.push(`/player/${selected.id || selected._id}`);
           }
@@ -186,7 +198,7 @@ export function DashboardClient({ initialLifebooks }: { initialLifebooks: Lifebo
               </button>
               <button
                 type="button"
-                onClick={() => setSubscribeOpen(false)}
+                onClick={setSubscribeOpen}
                 className="rounded-full border border-white/20 px-4 py-2 text-sm text-white"
               >
                 Cancel

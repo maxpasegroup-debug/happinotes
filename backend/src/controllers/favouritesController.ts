@@ -1,6 +1,7 @@
 import { Request, Response, NextFunction } from 'express';
 import { User, Content } from '../models';
 import { ForbiddenError, NotFoundError } from '../utils/errors';
+import { assertAccountWritable } from '../services/accountDeletion';
 
 function canAccessPremiumContent(req: Request): boolean {
   if (req.user?.role === 'admin') return true;
@@ -92,6 +93,7 @@ export const addFavourite = async (
       next(new ForbiddenError('Authentication required'));
       return;
     }
+    await assertAccountWritable(req.user._id);
     const { contentId } = req.params;
     const content = await Content.findById(contentId);
     if (!content) {
@@ -109,6 +111,7 @@ export const addFavourite = async (
       (fav) => fav.contentId.toString() === content._id.toString()
     );
     if (!exists) {
+      await assertAccountWritable(req.user._id);
       user.favourites.push({
         contentId: content._id,
         contentType: content.contentType,
@@ -132,6 +135,7 @@ export const removeFavourite = async (
       next(new ForbiddenError('Authentication required'));
       return;
     }
+    await assertAccountWritable(req.user._id);
     const { contentId } = req.params;
     const user = await User.findById(req.user._id);
     if (!user) {
@@ -141,6 +145,7 @@ export const removeFavourite = async (
     user.favourites = (user.favourites || []).filter(
       (fav) => fav.contentId.toString() !== contentId
     );
+    await assertAccountWritable(req.user._id);
     await user.save();
     res.json({ success: true });
   } catch (err) {

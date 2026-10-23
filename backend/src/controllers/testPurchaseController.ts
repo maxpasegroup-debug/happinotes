@@ -1,6 +1,7 @@
 import { Request, Response, NextFunction } from 'express';
 import { Content, User } from '../models';
 import { BadRequestError } from '../utils/errors';
+import { assertAccountWritable } from '../services/accountDeletion';
 
 /** Test-only purchase simulation. Never use this route in production payments. */
 export const testPurchaseBook = async (
@@ -13,6 +14,7 @@ export const testPurchaseBook = async (
       return next(new BadRequestError('Test purchases are disabled'));
     }
     if (!req.user) return next(new BadRequestError('Authentication required'));
+    await assertAccountWritable(req.user._id);
     const bookId = typeof req.body?.bookId === 'string' ? req.body.bookId.trim() : '';
     if (!bookId) return next(new BadRequestError('bookId is required'));
 

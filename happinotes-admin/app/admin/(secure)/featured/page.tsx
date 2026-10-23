@@ -23,7 +23,16 @@ export default function FeaturedPage() {
   }
 
   useEffect(() => {
-    load().catch(() => undefined);
+    let active = true;
+    const token = window.localStorage.getItem("admin_token") || "";
+    void apiRequest<{ contents: Content[] }>("/admin/contents", "GET", undefined, token)
+      .then((res) => {
+        if (active) setItems(res.contents || []);
+      })
+      .catch(() => undefined);
+    return () => {
+      active = false;
+    };
   }, []);
 
   async function toggle(item: Content) {

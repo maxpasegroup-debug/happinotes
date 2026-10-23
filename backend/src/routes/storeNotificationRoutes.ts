@@ -7,22 +7,31 @@ import { StorePurchase } from '../models/StorePurchase';
 import { User } from '../models';
 import { SubscriptionPurchase } from '../models/SubscriptionPurchase';
 import { applePurchaseClient, googlePurchase, accountToken } from '../services/storePurchase';
-import { googleSubscription } from '../services/subscriptionPurchase';
+import { googleSubscriptionNotification } from '../services/subscriptionPurchase';
+import { applySubscriptionEntitlement } from '../services/subscriptionEntitlement';
 import { AppError, BadRequestError, UnauthorizedError } from '../utils/errors';
+import { isAccountWritable } from '../services/accountDeletion';
 
 const router = Router();
 const googleIdentity = new OAuth2Client();
 
 async function updateAccess(claim: { _id: Types.ObjectId; userId: Types.ObjectId; bookId: Types.ObjectId }, active: boolean) {
   await StorePurchase.updateOne({ _id: claim._id }, { $set: { active } });
+  if (!(await isAccountWritable(claim.userId))) return;
   if (active) {
-    await User.updateOne({ _id: claim.userId }, { $addToSet: { purchasedBooks: claim.bookId } });
+    await User.updateOne({
+      _id: claim.userId,
+      $or: [{ deletionState: 'active' }, { deletionState: { $exists: false } }],
+    }, { $addToSet: { purchasedBooks: claim.bookId } });
   } else {
     const anotherPurchase = await StorePurchase.exists({
       userId: claim.userId, bookId: claim.bookId, active: { $ne: false },
     });
     if (!anotherPurchase) {
-      await User.updateOne({ _id: claim.userId }, { $pull: { purchasedBooks: claim.bookId } });
+      await User.updateOne({
+        _id: claim.userId,
+        $or: [{ deletionState: 'active' }, { deletionState: { $exists: false } }],
+      }, { $pull: { purchasedBooks: claim.bookId } });
     }
   }
 }
@@ -37,12 +46,18 @@ async function updateSubscriptionAccess(
   await SubscriptionPurchase.updateOne({ _id: claim._id }, { $set: {
     active, expiresAt, autoRenewing, transactionKey,
   } });
-  await User.updateOne({ _id: claim.userId }, { $set: {
-    subscription: {
-      store: claim.store, planKey: claim.planKey, productId: claim.productId,
-      transactionKey, active, expiresAt, autoRenewing, lastVerifiedAt: new Date(),
-    },
-  } });
+  await applySubscriptionEntitlement(claim.userId, {
+    store: claim.store, planKey: claim.planKey, productId: claim.productId,
+    transactionKey, active, expiresAt, autoRenewing, lastVerifiedAt: new Date(),
+  });
+}
+
+export function googleNotificationClaimMatches(
+  claim: { userId: Types.ObjectId | string },
+  externalAccountId: unknown,
+): boolean {
+  return typeof externalAccountId === 'string' && externalAccountId.length > 0 &&
+    externalAccountId === accountToken(String(claim.userId));
 }
 
 // Google Pub/Sub authenticated push, configured for Play RTDN including voided purchases.
@@ -64,11 +79,17 @@ router.post('/google', async (req, res, next) => {
     if (event.packageName !== process.env.GOOGLE_PLAY_PACKAGE_NAME) throw new BadRequestError('Unexpected app');
     const subscription = event.subscriptionNotification;
     if (subscription?.purchaseToken && subscription.subscriptionId) {
-      const verified = await googleSubscription(subscription.subscriptionId, subscription.purchaseToken, '');
+      // RTDN is authenticated by Google Pub/Sub and the authoritative Play
+      // lookup. It is not an authenticated user purchase request: never pass
+      // an empty account ID or allow this event to create a new claim.
+      const verified = await googleSubscriptionNotification(subscription.subscriptionId, subscription.purchaseToken);
       const claim = await SubscriptionPurchase.findOne({
         store: 'android', transactionKey: verified.transactionKey,
       });
       if (claim && claim.productId === subscription.subscriptionId) {
+        if (!googleNotificationClaimMatches(claim, verified.externalAccountId)) {
+          throw new BadRequestError('Subscription notification account does not match the existing claim');
+        }
         await updateSubscriptionAccess(claim, verified.active, verified.expiresAt, verified.autoRenewing,
           verified.transactionKey);
       }
@@ -82,8 +103,10 @@ router.post('/google', async (req, res, next) => {
     if (claim) {
       // Fetch current state so duplicate and out-of-order notifications are safe.
       const { purchase } = await googlePurchase(claim.productId, proof);
-      const active = purchase.purchaseState === 0 && purchase.consumptionState === 0 &&
-        purchase.obfuscatedExternalAccountId === accountToken(String(claim.userId));
+      if (purchase.obfuscatedExternalAccountId !== accountToken(String(claim.userId))) {
+        throw new BadRequestError('Purchase notification account does not match the existing claim');
+      }
+      const active = purchase.purchaseState === 0 && purchase.consumptionState === 0;
       await updateAccess(claim, active);
     }
     res.sendStatus(204);

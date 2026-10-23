@@ -1,48 +1,56 @@
 import bcrypt from 'bcryptjs';
 import { User } from '../models';
+import { env } from './env';
 
-const ADMIN_DEFAULT_PASSWORD = '@Identity#2055';
-const PRIMARY_ADMIN_EMAIL = 'admin@happinotes.in';
-const LEGACY_ADMIN_EMAILS = ['arundasmd@gmail.com'];
 // Must match signup (authController uses bcrypt.hash(password, 12))
 const BCRYPT_ROUNDS = 12;
 
+export function normalizeAdminEmail(value: unknown): string {
+  if (typeof value !== 'string') {
+    throw new Error('ADMIN_EMAIL must be configured with a valid email address');
+  }
+  const email = value.trim().toLowerCase();
+  if (!email || !/^[^\s@]+@[^\s@]+\.[^\s@]+$/.test(email)) {
+    throw new Error('ADMIN_EMAIL must be configured with a valid email address');
+  }
+  return email;
+}
+
 /**
- * Ensures an admin user exists for process.env.ADMIN_EMAIL.
+ * Ensures an admin user exists for the explicitly configured ADMIN_EMAIL.
  * Called after MongoDB connects. Safe to call on every startup:
  * - No duplicate: checks by email first.
  * - If admin exists, do NOT overwrite password.
- * - Password is hashed with same rounds as signup.
+ * - A missing admin fails closed unless ADMIN_BOOTSTRAP_PASSWORD is supplied
+ *   for the one-time bootstrap. The bootstrap variable must then be removed.
  */
 export async function ensureAdminUser(): Promise<void> {
-  const email = PRIMARY_ADMIN_EMAIL.toLowerCase();
-  console.log('[ensureAdmin] Checking for admin:', email);
+  const email = normalizeAdminEmail(env.ADMIN_EMAIL);
 
   try {
     const existing = await User.findOne({ email }).select('+password');
-    console.log('[ensureAdmin] Primary admin found?', !!existing);
 
     if (existing) {
       if (existing.role !== 'admin') {
-        existing.role = 'admin';
-        await existing.save();
+        throw new Error(
+          'ADMIN_EMAIL belongs to an existing non-admin account. Choose an administrator email or promote the account manually before restarting.',
+        );
       }
+      return;
     } else {
-      const hashedPassword = await bcrypt.hash(ADMIN_DEFAULT_PASSWORD, BCRYPT_ROUNDS);
+      if (!env.ADMIN_BOOTSTRAP_PASSWORD) {
+        throw new Error(
+          'Configured administrator does not exist. Set ADMIN_BOOTSTRAP_PASSWORD for one startup, then remove it.',
+        );
+      }
+      const hashedPassword = await bcrypt.hash(env.ADMIN_BOOTSTRAP_PASSWORD, BCRYPT_ROUNDS);
       await User.create({
         name: 'Admin',
         email,
         password: hashedPassword,
         role: 'admin',
       });
-      console.log('[ensureAdmin] Primary admin user created');
     }
-
-    // Keep only the primary admin email as admin.
-    await User.updateMany(
-      { email: { $in: LEGACY_ADMIN_EMAILS.map((e) => e.toLowerCase()) } },
-      { $set: { role: 'user' } }
-    );
   } catch (err: unknown) {
     const isDuplicateKey =
       err !== null &&
@@ -50,10 +58,15 @@ export async function ensureAdminUser(): Promise<void> {
       'code' in err &&
       (err as { code: number }).code === 11000;
     if (isDuplicateKey) {
-      console.log('[ensureAdmin] Duplicate key error (admin already exists)');
-      return;
+      // A concurrent bootstrap may have created the same administrator. Re-read
+      // it before treating the duplicate as harmless; never accept a race with
+      // an existing non-admin account.
+      const concurrent = await User.findOne({ email }).select('+password');
+      if (concurrent?.role === 'admin') return;
+      throw new Error(
+        'ADMIN_EMAIL belongs to an existing non-admin account. Choose an administrator email or promote the account manually before restarting.',
+      );
     }
-    console.error('[ensureAdmin] Failed to create admin:', err);
     throw err;
   }
 }

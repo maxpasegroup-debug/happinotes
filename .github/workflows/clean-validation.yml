@@ -1,0 +1,152 @@
+name: Clean validation
+
+on:
+  workflow_dispatch:
+  push:
+    branches:
+      - main
+      - integrate-flutter-main
+  pull_request:
+
+permissions:
+  contents: read
+
+concurrency:
+  group: clean-validation-${{ github.workflow }}-${{ github.ref }}
+  cancel-in-progress: true
+
+jobs:
+  backend:
+    name: Backend tests and build
+    runs-on: ubuntu-latest
+    timeout-minutes: 20
+    defaults:
+      run:
+        working-directory: backend
+    steps:
+      - name: Check out repository
+        uses: actions/checkout@v4
+
+      - name: Set up Node.js
+        uses: actions/setup-node@v4
+        with:
+          node-version: 20.x
+          cache: npm
+          cache-dependency-path: backend/package-lock.json
+
+      - name: Install backend dependencies
+        run: npm ci --no-audit --no-fund
+
+      - name: Run backend tests
+        run: npm test
+
+      - name: Build backend
+        run: npm run build
+
+  admin:
+    name: Admin lint, type-check, and build
+    runs-on: ubuntu-latest
+    timeout-minutes: 30
+    defaults:
+      run:
+        working-directory: happinotes-admin
+    steps:
+      - name: Check out repository
+        uses: actions/checkout@v4
+
+      - name: Set up Node.js
+        uses: actions/setup-node@v4
+        with:
+          node-version: 20.x
+          cache: npm
+          cache-dependency-path: happinotes-admin/package-lock.json
+
+      - name: Install admin dependencies
+        run: npm ci --no-audit --no-fund
+
+      - name: Run admin lint
+        run: npm run lint
+
+      - name: Run admin TypeScript check
+        run: npx tsc --noEmit
+
+      - name: Build admin production bundle
+        run: npm run build
+
+  flutter:
+    name: Flutter analysis and tests
+    runs-on: ubuntu-latest
+    timeout-minutes: 45
+    defaults:
+      run:
+        working-directory: flutter_app
+    steps:
+      - name: Check out repository
+        uses: actions/checkout@v4
+
+      - name: Read pinned Flutter revision
+        id: flutter-revision
+        shell: bash
+        run: |
+          set -euo pipefail
+          revision="$(sed -n 's/^[[:space:]]*revision:[[:space:]]*"\([0-9a-f]\{40\}\)"[[:space:]]*$/\1/p' .metadata)"
+          test -n "$revision"
+          echo "revision=$revision" >> "$GITHUB_OUTPUT"
+
+      - name: Check out pinned Flutter SDK
+        uses: actions/checkout@v4
+        with:
+          repository: flutter/flutter
+          ref: ${{ steps.flutter-revision.outputs.revision }}
+          path: .flutter-sdk
+          fetch-depth: 1
+          persist-credentials: false
+
+      - name: Add pinned Flutter SDK to PATH
+        shell: bash
+        env:
+          FLUTTER_REVISION: ${{ steps.flutter-revision.outputs.revision }}
+        run: |
+          set -euo pipefail
+          sdk_dir="$GITHUB_WORKSPACE/.flutter-sdk"
+          test "$(git -C "$sdk_dir" rev-parse HEAD)" = "$FLUTTER_REVISION"
+          echo "$sdk_dir/bin" >> "$GITHUB_PATH"
+          echo "FLUTTER_ROOT=$sdk_dir" >> "$GITHUB_ENV"
+
+      - name: Verify Flutter and Dart versions
+        shell: bash
+        env:
+          FLUTTER_REVISION: ${{ steps.flutter-revision.outputs.revision }}
+        run: |
+          set -euo pipefail
+          test "$(git -C "$FLUTTER_ROOT" rev-parse HEAD)" = "$FLUTTER_REVISION"
+          flutter --version
+          dart --version
+
+      - name: Resolve locked Flutter dependencies
+        run: flutter pub get --enforce-lockfile
+
+      - name: Check Flutter formatting
+        run: dart format --output=none --set-exit-if-changed lib test
+
+      - name: Run Flutter analyzer
+        shell: bash
+        run: |
+          set -o pipefail
+          flutter analyze --no-pub 2>&1 | tee "$RUNNER_TEMP/flutter-analyze.log"
+
+      - name: Run Flutter tests
+        shell: bash
+        run: |
+          set -o pipefail
+          flutter test --no-pub --reporter expanded 2>&1 | tee "$RUNNER_TEMP/flutter-test.log"
+
+      - name: Upload Flutter validation logs
+        if: always()
+        uses: actions/upload-artifact@v4
+        with:
+          name: flutter-validation-logs
+          path: |
+            ${{ runner.temp }}/flutter-analyze.log
+            ${{ runner.temp }}/flutter-test.log
+          if-no-files-found: warn

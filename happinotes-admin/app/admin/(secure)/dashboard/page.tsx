@@ -846,7 +846,7 @@ export default function AdminDashboardPage() {
           </div>
           {arrangeCategory !== "all" ? (
             <p className="text-xs text-amber-200">
-              Drag and drop is enabled only on "All" filter to preserve a single global order.
+              Drag and drop is enabled only on &quot;All&quot; filter to preserve a single global order.
             </p>
           ) : null}
         </div>

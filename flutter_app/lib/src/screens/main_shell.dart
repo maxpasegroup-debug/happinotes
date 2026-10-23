@@ -13,6 +13,7 @@ import 'book_detail.dart';
 import 'episode_player_screen.dart';
 import 'legal_screen.dart';
 import 'subscription_screen.dart';
+import 'account_deletion_screen.dart';
 
 class MainShell extends ConsumerStatefulWidget {
   const MainShell({super.key});
@@ -780,6 +781,16 @@ class ProfileTab extends ConsumerWidget {
             onTap: () => Navigator.push(
               context,
               MaterialPageRoute(builder: (_) => const LegalScreen()),
+            ),
+          ),
+          const Divider(),
+          ListTile(
+            leading: Icon(Icons.delete_forever_outlined, color: Colors.red.shade700),
+            title: Text('Delete account', style: TextStyle(color: Colors.red.shade700)),
+            subtitle: const Text('Permanently remove your HappiNotes account'),
+            trailing: const Icon(Icons.chevron_right),
+            onTap: () => Navigator.of(context).push(
+              MaterialPageRoute(builder: (_) => const AccountDeletionScreen()),
             ),
           ),
           const SizedBox(height: 20),

@@ -1,6 +1,7 @@
 import { Request, Response, NextFunction } from 'express';
 import { User, Content } from '../models';
 import { BadRequestError, ForbiddenError, NotFoundError } from '../utils/errors';
+import { assertAccountWritable } from '../services/accountDeletion';
 
 export const getCollection = async (
   req: Request,
@@ -9,6 +10,7 @@ export const getCollection = async (
 ): Promise<void> => {
   try {
     if (!req.user) return next(new ForbiddenError('Authentication required'));
+    await assertAccountWritable(req.user._id);
     const user = await User.findById(req.user._id)
       .populate('bookCollection')
       .select('bookCollection');
@@ -27,6 +29,7 @@ export const addToCollection = async (
 ): Promise<void> => {
   try {
     if (!req.user) return next(new ForbiddenError('Authentication required'));
+    await assertAccountWritable(req.user._id);
     const { bookId } = req.params;
     const book = await Content.findById(bookId);
     if (!book) return next(new NotFoundError('Book not found'));
@@ -47,6 +50,7 @@ export const addToCollection = async (
       res.json({ success: true, message: 'Already in collection' });
       return;
     }
+    await assertAccountWritable(req.user._id);
     user.bookCollection.push(objectId);
     await user.save();
     const updated = await User.findById(req.user._id)
@@ -65,9 +69,11 @@ export const removeFromCollection = async (
 ): Promise<void> => {
   try {
     if (!req.user) return next(new ForbiddenError('Authentication required'));
+    await assertAccountWritable(req.user._id);
     const { bookId } = req.params;
     const user = await User.findById(req.user._id);
     if (!user) return next(new NotFoundError('User not found'));
+    await assertAccountWritable(req.user._id);
     user.bookCollection = user.bookCollection.filter((id) => id.toString() !== bookId);
     await user.save();
     const updated = await User.findById(req.user._id)

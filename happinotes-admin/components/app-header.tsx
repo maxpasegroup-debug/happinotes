@@ -1,17 +1,23 @@
 "use client";
 
 import Link from "next/link";
-import { useEffect, useState } from "react";
-import { getStoredUser } from "@/lib/user-session";
+import { useSyncExternalStore } from "react";
+import {
+  getServerUserSessionSnapshot,
+  getStoredUser,
+  getUserSessionSnapshot,
+  subscribeToUserSession,
+} from "@/lib/user-session";
 
 export function AppHeader() {
-  const [hasUser, setHasUser] = useState(false);
-  const [initial, setInitial] = useState("U");
-  useEffect(() => {
-    const user = getStoredUser();
-    setHasUser(Boolean(user));
-    setInitial((user?.name || user?.email || "U").charAt(0).toUpperCase());
-  }, []);
+  const sessionSnapshot = useSyncExternalStore(
+    subscribeToUserSession,
+    getUserSessionSnapshot,
+    getServerUserSessionSnapshot
+  );
+  const user = sessionSnapshot ? getStoredUser() : null;
+  const hasUser = Boolean(user);
+  const initial = (user?.name || user?.email || "U").charAt(0).toUpperCase();
 
   return (
     <header className="sticky top-0 z-30 h-16 border-b border-white/10 bg-[#0b0f1a]/95 backdrop-blur">

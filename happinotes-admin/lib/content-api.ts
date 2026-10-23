@@ -59,14 +59,14 @@ export async function getLiveLifebooks(): Promise<LifebookItem[]> {
   }
 }
 
-export async function getContentById(id: string): Promise<any | null> {
+export async function getContentById(id: string): Promise<LifebookItem | null> {
   try {
     const res = await fetch(`${BASE_URL}/contents/${encodeURIComponent(id)}`, {
       cache: "no-store",
     });
     if (!res.ok) return null;
-    const data = (await res.json()) as { content?: any };
-    return data.content ? normalizeContent(data.content as LifebookItem) : null;
+    const data = (await res.json()) as { content?: LifebookItem };
+    return data.content ? normalizeContent(data.content) : null;
   } catch {
     return null;
   }

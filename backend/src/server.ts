@@ -6,6 +6,7 @@ import { createServer } from 'http';
 import { Server } from 'socket.io';
 import { registerRealtimeServer } from './services/realtime';
 import { startProductProvisioningWorker } from './services/storeProductProvisioning';
+import { startAccountDeletionWorker } from './services/accountDeletionWorker';
 import { configureCloudinary, isCloudinaryConfigured } from './config/cloudinary';
 
 if (!process.env.PORT && process.env.NODE_ENV === 'production') {
@@ -31,6 +32,7 @@ const start = async (): Promise<void> => {
   await connectDB();
   await ensureAdminUser();
   startProductProvisioningWorker();
+  startAccountDeletionWorker();
   const httpServer = createServer(app);
   const configuredOrigins = (process.env.CORS_ORIGINS || '')
     .split(',')

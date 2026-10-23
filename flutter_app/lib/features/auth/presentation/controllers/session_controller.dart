@@ -1,5 +1,6 @@
 import 'package:flutter/foundation.dart';
 import '../../domain/entities/user.dart';
+import '../../domain/entities/account_deletion.dart';
 import '../../domain/repositories/auth_repository.dart';
 
 class SessionController extends ChangeNotifier {
@@ -83,6 +84,20 @@ class SessionController extends ChangeNotifier {
     user = await repository.updateLanguage(value);
     notifyListeners();
   }
+
+  Future<DeletionReauthProof> requestDeletionReauth(String credential) =>
+      repository.requestDeletionReauth(credential);
+
+  Future<AccountDeletionRequestStatus> requestAccountDeletion({
+    required String proof,
+    required String idempotencyKey,
+  }) => repository.requestAccountDeletion(
+    proof: proof,
+    idempotencyKey: idempotencyKey,
+  );
+
+  Future<AccountDeletionRequestStatus> getAccountDeletionStatus() =>
+      repository.getAccountDeletionStatus();
 
   void replaceUser(User value) {
     user = value;

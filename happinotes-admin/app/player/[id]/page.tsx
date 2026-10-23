@@ -1,10 +1,10 @@
 "use client";
 
 import { useEffect, useMemo, useRef, useState } from "react";
+import type { PointerEvent as ReactPointerEvent } from "react";
 import { useParams, useRouter } from "next/navigation";
 import { BASE_URL } from "@/lib/content-api";
 import { BottomNav } from "@/components/bottom-nav";
-import { getStoredUser } from "@/lib/user-session";
 
 type Section = {
   title?: string;
@@ -163,7 +163,7 @@ export default function PlayerPage() {
   const isPremium = content?.type === "premium";
 
   useEffect(() => {
-    function onPointerMove(e: PointerEvent) {
+    function onPointerMove(e: globalThis.PointerEvent) {
       if (!draggingRef.current) return;
       const maxX = Math.max(8, window.innerWidth - 328);
       const maxY = Math.max(8, window.innerHeight - 245);
@@ -185,7 +185,7 @@ export default function PlayerPage() {
     };
   }, []);
 
-  function startDrag(e: any) {
+  function startDrag(e: ReactPointerEvent<HTMLDivElement>) {
     const rect = e.currentTarget.getBoundingClientRect();
     dragOffsetRef.current = { x: e.clientX - rect.left, y: e.clientY - rect.top };
     draggingRef.current = true;

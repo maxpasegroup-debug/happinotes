@@ -7,7 +7,8 @@
     "dev": "ts-node-dev --respawn --transpile-only src/server.ts",
     "build": "tsc",
     "start": "node dist/server.js",
-    "test": "node --test test/*.test.cjs",
+    "test": "node scripts/run-tests.cjs",
+    "test:isolated": "node --test test/*.test.cjs",
     "lint": "eslint src --ext .ts"
   },
   "keywords": [

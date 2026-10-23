@@ -1,4 +1,5 @@
 import '../entities/user.dart';
+import '../entities/account_deletion.dart';
 
 abstract interface class AuthRepository {
   Future<User?> restoreSession();
@@ -28,5 +29,11 @@ abstract interface class AuthRepository {
   Future<User> signupWithEmailChallenge({required String name, required String email, required String password, required String challenge});
   Future<User> loginWithEmailChallenge({required String email, required String password, required String challenge});
   Future<User> updateLanguage(String language);
+  Future<DeletionReauthProof> requestDeletionReauth(String credential);
+  Future<AccountDeletionRequestStatus> requestAccountDeletion({
+    required String proof,
+    required String idempotencyKey,
+  });
+  Future<AccountDeletionRequestStatus> getAccountDeletionStatus();
   Future<void> logout();
 }

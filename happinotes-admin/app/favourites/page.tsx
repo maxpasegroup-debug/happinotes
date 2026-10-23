@@ -26,10 +26,7 @@ export default function FavouritesPage() {
 
   useEffect(() => {
     const token = getUserToken();
-    if (!token) {
-      setLoading(false);
-      return;
-    }
+    if (!token) return;
     fetch(`${BASE_URL}/favourites`, {
       headers: { Authorization: `Bearer ${token}` },
     })

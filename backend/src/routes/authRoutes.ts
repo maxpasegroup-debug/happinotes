@@ -19,7 +19,8 @@ import {
   registerFcmToken,
   unregisterFcmToken,
 } from '../controllers/authController';
-import { authenticate } from '../middleware';
+import { getDeletionStatus, requestDeletion, requestDeletionReauth } from '../controllers/accountDeletionController';
+import { authenticate, authenticateDeletionFlow } from '../middleware';
 
 const router = Router();
 
@@ -96,6 +97,21 @@ const resetPasswordValidation = [
     .withMessage('Password must be at least 6 characters'),
 ];
 
+const deletionReauthValidation = [
+  body().custom((value) => {
+    const credential = typeof value?.password === 'string' ? value.password : value?.pin;
+    if (typeof credential !== 'string' || credential.length < 6 || credential.length > 256) {
+      throw new Error('A valid password or PIN is required');
+    }
+    return true;
+  }),
+];
+
+const deletionRequestValidation = [
+  body('proof').isString().isLength({ min: 20, max: 512 }).withMessage('A valid deletion proof is required'),
+  body('idempotencyKey').isString().isLength({ min: 16, max: 128 }).withMessage('A valid idempotency key is required'),
+];
+
 router.post('/signup', signupValidation, signup);
 router.post('/login', authRateLimiter, loginValidation, login);
 router.post('/request-email-otp', authRateLimiter, emailOtpValidation, requestEmailOtp);
@@ -117,5 +133,8 @@ router.post('/me/fcm-token', authenticate, body('token').isString().trim().isLen
 router.delete('/me/fcm-token', authenticate, body('token').isString().trim().isLength({ min: 20, max: 4096 }), unregisterFcmToken);
 router.get('/me', authenticate, getMe);
 router.put('/me', authenticate, updateLanguage);
+router.post('/me/deletion-re-auth', authRateLimiter, authenticate, deletionReauthValidation, requestDeletionReauth);
+router.post('/me/deletion-request', authRateLimiter, authenticateDeletionFlow, deletionRequestValidation, requestDeletion);
+router.get('/me/deletion-request', authenticateDeletionFlow, getDeletionStatus);
 
 export default router;

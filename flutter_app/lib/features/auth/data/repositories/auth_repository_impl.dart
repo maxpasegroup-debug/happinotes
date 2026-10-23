@@ -1,5 +1,6 @@
 import '../../../../core/network/api_client.dart';
 import '../../domain/entities/user.dart';
+import '../../domain/entities/account_deletion.dart';
 import '../../domain/repositories/auth_repository.dart';
 import '../models/user_model.dart';
 
@@ -166,6 +167,43 @@ class AuthRepositoryImpl implements AuthRepository {
     if (json is Map) return UserModel.fromJson(Map<String, dynamic>.from(json));
     final me = await client.dio.get('/auth/me');
     return UserModel.fromJson(Map<String, dynamic>.from(me.data['user']));
+  }
+
+  @override
+  Future<DeletionReauthProof> requestDeletionReauth(String credential) async {
+    final response = await client.dio.post(
+      '/auth/me/deletion-re-auth',
+      data: {'password': credential},
+    );
+    final data = Map<String, dynamic>.from(response.data as Map);
+    return DeletionReauthProof(
+      proof: data['proof'].toString(),
+      expiresAt: data['expiresAt'] == null
+          ? null
+          : DateTime.tryParse(data['expiresAt'].toString()),
+    );
+  }
+
+  @override
+  Future<AccountDeletionRequestStatus> requestAccountDeletion({
+    required String proof,
+    required String idempotencyKey,
+  }) async {
+    final response = await client.dio.post(
+      '/auth/me/deletion-request',
+      data: {'proof': proof, 'idempotencyKey': idempotencyKey},
+    );
+    return AccountDeletionRequestStatus.fromJson(
+      Map<String, dynamic>.from(response.data as Map),
+    );
+  }
+
+  @override
+  Future<AccountDeletionRequestStatus> getAccountDeletionStatus() async {
+    final response = await client.dio.get('/auth/me/deletion-request');
+    return AccountDeletionRequestStatus.fromJson(
+      Map<String, dynamic>.from(response.data as Map),
+    );
   }
 
   @override

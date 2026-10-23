@@ -47,7 +47,9 @@ export async function notifyCatalogUsers(
     } catch (error) {
       console.error('[Notifications] Failed to save catalog notification:', error);
     }
-    const recipients = await User.find().select({ fcmTokens: 1 }).lean();
+    const recipients = await User.find({
+      $or: [{ deletionState: 'active' }, { deletionState: { $exists: false } }],
+    }).select({ fcmTokens: 1 }).lean();
     const tokens = [...new Set(recipients.flatMap((user) => user.fcmTokens ?? []))];
     if (tokens.length === 0) {
       console.info('[FCM] Catalog notification skipped: no recipient tokens', {

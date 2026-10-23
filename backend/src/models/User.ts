@@ -3,6 +3,7 @@ import mongoose, { Document, Schema } from 'mongoose';
 export type UserRole = 'admin' | 'user';
 export type SubscriptionStore = 'android' | 'ios';
 export type SubscriptionPlanKey = 'monthly' | 'yearly';
+export type AccountDeletionState = 'active' | 'pending' | 'completed';
 
 export interface ISubscriptionEntitlement {
   store: SubscriptionStore;
@@ -28,6 +29,13 @@ export interface IUser extends Document {
   fcmTokens: string[];
   subscription?: ISubscriptionEntitlement;
   blocked: boolean;
+  /**
+   * Missing on legacy documents means active.  The deletion workflow sets
+   * this before any cleanup so existing JWTs are rejected by middleware.
+   */
+  deletionState: AccountDeletionState;
+  deletionRequestedAt?: Date;
+  deletionCompletedAt?: Date;
   createdAt: Date;
   updatedAt: Date;
 }
@@ -63,6 +71,9 @@ const userSchema = new Schema<IUser>(
       lastVerifiedAt: Date,
     },
     blocked: { type: Boolean, default: false },
+    deletionState: { type: String, enum: ['active', 'pending', 'completed'], default: 'active', index: true },
+    deletionRequestedAt: Date,
+    deletionCompletedAt: Date,
   },
   { timestamps: true }
 );

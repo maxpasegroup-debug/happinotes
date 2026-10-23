@@ -5,6 +5,7 @@ const { generateKeyPairSync } = require('node:crypto');
 const { GoogleAuth } = require('google-auth-library');
 const { StoreProduct } = require('../dist/models/StoreProduct');
 const { Content, User } = require('../dist/models');
+const { AccountDeletionRequest } = require('../dist/models/AccountDeletionRequest');
 const service = require('../dist/services/storeProductProvisioning');
 const providers = require('../dist/services/storeProductProviders');
 const adminRouter = require('../dist/routes/adminStoreProductRoutes').default;
@@ -144,7 +145,9 @@ test('free-to-premium conversion queues products; later price edits never change
   assert.equal(rows.length, 0);
   await service.ensureBookProducts(book); await service.ensureBookProducts({ ...book, priceInr: 199 });
   assert.equal(rows.length, 1); assert.equal(rows[0].initialPriceInr, 99);
-  assert.throws(() => service.validatePremiumPrice({ ...book, priceInr: 0 }));
+  // Individual book pricing is no longer required by the subscription-only
+  // flow; zero is valid for a premium catalog item backed by shared plans.
+  assert.doesNotThrow(() => service.validatePremiumPrice({ ...book, priceInr: 0 }));
 });
 test('only ready/legacy products are offered; all mappings remain available for restoration', async () => {
   const rows = await queued(); await service.processStoreProduct('android', bookId, success);
@@ -290,6 +293,7 @@ test('existing product endpoint retains the Flutter contract using ready databas
 });
 test('verification still grants only verified ownership and restores an unpublished mapped book', async () => {
   await queued();
+  mock.method(AccountDeletionRequest, 'exists', async () => false);
   mock.method(Content, 'findOne', async (filter) => {
     assert.equal(filter.status, undefined); return { ...book, status: 'draft' };
   });
@@ -301,7 +305,7 @@ test('verification still grants only verified ownership and restores an unpublis
   mock.method(StorePurchase, 'updateOne', async () => {});
   let unlocked = false;
   mock.method(User, 'updateOne', async (_, update) => { assert.equal(update.$addToSet.purchasedBooks, bookId); unlocked = true; });
-  mock.method(User, 'findById', () => ({ select: async () => ({ purchasedBooks: [bookId] }) }));
+  mock.method(User, 'findById', () => ({ select: async () => ({ blocked: false, deletionState: 'active', purchasedBooks: [bookId] }) }));
   const req = { user: { _id: 'user' }, body: { store: 'android', productId: sku, verificationData: 'mock-token' } };
   const result = await dispatch(purchaseRouter, '/verify', req);
   assert.equal(result.error, undefined); assert.equal(unlocked, true);
@@ -329,6 +333,13 @@ for (const [name, method] of [['adminController', 'createBook'], ['adminContentC
     const rows = database();
     const fs = require('node:fs/promises');
     mock.method(fs, 'mkdir', async () => {}); mock.method(fs, 'writeFile', async () => {});
+    process.env.CLOUDINARY_CLOUD_NAME = 'test-cloud';
+    process.env.CLOUDINARY_API_KEY = 'test-key';
+    process.env.CLOUDINARY_API_SECRET = 'test-secret';
+    const { cloudinary } = require('../dist/config/cloudinary');
+    mock.method(cloudinary.uploader, 'upload_stream', (_options, callback) => ({
+      end: () => callback(null, { secure_url: 'https://cdn.example.test/cover.png', resource_type: 'image' }),
+    }));
     mock.method(Content, 'create', async (payload) => ({ id: bookId, ...payload }));
     const controller = require(`../dist/controllers/${name}`);
     let error, result, code;
