@@ -710,3 +710,32 @@ Local validation for this page/workflow change:
 - No hosted GitHub Actions run was started, so clean-runner formatting,
   analyzer, and test results remain **NOT TESTED**.
 
+## Hosted CI failure analysis and pending rerun (2026-10-23)
+
+The supplied hosted run `39909295456` ran commit `527f48c`. The current
+inspection found `HEAD` and `origin/main` at `0f0241f`, whose backend workflow
+already selects Node `22.x` and runs the build before tests. The old run's Node
+20 dependency/lockfile failure therefore predates the repair; it did not test
+the current backend workflow.
+
+The Flutter job's shallow checkout (`fetch-depth: 1`) did not provide the Git
+tag/history metadata used by Flutter's version resolver, producing
+`0.0.0-unknown`. The workflow now fetches full history and tags while checking
+out the exact `.metadata` revision `559ffa3f75e7402d65a8def9c28389a9b2e6fe42`.
+It also runs `flutter doctor -v` before `flutter pub get` so the installed
+framework metadata is visible in CI logs. This correction is local and
+uncommitted; no hosted rerun has been observed.
+
+Validation status:
+
+- Backend isolated clean install with npm `10.9.3`: PASS, exit 0.
+- Backend build: PASS, exit 0.
+- Backend tests: PASS, exit 0; 114 passed, 0 failed, 0 skipped.
+- Flutter format/analyze/tests: NOT TESTED in a hosted runner; local Windows
+  commands remain blocked by the previously observed Dart process hang.
+- `git diff --check`: PASS, exit 0.
+
+The next evidence event is a new GitHub Actions run on the owner-published
+workflow change. Until that run independently confirms Node 22 installation,
+backend build/tests, Flutter revision metadata, formatting, analysis, and full
+tests, the release verdict remains **BLOCKED**.

@@ -369,3 +369,26 @@ script before the build reproduced the expected missing-`dist` failures and
 was the reason for the workflow ordering change. A hosted rerun is still
 required; no hosted success is claimed.
 
+### Hosted failure root-cause and corrective workflow update (2026-10-23)
+
+The failed hosted run `39909295456` tested commit `527f48c`. The inspected
+branch and `origin/main` now both point to `0f0241f`, which contains the backend
+repair. Therefore the old run's Node `20.20.2` and stale-lockfile failure are
+expected for that historical commit, not evidence that the current workflow
+still selects Node 20. The current backend job explicitly selects Node `22.x`,
+uses `npm ci`, builds before tests, and the package engine is `node >=22`.
+
+The Flutter job previously checked out the exact pinned framework commit with
+`fetch-depth: 1`. Flutter's version implementation derives the framework
+version from Git tags/history and falls back to `0.0.0-unknown` when the
+description cannot be parsed. The workflow now preserves the exact revision
+but uses `fetch-depth: 0` and `fetch-tags: true`, and runs `flutter doctor -v`
+before dependency resolution. This is a targeted fix for the confirmed
+metadata failure; hosted confirmation is still pending.
+
+The current workflow change is uncommitted. No hosted rerun has been started,
+so backend and Flutter hosted gates remain **BLOCKED / NOT CONFIRMED**. Local
+isolated backend evidence remains: npm `10.9.3` clean install exit 0, build
+exit 0, and 114 tests passed (0 failed, 0 skipped). Release status remains
+**BLOCKED** until the owner publishes the workflow change and a new hosted run
+passes all jobs.

@@ -99,7 +99,10 @@ jobs:
           repository: flutter/flutter
           ref: ${{ steps.flutter-revision.outputs.revision }}
           path: .flutter-sdk
-          fetch-depth: 1
+          # Flutter's version reporting needs the framework's tag/history
+          # metadata. Keep the exact pinned commit while fetching that data.
+          fetch-depth: 0
+          fetch-tags: true
           persist-credentials: false
 
       - name: Add pinned Flutter SDK to PATH
@@ -122,6 +125,10 @@ jobs:
           test "$(git -C "$FLUTTER_ROOT" rev-parse HEAD)" = "$FLUTTER_REVISION"
           flutter --version
           dart --version
+
+      - name: Diagnose Flutter toolchain
+        shell: bash
+        run: flutter doctor -v
 
       - name: Resolve locked Flutter dependencies
         run: flutter pub get --enforce-lockfile
