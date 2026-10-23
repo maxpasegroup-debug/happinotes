@@ -409,12 +409,13 @@ class _BookDetailState extends ConsumerState<BookDetail> {
                                 // Start loading after navigation so the player screen appears immediately.
                                 await player.playEpisode(book, episode);
                               } catch (error) {
-                                if (context.mounted)
+                                if (context.mounted) {
                                   AppMessage.show(
                                     context,
                                     error.toString(),
                                     success: false,
                                   );
+                                }
                               }
                             },
                             leading: ClipRRect(
@@ -434,7 +435,7 @@ class _BookDetailState extends ConsumerState<BookDetail> {
                                       width: 52,
                                       height: 64,
                                       fit: BoxFit.cover,
-                                      errorWidget: (_, __, ___) => Container(
+                                      errorWidget: (_, _, _) => Container(
                                         color: Theme.of(
                                           context,
                                         ).colorScheme.surfaceContainerHighest,
@@ -505,12 +506,13 @@ class _BookDetailState extends ConsumerState<BookDetail> {
                                     await player.playEpisode(book, episode);
                                   }
                                 } catch (error) {
-                                  if (context.mounted)
+                                  if (context.mounted) {
                                     AppMessage.show(
                                       context,
                                       error.toString(),
                                       success: false,
                                     );
+                                  }
                                 }
                               },
                             ),
@@ -552,10 +554,10 @@ class _BookDetailState extends ConsumerState<BookDetail> {
 }
 
 Route<void> _slideUpPageRoute(Widget page) => PageRouteBuilder<void>(
-  pageBuilder: (_, __, ___) => page,
+  pageBuilder: (_, _, _) => page,
   transitionDuration: const Duration(milliseconds: 320),
   reverseTransitionDuration: const Duration(milliseconds: 260),
-  transitionsBuilder: (_, animation, __, child) => SlideTransition(
+  transitionsBuilder: (_, animation, _, child) => SlideTransition(
     position: Tween<Offset>(
       begin: const Offset(0, 1),
       end: Offset.zero,

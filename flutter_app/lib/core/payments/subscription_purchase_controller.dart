@@ -139,13 +139,16 @@ class SubscriptionPurchaseController extends ChangeNotifier {
         );
         if (revision != _revision || _disposed) return;
         if (details.error != null) throw StateError(details.error!.message);
-        for (final product in details.productDetails)
+        for (final product in details.productDetails) {
           _products[product.id] = product;
-        if (details.notFoundIDs.isNotEmpty)
+        }
+        if (details.notFoundIDs.isNotEmpty) {
           message = 'Some subscription plans are not available yet.';
+        }
       }
-      if (_retryPurchases.isNotEmpty)
+      if (_retryPurchases.isNotEmpty) {
         await _enqueue(_retryPurchases.values.toList());
+      }
     } catch (error) {
       if (revision == _revision) message = api.errorMessage(error);
     } finally {
@@ -277,8 +280,9 @@ class SubscriptionPurchaseController extends ChangeNotifier {
                 response.data['subscriptionExpiresAt'].toString(),
               );
         await onVerified(active, plan, expires);
-        if (purchase.pendingCompletePurchase)
+        if (purchase.pendingCompletePurchase) {
           await _store.completePurchase(purchase);
+        }
         _retryPurchases.remove(key);
         _completedTransactions.add(key);
         message = active

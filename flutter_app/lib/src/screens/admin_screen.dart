@@ -214,10 +214,11 @@ class _Books extends ConsumerWidget {
   @override
   Widget build(BuildContext context, WidgetRef ref) {
     final s = ref.watch(adminControllerProvider);
-    if (s.books.isEmpty)
+    if (s.books.isEmpty) {
       return const Center(
         child: Text('No books yet. Tap Add book to create one.'),
       );
+    }
     return RefreshIndicator(
       onRefresh: s.loadAll,
       child: ListView.separated(
@@ -262,23 +263,25 @@ class _Books extends ConsumerWidget {
                 onSelected: (action) async {
                   if (action == 'edit') {
                     s.editBook(book);
-                    if (context.mounted)
+                    if (context.mounted) {
                       Navigator.of(context).push(
                         MaterialPageRoute(
                           builder: (_) => const AdminBookEditor(),
                         ),
                       );
+                    }
                   } else if (await _confirmDelete(
                     context,
                     (book['title'] ?? '').toString(),
                   )) {
                     final ok = await s.removeBook(book['_id'].toString());
-                    if (context.mounted)
+                    if (context.mounted) {
                       AdminSnack.show(
                         context,
                         ok ? 'Book deleted' : s.error ?? 'Delete failed',
                         success: ok,
                       );
+                    }
                   }
                 },
                 itemBuilder: (_) => const [
@@ -367,7 +370,7 @@ class _Users extends ConsumerWidget {
                           false;
                       if (!confirmed) return;
                       final ok = await state.removeUser(u['_id'].toString());
-                      if (context.mounted)
+                      if (context.mounted) {
                         AdminSnack.show(
                           context,
                           ok
@@ -375,6 +378,7 @@ class _Users extends ConsumerWidget {
                               : state.error ?? 'Delete failed',
                           success: ok,
                         );
+                      }
                     }
                   },
                   itemBuilder: (_) => const [
@@ -464,7 +468,7 @@ class _Notifications extends ConsumerWidget {
                     ref.read(adminNotificationMessageProvider),
                     target,
                   );
-                  if (context.mounted)
+                  if (context.mounted) {
                     AdminSnack.show(
                       context,
                       ok
@@ -472,6 +476,7 @@ class _Notifications extends ConsumerWidget {
                           : state.error ?? 'Could not send',
                       success: ok,
                     );
+                  }
                 },
           icon: const Icon(Icons.send_rounded),
           label: Text(state.busy ? 'Sending...' : 'Send notification'),

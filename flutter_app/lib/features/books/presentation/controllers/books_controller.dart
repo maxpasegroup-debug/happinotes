@@ -167,8 +167,9 @@ class BooksController extends ChangeNotifier {
   Future<String?> addToCollection(Book book) async {
     try {
       await repository.addToCollection(book.id);
-      if (!library.any((item) => item.id == book.id))
+      if (!library.any((item) => item.id == book.id)) {
         library = [...library, book];
+      }
       notifyListeners();
       return null;
     } catch (e) {

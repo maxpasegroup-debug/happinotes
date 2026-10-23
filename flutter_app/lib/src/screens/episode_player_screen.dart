@@ -191,7 +191,7 @@ class EpisodePlayerScreen extends ConsumerWidget {
                       final error = saved
                           ? await controller.removeFromCollection(book)
                           : await controller.addToCollection(book);
-                      if (context.mounted)
+                      if (context.mounted) {
                         AppMessage.show(
                           context,
                           error ??
@@ -200,13 +200,18 @@ class EpisodePlayerScreen extends ConsumerWidget {
                                   : 'Saved to library'),
                           success: error == null,
                         );
+                      }
                     },
                   ),
                   _Action(
                     icon: Icons.share_outlined,
                     label: 'Share',
                     onTap: () =>
-                        Share.share('${book.title}\n\nListen on HappiNotes'),
+                        SharePlus.instance.share(
+                          ShareParams(
+                            text: '${book.title}\n\nListen on HappiNotes',
+                          ),
+                        ),
                   ),
                 ],
               ),

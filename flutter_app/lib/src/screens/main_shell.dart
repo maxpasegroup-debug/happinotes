@@ -976,25 +976,12 @@ class _InlineState extends StatelessWidget {
 }
 
 Route<void> _slideUpRoute(Widget page) => PageRouteBuilder<void>(
-  pageBuilder: (_, __, ___) => page,
+  pageBuilder: (_, _, _) => page,
   transitionDuration: const Duration(milliseconds: 320),
   reverseTransitionDuration: const Duration(milliseconds: 260),
-  transitionsBuilder: (_, animation, __, child) => SlideTransition(
+  transitionsBuilder: (_, animation, _, child) => SlideTransition(
     position: Tween<Offset>(
       begin: const Offset(0, 1),
-      end: Offset.zero,
-    ).chain(CurveTween(curve: Curves.easeOutCubic)).animate(animation),
-    child: child,
-  ),
-);
-
-Route<void> _slideDownRoute(Widget page) => PageRouteBuilder<void>(
-  pageBuilder: (_, __, ___) => page,
-  transitionDuration: const Duration(milliseconds: 320),
-  reverseTransitionDuration: const Duration(milliseconds: 260),
-  transitionsBuilder: (_, animation, __, child) => SlideTransition(
-    position: Tween<Offset>(
-      begin: const Offset(0, -1),
       end: Offset.zero,
     ).chain(CurveTween(curve: Curves.easeOutCubic)).animate(animation),
     child: child,

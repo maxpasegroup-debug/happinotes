@@ -257,10 +257,11 @@ class AdminController extends ChangeNotifier {
     success = null;
     notifyListeners();
     try {
-      if (draft.id == null)
+      if (draft.id == null) {
         await repository.createBook(draft.toJson());
-      else
+      } else {
         await repository.updateBook(draft.id!, draft.toJson());
+      }
       success = draft.id == null ? 'Book created' : 'Book updated';
       await loadAll();
       return true;
