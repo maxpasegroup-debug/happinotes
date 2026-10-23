@@ -19,8 +19,7 @@ class AccountDeletionScreen extends ConsumerStatefulWidget {
       _AccountDeletionScreenState();
 }
 
-class _AccountDeletionScreenState
-    extends ConsumerState<AccountDeletionScreen> {
+class _AccountDeletionScreenState extends ConsumerState<AccountDeletionScreen> {
   AccountDeletionRequestStatus? _status;
   String? _error;
   String? _proof;
@@ -107,10 +106,7 @@ class _AccountDeletionScreenState
     try {
       final status = await ref
           .read(sessionControllerProvider)
-          .requestAccountDeletion(
-            proof: proof,
-            idempotencyKey: idempotencyKey,
-          );
+          .requestAccountDeletion(proof: proof, idempotencyKey: idempotencyKey);
       _proof = null;
       if (!mounted) return;
       setState(() {
@@ -217,9 +213,7 @@ class _AccountDeletionScreenState
                 labelText: 'Password or PIN',
                 suffixIcon: IconButton(
                   tooltip: obscure ? 'Show credential' : 'Hide credential',
-                  icon: Icon(
-                    obscure ? Icons.visibility_off : Icons.visibility,
-                  ),
+                  icon: Icon(obscure ? Icons.visibility_off : Icons.visibility),
                   onPressed: () => setDialogState(() => obscure = !obscure),
                 ),
               ),
@@ -334,7 +328,11 @@ class _AccountDeletionScreenState
         child: ListView(
           padding: const EdgeInsets.fromLTRB(20, 16, 20, 32),
           children: [
-            Icon(Icons.delete_forever_outlined, size: 64, color: Colors.red.shade700),
+            Icon(
+              Icons.delete_forever_outlined,
+              size: 64,
+              color: Colors.red.shade700,
+            ),
             const SizedBox(height: 16),
             Text(
               'Account deletion',
@@ -353,12 +351,21 @@ class _AccountDeletionScreenState
                 child: Column(
                   crossAxisAlignment: CrossAxisAlignment.start,
                   children: [
-                    Text('Before you continue', style: Theme.of(context).textTheme.titleMedium),
+                    Text(
+                      'Before you continue',
+                      style: Theme.of(context).textTheme.titleMedium,
+                    ),
                     const SizedBox(height: 10),
-                    const Text('• Account access and saved app data will be removed as processing completes.\n• Google Play/App Store billing is separate; this action does not cancel it.\n• Use the Premium screen or your store account to manage that subscription.'),
+                    const Text(
+                      '• Account access and saved app data will be removed as processing completes.\n• Google Play/App Store billing is separate; this action does not cancel it.\n• Use the Premium screen or your store account to manage that subscription.',
+                    ),
                     const SizedBox(height: 14),
                     OutlinedButton.icon(
-                      onPressed: () => Navigator.of(context).push(MaterialPageRoute(builder: (_) => const SubscriptionScreen())),
+                      onPressed: () => Navigator.of(context).push(
+                        MaterialPageRoute(
+                          builder: (_) => const SubscriptionScreen(),
+                        ),
+                      ),
                       icon: const Icon(Icons.workspace_premium_outlined),
                       label: const Text('Open Premium subscription'),
                     ),
@@ -384,7 +391,13 @@ class _AccountDeletionScreenState
                     ? _retryRequest
                     : _startDeletion,
                 icon: _loading
-                    ? const SizedBox.square(dimension: 18, child: CircularProgressIndicator(strokeWidth: 2, color: Colors.white))
+                    ? const SizedBox.square(
+                        dimension: 18,
+                        child: CircularProgressIndicator(
+                          strokeWidth: 2,
+                          color: Colors.white,
+                        ),
+                      )
                     : const Icon(Icons.delete_outline),
                 label: Text(
                   _loading
@@ -393,16 +406,27 @@ class _AccountDeletionScreenState
                       ? 'Retry deletion request'
                       : 'Start account deletion',
                 ),
-                style: FilledButton.styleFrom(backgroundColor: Colors.red.shade700),
+                style: FilledButton.styleFrom(
+                  backgroundColor: Colors.red.shade700,
+                ),
               ),
-            if (hasPending && status?.status == AccountDeletionStatus.failedRetryable && _proof != null)
+            if (hasPending &&
+                status?.status == AccountDeletionStatus.failedRetryable &&
+                _proof != null)
               Padding(
                 padding: const EdgeInsets.only(top: 12),
-                child: OutlinedButton(onPressed: _loading ? null : _retryRequest, child: const Text('Retry request')),
+                child: OutlinedButton(
+                  onPressed: _loading ? null : _retryRequest,
+                  child: const Text('Retry request'),
+                ),
               ),
             if (_error != null) ...[
               const SizedBox(height: 14),
-              Text(_error!, style: TextStyle(color: Colors.red.shade700), textAlign: TextAlign.center),
+              Text(
+                _error!,
+                style: TextStyle(color: Colors.red.shade700),
+                textAlign: TextAlign.center,
+              ),
             ],
             const SizedBox(height: 14),
             TextButton.icon(
@@ -432,9 +456,11 @@ class _StatusCard extends StatelessWidget {
 
   @override
   Widget build(BuildContext context) {
-    final isBlocked = status == AccountDeletionStatus.blockedPolicy ||
+    final isBlocked =
+        status == AccountDeletionStatus.blockedPolicy ||
         status == AccountDeletionStatus.failedManual;
-    final isWarning = isBlocked || status == AccountDeletionStatus.failedRetryable;
+    final isWarning =
+        isBlocked || status == AccountDeletionStatus.failedRetryable;
     return Card(
       color: isWarning
           ? Colors.orange.withValues(alpha: .12)
@@ -446,9 +472,16 @@ class _StatusCard extends StatelessWidget {
           children: [
             Row(
               children: [
-                Icon(isWarning ? Icons.info_outline : Icons.hourglass_top_rounded),
+                Icon(
+                  isWarning ? Icons.info_outline : Icons.hourglass_top_rounded,
+                ),
                 const SizedBox(width: 10),
-                Expanded(child: Text(title, style: Theme.of(context).textTheme.titleMedium)),
+                Expanded(
+                  child: Text(
+                    title,
+                    style: Theme.of(context).textTheme.titleMedium,
+                  ),
+                ),
               ],
             ),
             const SizedBox(height: 10),

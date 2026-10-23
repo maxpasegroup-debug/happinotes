@@ -45,7 +45,8 @@ class AccountDeletionRequestStatus {
   });
 
   factory AccountDeletionRequestStatus.fromJson(Map<String, dynamic> json) {
-    DateTime? date(Object? value) => value == null ? null : DateTime.tryParse(value.toString());
+    DateTime? date(Object? value) =>
+        value == null ? null : DateTime.tryParse(value.toString());
     return AccountDeletionRequestStatus(
       requestId: (json['requestId'] ?? '').toString(),
       status: accountDeletionStatusFromJson(json['status']),

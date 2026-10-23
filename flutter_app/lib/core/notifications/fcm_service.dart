@@ -6,16 +6,13 @@ import 'package:firebase_messaging/firebase_messaging.dart';
 import '../../firebase_options.dart';
 import '../network/api_client.dart';
 
-typedef FcmNotificationTapHandler = Future<void> Function(
-  Map<String, String> data,
-);
+typedef FcmNotificationTapHandler =
+    Future<void> Function(Map<String, String> data);
 typedef FcmMessageHandler = Future<void> Function(Map<String, String> data);
 
 @pragma('vm:entry-point')
 Future<void> firebaseMessagingBackgroundHandler(RemoteMessage message) async {
-  await Firebase.initializeApp(
-    options: DefaultFirebaseOptions.currentPlatform,
-  );
+  await Firebase.initializeApp(options: DefaultFirebaseOptions.currentPlatform);
 }
 
 class FcmService {
@@ -33,7 +30,10 @@ class FcmService {
     FcmMessageHandler? onForegroundMessage,
   }) {
     if (_initialized) return Future<void>.value();
-    return _initialization ??= _initialize(onNotificationTap, onForegroundMessage);
+    return _initialization ??= _initialize(
+      onNotificationTap,
+      onForegroundMessage,
+    );
   }
 
   Future<void> _initialize(
@@ -47,11 +47,7 @@ class FcmService {
       FirebaseMessaging.onBackgroundMessage(firebaseMessagingBackgroundHandler);
 
       final messaging = FirebaseMessaging.instance;
-      await messaging.requestPermission(
-        alert: true,
-        badge: true,
-        sound: true,
-      );
+      await messaging.requestPermission(alert: true, badge: true, sound: true);
 
       final token = await messaging.getToken();
       if (token != null && token.isNotEmpty) await _registerToken(token);

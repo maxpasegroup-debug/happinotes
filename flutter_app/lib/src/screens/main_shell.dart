@@ -549,73 +549,76 @@ class SearchTab extends ConsumerWidget {
           ),
         ),
         body: SafeArea(
-        child: Column(
-          children: [
-            Padding(
-              padding: const EdgeInsets.all(16),
-              child: Column(
-                crossAxisAlignment: CrossAxisAlignment.start,
-                children: [
-                  const Text(
-                    'Discover',
-                    style: TextStyle(fontSize: 28, fontWeight: FontWeight.w900),
-                  ),
-                  const SizedBox(height: 14),
-                  TextFormField(
-                    initialValue: query,
-                    onChanged: (value) {
-                      ref.read(searchQueryProvider.notifier).state = value;
-                      s.loadBooks(query: value);
-                    },
-                    onFieldSubmitted: (v) => s.loadBooks(query: v),
-                    decoration: InputDecoration(
-                      prefixIcon: const Icon(Icons.search),
-                      hintText: 'Search books',
+          child: Column(
+            children: [
+              Padding(
+                padding: const EdgeInsets.all(16),
+                child: Column(
+                  crossAxisAlignment: CrossAxisAlignment.start,
+                  children: [
+                    const Text(
+                      'Discover',
+                      style: TextStyle(
+                        fontSize: 28,
+                        fontWeight: FontWeight.w900,
+                      ),
                     ),
-                    style: TextStyle(
-                      color: Theme.of(context).colorScheme.onSurface,
+                    const SizedBox(height: 14),
+                    TextFormField(
+                      initialValue: query,
+                      onChanged: (value) {
+                        ref.read(searchQueryProvider.notifier).state = value;
+                        s.loadBooks(query: value);
+                      },
+                      onFieldSubmitted: (v) => s.loadBooks(query: v),
+                      decoration: InputDecoration(
+                        prefixIcon: const Icon(Icons.search),
+                        hintText: 'Search books',
+                      ),
+                      style: TextStyle(
+                        color: Theme.of(context).colorScheme.onSurface,
+                      ),
                     ),
-                  ),
-                ],
+                  ],
+                ),
               ),
-            ),
-            Expanded(
-              child: s.loading
-                  ? const GridLoadingSkeleton()
-                  : s.error != null
-                  ? _InlineState(
-                      icon: Icons.cloud_off_rounded,
-                      title: 'Search is unavailable',
-                      message: s.error!,
-                      action: TextButton.icon(
-                        onPressed: () => s.loadBooks(query: query),
-                        icon: const Icon(Icons.refresh_rounded),
-                        label: const Text('Try again'),
+              Expanded(
+                child: s.loading
+                    ? const GridLoadingSkeleton()
+                    : s.error != null
+                    ? _InlineState(
+                        icon: Icons.cloud_off_rounded,
+                        title: 'Search is unavailable',
+                        message: s.error!,
+                        action: TextButton.icon(
+                          onPressed: () => s.loadBooks(query: query),
+                          icon: const Icon(Icons.refresh_rounded),
+                          label: const Text('Try again'),
+                        ),
+                      )
+                    : s.books.isEmpty
+                    ? const _InlineState(
+                        icon: Icons.search_off_rounded,
+                        title: 'No stories found',
+                        message: 'Try another title.',
+                      )
+                    : GridView.builder(
+                        padding: const EdgeInsets.all(16),
+                        gridDelegate: SliverGridDelegateWithFixedCrossAxisCount(
+                          crossAxisCount: 2,
+                          crossAxisSpacing: 18,
+                          mainAxisSpacing: 16,
+                          mainAxisExtent: BookCard.shelfHeight(context) + 18,
+                        ),
+                        itemCount: s.books.length,
+                        itemBuilder: (_, i) => BookCard(
+                          book: s.books[i],
+                          onTap: () => openBook(context, s.books[i]),
+                        ),
                       ),
-                    )
-                  : s.books.isEmpty
-                  ? const _InlineState(
-                      icon: Icons.search_off_rounded,
-                      title: 'No stories found',
-                      message: 'Try another title.',
-                    )
-                  : GridView.builder(
-                      padding: const EdgeInsets.all(16),
-                      gridDelegate: SliverGridDelegateWithFixedCrossAxisCount(
-                        crossAxisCount: 2,
-                        crossAxisSpacing: 18,
-                        mainAxisSpacing: 16,
-                        mainAxisExtent: BookCard.shelfHeight(context) + 18,
-                      ),
-                      itemCount: s.books.length,
-                      itemBuilder: (_, i) => BookCard(
-                        book: s.books[i],
-                        onTap: () => openBook(context, s.books[i]),
-                      ),
-                    ),
-            ),
-          ],
-        ),
+              ),
+            ],
+          ),
         ),
       ),
     );
@@ -785,8 +788,14 @@ class ProfileTab extends ConsumerWidget {
           ),
           const Divider(),
           ListTile(
-            leading: Icon(Icons.delete_forever_outlined, color: Colors.red.shade700),
-            title: Text('Delete account', style: TextStyle(color: Colors.red.shade700)),
+            leading: Icon(
+              Icons.delete_forever_outlined,
+              color: Colors.red.shade700,
+            ),
+            title: Text(
+              'Delete account',
+              style: TextStyle(color: Colors.red.shade700),
+            ),
             subtitle: const Text('Permanently remove your HappiNotes account'),
             trailing: const Icon(Icons.chevron_right),
             onTap: () => Navigator.of(context).push(
@@ -1034,10 +1043,10 @@ class NotificationsSheet extends ConsumerWidget {
                   onTap: notification.bookId == null
                       ? null
                       : () => _openNotificationBook(
-                            context,
-                            ref,
-                            notification.bookId!,
-                          ),
+                          context,
+                          ref,
+                          notification.bookId!,
+                        ),
                 ),
               )
               .toList();
@@ -1151,7 +1160,11 @@ Future<void> _openNotificationBook(
 ) async {
   final books = ref.read(booksControllerProvider);
   Book? book;
-  for (final candidate in [...books.books, ...books.upcoming, ...books.library]) {
+  for (final candidate in [
+    ...books.books,
+    ...books.upcoming,
+    ...books.library,
+  ]) {
     if (candidate.id == bookId) {
       book = candidate;
       break;
@@ -1159,7 +1172,11 @@ Future<void> _openNotificationBook(
   }
   if (book == null) {
     await books.loadBooks(forceRefresh: true);
-    for (final candidate in [...books.books, ...books.upcoming, ...books.library]) {
+    for (final candidate in [
+      ...books.books,
+      ...books.upcoming,
+      ...books.library,
+    ]) {
       if (candidate.id == bookId) {
         book = candidate;
         break;

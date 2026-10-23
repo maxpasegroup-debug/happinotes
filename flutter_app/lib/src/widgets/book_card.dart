@@ -40,7 +40,9 @@ class BookCard extends StatelessWidget {
                 child: book.coverImageUrl.isEmpty
                     ? Center(
                         child: Text(
-                          book.title.isEmpty ? '?' : book.title[0].toUpperCase(),
+                          book.title.isEmpty
+                              ? '?'
+                              : book.title[0].toUpperCase(),
                           style: const TextStyle(
                             fontSize: 42,
                             color: AppColors.coral,
@@ -58,7 +60,9 @@ class BookCard extends StatelessWidget {
                         errorWidget: (context, url, error) => Center(
                           child: Icon(
                             Icons.menu_book_rounded,
-                            color: Theme.of(context).colorScheme.onSurfaceVariant,
+                            color: Theme.of(
+                              context,
+                            ).colorScheme.onSurfaceVariant,
                             size: 32,
                           ),
                         ),
@@ -82,10 +86,9 @@ class BookCard extends StatelessWidget {
             '${book.language}  •  ${book.priceInr > 0 ? 'INR ${book.priceInr.toStringAsFixed(0)}' : 'Free'}',
             maxLines: 1,
             overflow: TextOverflow.ellipsis,
-            style: Theme.of(context).textTheme.bodySmall?.copyWith(
-              fontSize: 11,
-              height: 1.2,
-            ),
+            style: Theme.of(
+              context,
+            ).textTheme.bodySmall?.copyWith(fontSize: 11, height: 1.2),
           ),
         ],
       ),

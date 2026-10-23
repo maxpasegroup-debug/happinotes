@@ -24,20 +24,25 @@ class _LaunchSplashState extends State<LaunchSplash>
       begin: .94,
       end: 1,
     ).animate(controller.drive(CurveTween(curve: Curves.easeOutCubic)));
-    opacity = Tween<double>(begin: .55, end: 1).animate(
-      controller.drive(CurveTween(curve: Curves.easeInOut)),
-    );
+    opacity = Tween<double>(
+      begin: .55,
+      end: 1,
+    ).animate(controller.drive(CurveTween(curve: Curves.easeInOut)));
     // Start after the first frame so MediaQuery and the asset tree are ready.
     WidgetsBinding.instance.addPostFrameCallback((_) {
       if (!mounted) return;
-      final disableAnimations = MediaQuery.maybeOf(context)?.disableAnimations ?? false;
+      final disableAnimations =
+          MediaQuery.maybeOf(context)?.disableAnimations ?? false;
       if (disableAnimations) {
         controller.value = 1;
       } else if (!controller.isAnimating && controller.isDismissed) {
         // Keep the splash alive with a subtle breathing animation while the
         // saved session is being restored. The screen is replaced as soon as
         // initialization completes.
-        controller.repeat(reverse: true, period: const Duration(milliseconds: 1200));
+        controller.repeat(
+          reverse: true,
+          period: const Duration(milliseconds: 1200),
+        );
       }
     });
   }

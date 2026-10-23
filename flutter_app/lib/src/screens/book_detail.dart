@@ -97,11 +97,7 @@ class _BookDetailState extends ConsumerState<BookDetail> {
               return;
             }
             if (session.user == null) {
-              AppMessage.show(
-                context,
-                'Sign in to subscribe.',
-                success: false,
-              );
+              AppMessage.show(context, 'Sign in to subscribe.', success: false);
               return;
             }
             await _openSubscription(context);
@@ -475,7 +471,8 @@ class _BookDetailState extends ConsumerState<BookDetail> {
                                     ? Icons.stop_rounded
                                     : Icons.play_arrow_rounded,
                                 color:
-                                    requiresSubscription || episode.audioUrl.isEmpty
+                                    requiresSubscription ||
+                                        episode.audioUrl.isEmpty
                                     ? AppColors.muted
                                     : AppColors.coral,
                               ),

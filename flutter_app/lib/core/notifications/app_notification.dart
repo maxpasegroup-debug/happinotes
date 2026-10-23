@@ -31,7 +31,8 @@ class AppNotification {
       bookId: json['bookId']?.toString(),
       episodeId: json['episodeId']?.toString(),
       imageUrl: json['imageUrl']?.toString(),
-      createdAt: DateTime.tryParse((json['createdAt'] ?? '').toString()) ??
+      createdAt:
+          DateTime.tryParse((json['createdAt'] ?? '').toString()) ??
           DateTime.now(),
     );
   }

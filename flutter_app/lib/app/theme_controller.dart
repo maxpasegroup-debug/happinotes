@@ -31,5 +31,6 @@ class ThemeController extends ChangeNotifier {
     await preferences.setString(_storageKey, value);
   }
 
-  Future<void> toggle() => setMode(_mode == ThemeMode.dark ? ThemeMode.light : ThemeMode.dark);
+  Future<void> toggle() =>
+      setMode(_mode == ThemeMode.dark ? ThemeMode.light : ThemeMode.dark);
 }

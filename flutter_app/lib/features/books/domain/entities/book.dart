@@ -28,7 +28,12 @@ class Book {
 }
 
 class BookEpisode {
-  const BookEpisode({required this.title, required this.audioUrl, this.description = '', this.order = 0});
+  const BookEpisode({
+    required this.title,
+    required this.audioUrl,
+    this.description = '',
+    this.order = 0,
+  });
   final String title, audioUrl, description;
   final int order;
 }

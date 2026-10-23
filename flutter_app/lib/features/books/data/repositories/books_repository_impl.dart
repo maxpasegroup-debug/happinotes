@@ -54,5 +54,4 @@ class BooksRepositoryImpl implements BooksRepository {
   Future<void> removeFromCollection(String bookId) async {
     await client.dio.delete('/collection/$bookId');
   }
-
 }

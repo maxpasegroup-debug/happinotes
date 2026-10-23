@@ -156,17 +156,21 @@ class DashboardLoadingSkeleton extends StatelessWidget {
       SizedBox(height: 10),
       SkeletonBox(width: 250, height: 14),
       SizedBox(height: 24),
-      Row(children: [
-        Expanded(child: SkeletonBox(height: 130, radius: 14)),
-        SizedBox(width: 12),
-        Expanded(child: SkeletonBox(height: 130, radius: 14)),
-      ]),
+      Row(
+        children: [
+          Expanded(child: SkeletonBox(height: 130, radius: 14)),
+          SizedBox(width: 12),
+          Expanded(child: SkeletonBox(height: 130, radius: 14)),
+        ],
+      ),
       SizedBox(height: 12),
-      Row(children: [
-        Expanded(child: SkeletonBox(height: 130, radius: 14)),
-        SizedBox(width: 12),
-        Expanded(child: SkeletonBox(height: 130, radius: 14)),
-      ]),
+      Row(
+        children: [
+          Expanded(child: SkeletonBox(height: 130, radius: 14)),
+          SizedBox(width: 12),
+          Expanded(child: SkeletonBox(height: 130, radius: 14)),
+        ],
+      ),
     ],
   );
 }

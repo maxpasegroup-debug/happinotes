@@ -27,20 +27,30 @@ class BookModel extends Book {
     priceInr: (j['priceInr'] as num?)?.toDouble() ?? 0,
     status: (j['status'] ?? 'live').toString(),
     duration: (j['totalDurationSeconds'] as num?)?.toInt() ?? 0,
-    episodes: ((j['lessons'] as List?) ?? [])
-        .whereType<Map>()
-        .map((lesson) => BookEpisode(
-          title: (lesson['title'] ?? 'Episode').toString(),
-          description: (lesson['description'] ?? '').toString(),
-          audioUrl: (lesson['mediaUrl'] ?? '').toString(),
-          order: (lesson['order'] as num?)?.toInt() ?? 0,
-        ))
-        .toList()
-      ..insertAll(
-        0,
-        ((j['lessons'] as List?) ?? []).isEmpty && (j['introAudioUrl'] ?? '').toString().isNotEmpty
-            ? [BookEpisode(title: 'Episode 1', audioUrl: (j['introAudioUrl'] ?? '').toString(), order: 0)]
-            : const [],
-      ),
+    episodes:
+        ((j['lessons'] as List?) ?? [])
+            .whereType<Map>()
+            .map(
+              (lesson) => BookEpisode(
+                title: (lesson['title'] ?? 'Episode').toString(),
+                description: (lesson['description'] ?? '').toString(),
+                audioUrl: (lesson['mediaUrl'] ?? '').toString(),
+                order: (lesson['order'] as num?)?.toInt() ?? 0,
+              ),
+            )
+            .toList()
+          ..insertAll(
+            0,
+            ((j['lessons'] as List?) ?? []).isEmpty &&
+                    (j['introAudioUrl'] ?? '').toString().isNotEmpty
+                ? [
+                    BookEpisode(
+                      title: 'Episode 1',
+                      audioUrl: (j['introAudioUrl'] ?? '').toString(),
+                      order: 0,
+                    ),
+                  ]
+                : const [],
+          ),
   );
 }

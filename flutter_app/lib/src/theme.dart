@@ -18,19 +18,20 @@ ThemeData buildHappiTheme([Brightness brightness = Brightness.light]) {
   final raised = dark ? AppColors.raised : const Color(0xFFF6F6F6);
   final text = dark ? AppColors.text : const Color(0xFF241F1C);
   final muted = dark ? AppColors.muted : const Color(0xFF6B625C);
-  final scheme = ColorScheme.fromSeed(
-    seedColor: AppColors.coral,
-    brightness: brightness,
-    surface: surface,
-  ).copyWith(
-    surfaceContainerLowest: background,
-    surfaceContainerLow: surface,
-    surfaceContainer: raised,
-    surfaceContainerHigh: raised,
-    onSurface: text,
-    onSurfaceVariant: muted,
-    outline: dark ? const Color(0xFF4A4542) : const Color(0xFFD9D0C8),
-  );
+  final scheme =
+      ColorScheme.fromSeed(
+        seedColor: AppColors.coral,
+        brightness: brightness,
+        surface: surface,
+      ).copyWith(
+        surfaceContainerLowest: background,
+        surfaceContainerLow: surface,
+        surfaceContainer: raised,
+        surfaceContainerHigh: raised,
+        onSurface: text,
+        onSurfaceVariant: muted,
+        outline: dark ? const Color(0xFF4A4542) : const Color(0xFFD9D0C8),
+      );
   return ThemeData(
     brightness: brightness,
     scaffoldBackgroundColor: background,

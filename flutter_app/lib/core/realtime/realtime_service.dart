@@ -23,7 +23,10 @@ class RealtimeService with WidgetsBindingObserver {
       _scheduleSubscriptionRefresh();
     });
     _socket.on('books:changed', (_) => _scheduleRefresh());
-    _socket.on('subscription-plans:changed', (_) => _scheduleSubscriptionRefresh());
+    _socket.on(
+      'subscription-plans:changed',
+      (_) => _scheduleSubscriptionRefresh(),
+    );
     _socket.connect();
   }
 

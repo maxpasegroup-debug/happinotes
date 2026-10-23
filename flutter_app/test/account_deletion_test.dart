@@ -37,10 +37,11 @@ class _FakeDeletionRepository implements AuthRepository {
   }) async {
     requestCount++;
     if (requestError != null) throw requestError!;
-    return status ?? const AccountDeletionRequestStatus(
-      requestId: 'request-1',
-      status: AccountDeletionStatus.requested,
-    );
+    return status ??
+        const AccountDeletionRequestStatus(
+          requestId: 'request-1',
+          status: AccountDeletionStatus.requested,
+        );
   }
 
   @override
@@ -122,16 +123,24 @@ void main() {
     );
   });
 
-  testWidgets('no request shows the explicit account deletion action', (tester) async {
-    final repository = _FakeDeletionRepository(statusError: _deletionNotFound());
+  testWidgets('no request shows the explicit account deletion action', (
+    tester,
+  ) async {
+    final repository = _FakeDeletionRepository(
+      statusError: _deletionNotFound(),
+    );
     await tester.pumpWidget(_app(repository));
     await tester.pumpAndSettle();
     expect(find.text('Start account deletion'), findsOneWidget);
     expect(find.text('Open Premium subscription'), findsOneWidget);
   });
 
-  testWidgets('confirmation and reauthentication submit one request', (tester) async {
-    final repository = _FakeDeletionRepository(statusError: _deletionNotFound());
+  testWidgets('confirmation and reauthentication submit one request', (
+    tester,
+  ) async {
+    final repository = _FakeDeletionRepository(
+      statusError: _deletionNotFound(),
+    );
     await tester.pumpWidget(_app(repository));
     await tester.pumpAndSettle();
 
@@ -152,27 +161,39 @@ void main() {
     expect(find.textContaining('check again'), findsOneWidget);
   });
 
-  testWidgets('pending and blocked policy states do not show another delete action', (tester) async {
-    for (final status in [
-      AccountDeletionStatus.processing,
-      AccountDeletionStatus.blockedPolicy,
-    ]) {
-      final repository = _FakeDeletionRepository(
-        status: AccountDeletionRequestStatus(requestId: 'request', status: status),
-      );
-      await tester.pumpWidget(_app(repository));
-      await tester.pumpAndSettle();
-      expect(find.text('Start account deletion'), findsNothing);
-      expect(find.text(status == AccountDeletionStatus.processing
-          ? 'Deletion is processing'
-          : 'Deletion is temporarily paused'), findsOneWidget);
-    }
-  });
+  testWidgets(
+    'pending and blocked policy states do not show another delete action',
+    (tester) async {
+      for (final status in [
+        AccountDeletionStatus.processing,
+        AccountDeletionStatus.blockedPolicy,
+      ]) {
+        final repository = _FakeDeletionRepository(
+          status: AccountDeletionRequestStatus(
+            requestId: 'request',
+            status: status,
+          ),
+        );
+        await tester.pumpWidget(_app(repository));
+        await tester.pumpAndSettle();
+        expect(find.text('Start account deletion'), findsNothing);
+        expect(
+          find.text(
+            status == AccountDeletionStatus.processing
+                ? 'Deletion is processing'
+                : 'Deletion is temporarily paused',
+          ),
+          findsOneWidget,
+        );
+      }
+    },
+  );
 
-  testWidgets('request failure is shown without claiming deletion succeeded', (tester) async {
-    final repository = _FakeDeletionRepository(
-      statusError: _deletionNotFound(),
-    )..requestError = _serverError('Deletion service unavailable');
+  testWidgets('request failure is shown without claiming deletion succeeded', (
+    tester,
+  ) async {
+    final repository = _FakeDeletionRepository(statusError: _deletionNotFound())
+      ..requestError = _serverError('Deletion service unavailable');
     await tester.pumpWidget(_app(repository));
     await tester.pumpAndSettle();
     await tester.tap(find.text('Start account deletion'));
@@ -210,7 +231,9 @@ void main() {
     expect(find.textContaining('Cannot reach the backend'), findsOneWidget);
   });
 
-  testWidgets('expired sessions are cleared without claiming deletion', (tester) async {
+  testWidgets('expired sessions are cleared without claiming deletion', (
+    tester,
+  ) async {
     final repository = _FakeDeletionRepository(statusError: _sessionExpired());
     await tester.pumpWidget(_app(repository));
     await tester.pumpAndSettle();

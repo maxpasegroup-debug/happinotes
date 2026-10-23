@@ -21,9 +21,10 @@ class NotificationsController extends ChangeNotifier {
       items = raw is List
           ? raw
                 .whereType<Map>()
-                .map((item) => AppNotification.fromJson(
-                      Map<String, dynamic>.from(item),
-                    ))
+                .map(
+                  (item) =>
+                      AppNotification.fromJson(Map<String, dynamic>.from(item)),
+                )
                 .toList()
           : const [];
     } catch (exception) {

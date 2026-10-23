@@ -4,7 +4,12 @@ import 'package:in_app_purchase/in_app_purchase.dart';
 import '../network/api_client.dart';
 
 class SubscriptionPlanDetails {
-  const SubscriptionPlanDetails({required this.key, required this.productId, required this.billingPeriod, required this.priceInr});
+  const SubscriptionPlanDetails({
+    required this.key,
+    required this.productId,
+    required this.billingPeriod,
+    required this.priceInr,
+  });
   final String key;
   final String productId;
   final String billingPeriod;
@@ -14,15 +19,20 @@ class SubscriptionPlanDetails {
 class SubscriptionPurchaseController extends ChangeNotifier {
   SubscriptionPurchaseController(this.api, this.onVerified) {
     if (!supported) return;
-    _subscription = _store.purchaseStream.listen(_enqueue, onError: (Object error) {
-      message = 'Could not receive subscription updates. Please restore purchases.';
-      _checkout = false;
-      _notify();
-    });
+    _subscription = _store.purchaseStream.listen(
+      _enqueue,
+      onError: (Object error) {
+        message =
+            'Could not receive subscription updates. Please restore purchases.';
+        _checkout = false;
+        _notify();
+      },
+    );
   }
 
   final ApiClient api;
-  final Future<void> Function(bool active, String? plan, DateTime? expiresAt) onVerified;
+  final Future<void> Function(bool active, String? plan, DateTime? expiresAt)
+  onVerified;
   final InAppPurchase _store = InAppPurchase.instance;
   StreamSubscription<List<PurchaseDetails>>? _subscription;
   Future<void> _queue = Future<void>.value();
@@ -43,16 +53,22 @@ class SubscriptionPurchaseController extends ChangeNotifier {
   bool loading = false;
   String? message;
 
-  bool get supported => !kIsWeb &&
-      (defaultTargetPlatform == TargetPlatform.android || defaultTargetPlatform == TargetPlatform.iOS);
-  String get _platform => defaultTargetPlatform == TargetPlatform.android ? 'android' : 'ios';
+  bool get supported =>
+      !kIsWeb &&
+      (defaultTargetPlatform == TargetPlatform.android ||
+          defaultTargetPlatform == TargetPlatform.iOS);
+  String get _platform =>
+      defaultTargetPlatform == TargetPlatform.android ? 'android' : 'ios';
   bool get busy => _checkout || _restoring || _verifying > 0;
-  List<SubscriptionPlanDetails> get plans => _plans.values.toList(growable: false);
+  List<SubscriptionPlanDetails> get plans =>
+      _plans.values.toList(growable: false);
   ProductDetails? productFor(String key) {
     final plan = _plans[key];
     return plan == null ? null : _products[plan.productId];
   }
-  bool pendingFor(String key) => _pendingProducts.contains(_plans[key]?.productId);
+
+  bool pendingFor(String key) =>
+      _pendingProducts.contains(_plans[key]?.productId);
 
   void setUser(String? userId) {
     if (_userId == userId) return;
@@ -73,7 +89,9 @@ class SubscriptionPurchaseController extends ChangeNotifier {
 
   Future<void> reload() {
     if (_disposed) return Future<void>.value();
-    return _reloadFuture ??= _reload(_revision).whenComplete(() => _reloadFuture = null);
+    return _reloadFuture ??= _reload(
+      _revision,
+    ).whenComplete(() => _reloadFuture = null);
   }
 
   Future<void> _reload(int revision) async {
@@ -95,7 +113,8 @@ class SubscriptionPurchaseController extends ChangeNotifier {
       for (final raw in (response.data['plans'] as List? ?? const [])) {
         if (raw is! Map) continue;
         final key = raw['key']?.toString();
-        final productId = raw[_platform]?.toString() ?? raw['productId']?.toString();
+        final productId =
+            raw[_platform]?.toString() ?? raw['productId']?.toString();
         if (key != null && productId != null && productId.isNotEmpty) {
           final rawPrice = raw['priceInr'];
           final priceInr = rawPrice is num
@@ -115,17 +134,25 @@ class SubscriptionPurchaseController extends ChangeNotifier {
         return;
       }
       if (_plans.isNotEmpty) {
-        final details = await _store.queryProductDetails(_plans.values.map((p) => p.productId).toSet());
+        final details = await _store.queryProductDetails(
+          _plans.values.map((p) => p.productId).toSet(),
+        );
         if (revision != _revision || _disposed) return;
         if (details.error != null) throw StateError(details.error!.message);
-        for (final product in details.productDetails) _products[product.id] = product;
-        if (details.notFoundIDs.isNotEmpty) message = 'Some subscription plans are not available yet.';
+        for (final product in details.productDetails)
+          _products[product.id] = product;
+        if (details.notFoundIDs.isNotEmpty)
+          message = 'Some subscription plans are not available yet.';
       }
-      if (_retryPurchases.isNotEmpty) await _enqueue(_retryPurchases.values.toList());
+      if (_retryPurchases.isNotEmpty)
+        await _enqueue(_retryPurchases.values.toList());
     } catch (error) {
       if (revision == _revision) message = api.errorMessage(error);
     } finally {
-      if (revision == _revision) { loading = false; _notify(); }
+      if (revision == _revision) {
+        loading = false;
+        _notify();
+      }
     }
   }
 
@@ -135,7 +162,8 @@ class SubscriptionPurchaseController extends ChangeNotifier {
     await reload();
     final product = productFor(key);
     if (_userId == null || !available || product == null) {
-      message = 'This subscription plan is not available yet. Please try again later.';
+      message =
+          'This subscription plan is not available yet. Please try again later.';
       _notify();
       return;
     }
@@ -144,10 +172,17 @@ class SubscriptionPurchaseController extends ChangeNotifier {
     _notify();
     try {
       final started = await _store.buyNonConsumable(
-        purchaseParam: PurchaseParam(productDetails: product, applicationUserName: _accountToken),
+        purchaseParam: PurchaseParam(
+          productDetails: product,
+          applicationUserName: _accountToken,
+        ),
       );
       if (revision != _revision || _disposed) return;
-      if (!started) { _checkout = false; message = 'The store could not start this subscription.'; _notify(); }
+      if (!started) {
+        _checkout = false;
+        message = 'The store could not start this subscription.';
+        _notify();
+      }
     } catch (error) {
       if (revision != _revision || _disposed) return;
       _checkout = false;
@@ -168,11 +203,16 @@ class SubscriptionPurchaseController extends ChangeNotifier {
     try {
       await _store.restorePurchases(applicationUserName: _accountToken);
       await _queue;
-      if (revision == _revision && message == 'Checking previous subscriptions…') message = 'Restore requested.';
+      if (revision == _revision &&
+          message == 'Checking previous subscriptions…')
+        message = 'Restore requested.';
     } catch (error) {
       if (revision == _revision) message = api.errorMessage(error);
     } finally {
-      if (revision == _revision) { _restoring = false; _notify(); }
+      if (revision == _revision) {
+        _restoring = false;
+        _notify();
+      }
     }
   }
 
@@ -191,17 +231,26 @@ class SubscriptionPurchaseController extends ChangeNotifier {
         _notify();
         continue;
       }
-      if (purchase.status == PurchaseStatus.error || purchase.status == PurchaseStatus.canceled) {
+      if (purchase.status == PurchaseStatus.error ||
+          purchase.status == PurchaseStatus.canceled) {
         _checkout = false;
         _pendingProducts.remove(purchase.productID);
-        message = purchase.status == PurchaseStatus.canceled ? 'Subscription cancelled.' : (purchase.error?.message ?? 'Subscription failed.');
+        message = purchase.status == PurchaseStatus.canceled
+            ? 'Subscription cancelled.'
+            : (purchase.error?.message ?? 'Subscription failed.');
         _notify();
-        if (purchase.pendingCompletePurchase) { try { await _store.completePurchase(purchase); } catch (_) {} }
+        if (purchase.pendingCompletePurchase) {
+          try {
+            await _store.completePurchase(purchase);
+          } catch (_) {}
+        }
         continue;
       }
       _checkout = false;
       _pendingProducts.remove(purchase.productID);
-      final proof = _platform == 'android' ? purchase.verificationData.serverVerificationData : purchase.purchaseID;
+      final proof = _platform == 'android'
+          ? purchase.verificationData.serverVerificationData
+          : purchase.purchaseID;
       if (proof == null || proof.isEmpty) continue;
       final key = '${purchase.productID}:$proof';
       if (_completedTransactions.contains(key)) continue;
@@ -210,21 +259,31 @@ class SubscriptionPurchaseController extends ChangeNotifier {
       _verifying++;
       _notify();
       try {
-        final response = await api.dio.post('/payments/store/subscription-verify', data: {
-          'store': _platform,
-          'productId': purchase.productID,
-          'transactionId': purchase.purchaseID,
-          'verificationData': _platform == 'android' ? proof : '',
-          'restore': _restoring,
-        });
+        final response = await api.dio.post(
+          '/payments/store/subscription-verify',
+          data: {
+            'store': _platform,
+            'productId': purchase.productID,
+            'transactionId': purchase.purchaseID,
+            'verificationData': _platform == 'android' ? proof : '',
+            'restore': _restoring,
+          },
+        );
         final active = response.data['subscriptionActive'] == true;
         final plan = response.data['subscriptionPlan']?.toString();
-        final expires = response.data['subscriptionExpiresAt'] == null ? null : DateTime.tryParse(response.data['subscriptionExpiresAt'].toString());
+        final expires = response.data['subscriptionExpiresAt'] == null
+            ? null
+            : DateTime.tryParse(
+                response.data['subscriptionExpiresAt'].toString(),
+              );
         await onVerified(active, plan, expires);
-        if (purchase.pendingCompletePurchase) await _store.completePurchase(purchase);
+        if (purchase.pendingCompletePurchase)
+          await _store.completePurchase(purchase);
         _retryPurchases.remove(key);
         _completedTransactions.add(key);
-        message = active ? 'Subscription activated.' : 'Subscription is not active.';
+        message = active
+            ? 'Subscription activated.'
+            : 'Subscription is not active.';
       } catch (error) {
         message = api.errorMessage(error);
       } finally {
@@ -234,8 +293,14 @@ class SubscriptionPurchaseController extends ChangeNotifier {
     }
   }
 
-  void _notify() { if (!_disposed) notifyListeners(); }
+  void _notify() {
+    if (!_disposed) notifyListeners();
+  }
 
   @override
-  void dispose() { _disposed = true; unawaited(_subscription?.cancel()); super.dispose(); }
+  void dispose() {
+    _disposed = true;
+    unawaited(_subscription?.cancel());
+    super.dispose();
+  }
 }

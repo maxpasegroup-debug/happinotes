@@ -22,12 +22,18 @@ class AdminScreen extends ConsumerWidget {
         title: const Column(
           crossAxisAlignment: CrossAxisAlignment.start,
           children: [
-            Text('HappiNotes Admin', style: TextStyle(fontWeight: FontWeight.w900)),
+            Text(
+              'HappiNotes Admin',
+              style: TextStyle(fontWeight: FontWeight.w900),
+            ),
             Text('Editorial control', style: TextStyle(fontSize: 12)),
           ],
         ),
         actions: [
-          IconButton(onPressed: state.loading ? null : state.loadAll, icon: const Icon(Icons.refresh)),
+          IconButton(
+            onPressed: state.loading ? null : state.loadAll,
+            icon: const Icon(Icons.refresh),
+          ),
           IconButton(
             tooltip: 'Logout',
             onPressed: () => ref.read(sessionControllerProvider).logout(),
@@ -44,17 +50,35 @@ class AdminScreen extends ConsumerWidget {
         selectedIndex: state.tab,
         onDestinationSelected: state.selectTab,
         destinations: const [
-          NavigationDestination(icon: Icon(Icons.dashboard_outlined), selectedIcon: Icon(Icons.dashboard), label: 'Dashboard'),
-          NavigationDestination(icon: Icon(Icons.library_books_outlined), selectedIcon: Icon(Icons.library_books), label: 'Books'),
-          NavigationDestination(icon: Icon(Icons.people_outline), selectedIcon: Icon(Icons.people), label: 'Users'),
-          NavigationDestination(icon: Icon(Icons.notifications_outlined), selectedIcon: Icon(Icons.notifications), label: 'Notify'),
+          NavigationDestination(
+            icon: Icon(Icons.dashboard_outlined),
+            selectedIcon: Icon(Icons.dashboard),
+            label: 'Dashboard',
+          ),
+          NavigationDestination(
+            icon: Icon(Icons.library_books_outlined),
+            selectedIcon: Icon(Icons.library_books),
+            label: 'Books',
+          ),
+          NavigationDestination(
+            icon: Icon(Icons.people_outline),
+            selectedIcon: Icon(Icons.people),
+            label: 'Users',
+          ),
+          NavigationDestination(
+            icon: Icon(Icons.notifications_outlined),
+            selectedIcon: Icon(Icons.notifications),
+            label: 'Notify',
+          ),
         ],
       ),
       floatingActionButton: state.tab == 1
           ? FloatingActionButton.extended(
               onPressed: () {
                 state.newBook();
-                Navigator.of(context).push(MaterialPageRoute(builder: (_) => const AdminBookEditor()));
+                Navigator.of(context).push(
+                  MaterialPageRoute(builder: (_) => const AdminBookEditor()),
+                );
               },
               icon: const Icon(Icons.add),
               label: const Text('Add book'),
@@ -71,16 +95,33 @@ class _Dashboard extends ConsumerWidget {
     final s = ref.watch(adminControllerProvider);
     final values = [
       ('Users', s.stats['totalUsers'] ?? 0, Icons.people_rounded),
-      ('Premium', s.stats['activePremiumSubscribers'] ?? 0, Icons.workspace_premium_rounded),
-      ('Live books', s.stats['totalBooksPublished'] ?? 0, Icons.menu_book_rounded),
-      ('Chapters', s.stats['totalChaptersUploaded'] ?? 0, Icons.queue_music_rounded),
+      (
+        'Premium',
+        s.stats['activePremiumSubscribers'] ?? 0,
+        Icons.workspace_premium_rounded,
+      ),
+      (
+        'Live books',
+        s.stats['totalBooksPublished'] ?? 0,
+        Icons.menu_book_rounded,
+      ),
+      (
+        'Chapters',
+        s.stats['totalChaptersUploaded'] ?? 0,
+        Icons.queue_music_rounded,
+      ),
     ];
     return RefreshIndicator(
       onRefresh: s.loadAll,
       child: ListView(
         padding: const EdgeInsets.all(18),
         children: [
-          Text('Dashboard', style: Theme.of(context).textTheme.headlineMedium?.copyWith(fontWeight: FontWeight.w900)),
+          Text(
+            'Dashboard',
+            style: Theme.of(
+              context,
+            ).textTheme.headlineMedium?.copyWith(fontWeight: FontWeight.w900),
+          ),
           const SizedBox(height: 6),
           const Text('Everything happening across HappiNotes.'),
           const SizedBox(height: 20),
@@ -109,11 +150,15 @@ class _Dashboard extends ConsumerWidget {
             },
           ),
           const SizedBox(height: 16),
-          Card(child: ListTile(
-            leading: const Icon(Icons.trending_up_rounded),
-            title: const Text('Most listened'),
-            subtitle: Text((s.stats['mostListenedBook'] ?? 'Not available').toString()),
-          )),
+          Card(
+            child: ListTile(
+              leading: const Icon(Icons.trending_up_rounded),
+              title: const Text('Most listened'),
+              subtitle: Text(
+                (s.stats['mostListenedBook'] ?? 'Not available').toString(),
+              ),
+            ),
+          ),
         ],
       ),
     );
@@ -169,7 +214,10 @@ class _Books extends ConsumerWidget {
   @override
   Widget build(BuildContext context, WidgetRef ref) {
     final s = ref.watch(adminControllerProvider);
-    if (s.books.isEmpty) return const Center(child: Text('No books yet. Tap Add book to create one.'));
+    if (s.books.isEmpty)
+      return const Center(
+        child: Text('No books yet. Tap Add book to create one.'),
+      );
     return RefreshIndicator(
       onRefresh: s.loadAll,
       child: ListView.separated(
@@ -185,10 +233,25 @@ class _Books extends ConsumerWidget {
               leading: ClipRRect(
                 borderRadius: BorderRadius.circular(8),
                 child: cover.isEmpty
-                    ? Container(width: 54, height: 72, color: Colors.black12, child: const Icon(Icons.book))
-                    : Image.network(cover, width: 54, height: 72, fit: BoxFit.cover),
+                    ? Container(
+                        width: 54,
+                        height: 72,
+                        color: Colors.black12,
+                        child: const Icon(Icons.book),
+                      )
+                    : Image.network(
+                        cover,
+                        width: 54,
+                        height: 72,
+                        fit: BoxFit.cover,
+                      ),
               ),
-              title: Text((book['title'] ?? 'Untitled').toString(), maxLines: 2, overflow: TextOverflow.ellipsis, style: const TextStyle(fontWeight: FontWeight.w800)),
+              title: Text(
+                (book['title'] ?? 'Untitled').toString(),
+                maxLines: 2,
+                overflow: TextOverflow.ellipsis,
+                style: const TextStyle(fontWeight: FontWeight.w800),
+              ),
               subtitle: Text(
                 '${book['language']}  •  ${book['status']}  •  '
                 '${book['accessType'] ?? book['type'] ?? 'free'}  •  '
@@ -199,10 +262,23 @@ class _Books extends ConsumerWidget {
                 onSelected: (action) async {
                   if (action == 'edit') {
                     s.editBook(book);
-                    if (context.mounted) Navigator.of(context).push(MaterialPageRoute(builder: (_) => const AdminBookEditor()));
-                  } else if (await _confirmDelete(context, (book['title'] ?? '').toString())) {
+                    if (context.mounted)
+                      Navigator.of(context).push(
+                        MaterialPageRoute(
+                          builder: (_) => const AdminBookEditor(),
+                        ),
+                      );
+                  } else if (await _confirmDelete(
+                    context,
+                    (book['title'] ?? '').toString(),
+                  )) {
                     final ok = await s.removeBook(book['_id'].toString());
-                    if (context.mounted) AdminSnack.show(context, ok ? 'Book deleted' : s.error ?? 'Delete failed', success: ok);
+                    if (context.mounted)
+                      AdminSnack.show(
+                        context,
+                        ok ? 'Book deleted' : s.error ?? 'Delete failed',
+                        success: ok,
+                      );
                   }
                 },
                 itemBuilder: (_) => const [
@@ -218,14 +294,24 @@ class _Books extends ConsumerWidget {
   }
 
   Future<bool> _confirmDelete(BuildContext context, String title) async =>
-      await showDialog<bool>(context: context, builder: (context) => AlertDialog(
-        title: const Text('Delete book?'),
-        content: Text('$title and its chapters will be permanently deleted.'),
-        actions: [
-          TextButton(onPressed: () => Navigator.pop(context, false), child: const Text('Cancel')),
-          FilledButton(onPressed: () => Navigator.pop(context, true), child: const Text('Delete')),
-        ],
-      )) ?? false;
+      await showDialog<bool>(
+        context: context,
+        builder: (context) => AlertDialog(
+          title: const Text('Delete book?'),
+          content: Text('$title and its chapters will be permanently deleted.'),
+          actions: [
+            TextButton(
+              onPressed: () => Navigator.pop(context, false),
+              child: const Text('Cancel'),
+            ),
+            FilledButton(
+              onPressed: () => Navigator.pop(context, true),
+              child: const Text('Delete'),
+            ),
+          ],
+        ),
+      ) ??
+      false;
 }
 
 class _Users extends ConsumerWidget {
@@ -235,13 +321,19 @@ class _Users extends ConsumerWidget {
     final state = ref.watch(adminControllerProvider);
     final users = state.users;
     return ListView.separated(
-      padding: const EdgeInsets.all(16), itemCount: users.length,
+      padding: const EdgeInsets.all(16),
+      itemCount: users.length,
       separatorBuilder: (_, _) => const Divider(height: 1),
       itemBuilder: (_, i) {
         final u = users[i];
-        final contact = (u['phoneNumber'] ?? u['email'] ?? 'No contact').toString();
+        final contact = (u['phoneNumber'] ?? u['email'] ?? 'No contact')
+            .toString();
         return ListTile(
-          leading: CircleAvatar(child: Text((u['name'] ?? contact).toString().characters.first.toUpperCase())),
+          leading: CircleAvatar(
+            child: Text(
+              (u['name'] ?? contact).toString().characters.first.toUpperCase(),
+            ),
+          ),
           title: Text((u['name'] ?? 'HappiNotes listener').toString()),
           subtitle: Text(contact),
           trailing: u['role'] == 'admin'
@@ -250,20 +342,39 @@ class _Users extends ConsumerWidget {
                   tooltip: 'Manage user',
                   onSelected: (action) async {
                     if (action == 'delete') {
-                      final confirmed = await showDialog<bool>(
-                        context: context,
-                        builder: (dialogContext) => AlertDialog(
-                          title: const Text('Delete this user?'),
-                          content: Text('The account for $contact will be permanently removed.'),
-                          actions: [
-                            TextButton(onPressed: () => Navigator.pop(dialogContext, false), child: const Text('Cancel')),
-                            FilledButton(onPressed: () => Navigator.pop(dialogContext, true), child: const Text('Delete')),
-                          ],
-                        ),
-                      ) ?? false;
+                      final confirmed =
+                          await showDialog<bool>(
+                            context: context,
+                            builder: (dialogContext) => AlertDialog(
+                              title: const Text('Delete this user?'),
+                              content: Text(
+                                'The account for $contact will be permanently removed.',
+                              ),
+                              actions: [
+                                TextButton(
+                                  onPressed: () =>
+                                      Navigator.pop(dialogContext, false),
+                                  child: const Text('Cancel'),
+                                ),
+                                FilledButton(
+                                  onPressed: () =>
+                                      Navigator.pop(dialogContext, true),
+                                  child: const Text('Delete'),
+                                ),
+                              ],
+                            ),
+                          ) ??
+                          false;
                       if (!confirmed) return;
                       final ok = await state.removeUser(u['_id'].toString());
-                      if (context.mounted) AdminSnack.show(context, ok ? state.success ?? 'Updated' : state.error ?? 'Delete failed', success: ok);
+                      if (context.mounted)
+                        AdminSnack.show(
+                          context,
+                          ok
+                              ? state.success ?? 'Updated'
+                              : state.error ?? 'Delete failed',
+                          success: ok,
+                        );
                     }
                   },
                   itemBuilder: (_) => const [
@@ -286,38 +397,84 @@ class _Notifications extends ConsumerWidget {
     return ListView(
       padding: const EdgeInsets.all(20),
       children: [
-        Text('Send notification', style: Theme.of(context).textTheme.headlineSmall?.copyWith(fontWeight: FontWeight.w900)),
-        const SizedBox(height: 8), const Text('Broadcast an update to listener devices.'), const SizedBox(height: 22),
-        TextFormField(onChanged: (v) => ref.read(adminNotificationTitleProvider.notifier).state = v, decoration: const InputDecoration(labelText: 'Title')),
+        Text(
+          'Send notification',
+          style: Theme.of(
+            context,
+          ).textTheme.headlineSmall?.copyWith(fontWeight: FontWeight.w900),
+        ),
+        const SizedBox(height: 8),
+        const Text('Broadcast an update to listener devices.'),
+        const SizedBox(height: 22),
+        TextFormField(
+          onChanged: (v) =>
+              ref.read(adminNotificationTitleProvider.notifier).state = v,
+          decoration: const InputDecoration(labelText: 'Title'),
+        ),
         const SizedBox(height: 14),
-        TextFormField(onChanged: (v) => ref.read(adminNotificationMessageProvider.notifier).state = v, minLines: 4, maxLines: 6, decoration: const InputDecoration(labelText: 'Message')),
+        TextFormField(
+          onChanged: (v) =>
+              ref.read(adminNotificationMessageProvider.notifier).state = v,
+          minLines: 4,
+          maxLines: 6,
+          decoration: const InputDecoration(labelText: 'Message'),
+        ),
         const SizedBox(height: 14),
         if (state.notificationImageUrl.isNotEmpty) ...[
           ClipRRect(
             borderRadius: BorderRadius.circular(14),
-            child: Image.network(state.notificationImageUrl, height: 150, width: double.infinity, fit: BoxFit.cover),
+            child: Image.network(
+              state.notificationImageUrl,
+              height: 150,
+              width: double.infinity,
+              fit: BoxFit.cover,
+            ),
           ),
           const SizedBox(height: 8),
         ],
         OutlinedButton.icon(
           onPressed: state.busy ? null : state.uploadNotificationImage,
           icon: const Icon(Icons.image_outlined),
-          label: Text(state.notificationImageUrl.isEmpty ? 'Add notification image' : 'Replace notification image'),
+          label: Text(
+            state.notificationImageUrl.isEmpty
+                ? 'Add notification image'
+                : 'Replace notification image',
+          ),
         ),
         const SizedBox(height: 14),
         DropdownButtonFormField<String>(
           initialValue: target,
           decoration: const InputDecoration(labelText: 'Audience'),
-          items: const ['all', 'free', 'premium'].map((v) => DropdownMenuItem(value: v, child: Text(v))).toList(),
-          onChanged: (v) => ref.read(adminNotificationTargetProvider.notifier).state = v ?? 'all',
+          items: const [
+            'all',
+            'free',
+            'premium',
+          ].map((v) => DropdownMenuItem(value: v, child: Text(v))).toList(),
+          onChanged: (v) =>
+              ref.read(adminNotificationTargetProvider.notifier).state =
+                  v ?? 'all',
         ),
         const SizedBox(height: 20),
         FilledButton.icon(
-          onPressed: state.busy ? null : () async {
-            final ok = await state.notifyUsers(ref.read(adminNotificationTitleProvider), ref.read(adminNotificationMessageProvider), target);
-            if (context.mounted) AdminSnack.show(context, ok ? 'Notification sent' : state.error ?? 'Could not send', success: ok);
-          },
-          icon: const Icon(Icons.send_rounded), label: Text(state.busy ? 'Sending...' : 'Send notification'),
+          onPressed: state.busy
+              ? null
+              : () async {
+                  final ok = await state.notifyUsers(
+                    ref.read(adminNotificationTitleProvider),
+                    ref.read(adminNotificationMessageProvider),
+                    target,
+                  );
+                  if (context.mounted)
+                    AdminSnack.show(
+                      context,
+                      ok
+                          ? 'Notification sent'
+                          : state.error ?? 'Could not send',
+                      success: ok,
+                    );
+                },
+          icon: const Icon(Icons.send_rounded),
+          label: Text(state.busy ? 'Sending...' : 'Send notification'),
         ),
       ],
     );
@@ -330,42 +487,116 @@ class AdminBookEditor extends ConsumerWidget {
   Widget build(BuildContext context, WidgetRef ref) {
     final state = ref.watch(adminControllerProvider);
     final d = state.draft;
-    Widget input(String label, String value, ValueChanged<String> changed, {int lines = 1, TextInputType? type}) =>
-        Padding(padding: const EdgeInsets.only(bottom: 14), child: TextFormField(
-          initialValue: value, onChanged: changed, minLines: lines, maxLines: lines == 1 ? 1 : 5, keyboardType: type,
-          decoration: InputDecoration(labelText: label),
-        ));
-    Widget select(String label, String value, List<String> options, ValueChanged<String> changed) =>
-        Padding(padding: const EdgeInsets.only(bottom: 14), child: DropdownButtonFormField<String>(
-          initialValue: value, decoration: InputDecoration(labelText: label),
-          items: options.map((v) => DropdownMenuItem(value: v, child: Text(v))).toList(),
-          onChanged: (v) { if (v != null) { changed(v); state.notifyChanged(); } },
-        ));
+    Widget input(
+      String label,
+      String value,
+      ValueChanged<String> changed, {
+      int lines = 1,
+      TextInputType? type,
+    }) => Padding(
+      padding: const EdgeInsets.only(bottom: 14),
+      child: TextFormField(
+        initialValue: value,
+        onChanged: changed,
+        minLines: lines,
+        maxLines: lines == 1 ? 1 : 5,
+        keyboardType: type,
+        decoration: InputDecoration(labelText: label),
+      ),
+    );
+    Widget select(
+      String label,
+      String value,
+      List<String> options,
+      ValueChanged<String> changed,
+    ) => Padding(
+      padding: const EdgeInsets.only(bottom: 14),
+      child: DropdownButtonFormField<String>(
+        initialValue: value,
+        decoration: InputDecoration(labelText: label),
+        items: options
+            .map((v) => DropdownMenuItem(value: v, child: Text(v)))
+            .toList(),
+        onChanged: (v) {
+          if (v != null) {
+            changed(v);
+            state.notifyChanged();
+          }
+        },
+      ),
+    );
     return Scaffold(
       appBar: AppBar(title: Text(d.id == null ? 'Add new book' : 'Edit book')),
       body: ListView(
         padding: const EdgeInsets.all(18),
         children: [
           input('Title *', d.title, (v) => d.title = v),
-          input('Description *', d.description, (v) => d.description = v, lines: 4),
-          select('Language', d.language, const ['english', 'malayalam', 'hindi'], (v) => d.language = v),
-          select('Category', d.category, const ['health', 'wealth', 'happiness', 'mindfulness'], (v) => d.category = v),
-          select('Status', d.status, const ['draft', 'coming_soon', 'live'], (v) => d.status = v),
+          input(
+            'Description *',
+            d.description,
+            (v) => d.description = v,
+            lines: 4,
+          ),
+          select('Language', d.language, const [
+            'english',
+            'malayalam',
+            'hindi',
+          ], (v) => d.language = v),
+          select('Category', d.category, const [
+            'health',
+            'wealth',
+            'happiness',
+            'mindfulness',
+          ], (v) => d.category = v),
+          select('Status', d.status, const [
+            'draft',
+            'coming_soon',
+            'live',
+          ], (v) => d.status = v),
           select('Access', d.accessType, const ['free', 'premium'], (v) {
             d.accessType = v;
             if (v == 'free') d.priceInr = '0';
           }),
           if (d.accessType == 'premium')
-            input('Price in INR', d.priceInr, (v) => d.priceInr = v, type: TextInputType.number),
-          const Text('Cover image', style: TextStyle(fontWeight: FontWeight.w800)), const SizedBox(height: 8),
-          if (d.coverImageUrl.isNotEmpty) ClipRRect(borderRadius: BorderRadius.circular(10), child: Image.network(d.coverImageUrl, height: 180, fit: BoxFit.contain)),
-          OutlinedButton.icon(onPressed: state.busy ? null : () => state.uploadMedia('cover'), icon: const Icon(Icons.image_outlined), label: Text(d.coverImageUrl.isEmpty ? 'Choose image' : 'Replace image')),
+            input(
+              'Price in INR',
+              d.priceInr,
+              (v) => d.priceInr = v,
+              type: TextInputType.number,
+            ),
+          const Text(
+            'Cover image',
+            style: TextStyle(fontWeight: FontWeight.w800),
+          ),
+          const SizedBox(height: 8),
+          if (d.coverImageUrl.isNotEmpty)
+            ClipRRect(
+              borderRadius: BorderRadius.circular(10),
+              child: Image.network(
+                d.coverImageUrl,
+                height: 180,
+                fit: BoxFit.contain,
+              ),
+            ),
+          OutlinedButton.icon(
+            onPressed: state.busy ? null : () => state.uploadMedia('cover'),
+            icon: const Icon(Icons.image_outlined),
+            label: Text(
+              d.coverImageUrl.isEmpty ? 'Choose image' : 'Replace image',
+            ),
+          ),
           const SizedBox(height: 14),
           Row(
             mainAxisAlignment: MainAxisAlignment.spaceBetween,
             children: [
-              const Text('Story episodes', style: TextStyle(fontWeight: FontWeight.w800)),
-              Text('${d.episodes.length} added', style: const TextStyle(color: AppColors.muted)),
+              const Text(
+                'Story episodes',
+                style: TextStyle(fontWeight: FontWeight.w800),
+              ),
+              Text(
+                '${d.episodes.length} added',
+                style: const TextStyle(color: AppColors.muted),
+              ),
             ],
           ),
           const SizedBox(height: 8),
@@ -383,26 +614,36 @@ class AdminBookEditor extends ConsumerWidget {
                       children: [
                         CircleAvatar(child: Text('${index + 1}')),
                         const SizedBox(width: 10),
-                        Text('Episode ${index + 1}', style: const TextStyle(fontWeight: FontWeight.w800)),
+                        Text(
+                          'Episode ${index + 1}',
+                          style: const TextStyle(fontWeight: FontWeight.w800),
+                        ),
                         const Spacer(),
                         IconButton(
                           icon: const Icon(Icons.delete_outline),
-                          onPressed: state.busy ? null : () => state.removeEpisode(index),
+                          onPressed: state.busy
+                              ? null
+                              : () => state.removeEpisode(index),
                         ),
                       ],
                     ),
                     input(
                       'Episode title',
                       episode['title']?.toString() ?? 'Episode ${index + 1}',
-                      (value) => state.updateEpisodeField(index, 'title', value),
+                      (value) =>
+                          state.updateEpisodeField(index, 'title', value),
                     ),
                     input(
                       'Episode description',
                       episode['description']?.toString() ?? '',
-                      (value) => state.updateEpisodeField(index, 'description', value),
+                      (value) =>
+                          state.updateEpisodeField(index, 'description', value),
                       lines: 3,
                     ),
-                    Text(episode['fileName']?.toString() ?? 'MP3 uploaded', style: const TextStyle(color: AppColors.muted)),
+                    Text(
+                      episode['fileName']?.toString() ?? 'MP3 uploaded',
+                      style: const TextStyle(color: AppColors.muted),
+                    ),
                   ],
                 ),
               ),
@@ -414,21 +655,68 @@ class AdminBookEditor extends ConsumerWidget {
             label: const Text('Add episode MP3'),
           ),
           const SizedBox(height: 14),
-          input('Duration in seconds', d.duration, (v) => d.duration = v, type: TextInputType.number),
-          input('Sort order', d.sortOrder, (v) => d.sortOrder = v, type: TextInputType.number),
+          input(
+            'Duration in seconds',
+            d.duration,
+            (v) => d.duration = v,
+            type: TextInputType.number,
+          ),
+          input(
+            'Sort order',
+            d.sortOrder,
+            (v) => d.sortOrder = v,
+            type: TextInputType.number,
+          ),
           input('Tags separated by commas', d.tags, (v) => d.tags = v),
-          SwitchListTile(contentPadding: EdgeInsets.zero, title: const Text('Featured'), value: d.featured, onChanged: (v) { d.featured = v; state.notifyChanged(); }),
-          SwitchListTile(contentPadding: EdgeInsets.zero, title: const Text('Trending'), value: d.trending, onChanged: (v) { d.trending = v; state.notifyChanged(); }),
-          if (state.error != null) Padding(padding: const EdgeInsets.only(bottom: 12), child: Text(state.error!, style: const TextStyle(color: Colors.red))),
-          FilledButton(
-            onPressed: state.busy ? null : () async {
-              final ok = await state.saveBook();
-              if (context.mounted) {
-                AdminSnack.show(context, ok ? state.success ?? 'Saved' : state.error ?? 'Could not save', success: ok);
-                if (ok) Navigator.pop(context);
-              }
+          SwitchListTile(
+            contentPadding: EdgeInsets.zero,
+            title: const Text('Featured'),
+            value: d.featured,
+            onChanged: (v) {
+              d.featured = v;
+              state.notifyChanged();
             },
-            child: Text(state.busy ? 'Saving...' : d.id == null ? 'Create book' : 'Update book'),
+          ),
+          SwitchListTile(
+            contentPadding: EdgeInsets.zero,
+            title: const Text('Trending'),
+            value: d.trending,
+            onChanged: (v) {
+              d.trending = v;
+              state.notifyChanged();
+            },
+          ),
+          if (state.error != null)
+            Padding(
+              padding: const EdgeInsets.only(bottom: 12),
+              child: Text(
+                state.error!,
+                style: const TextStyle(color: Colors.red),
+              ),
+            ),
+          FilledButton(
+            onPressed: state.busy
+                ? null
+                : () async {
+                    final ok = await state.saveBook();
+                    if (context.mounted) {
+                      AdminSnack.show(
+                        context,
+                        ok
+                            ? state.success ?? 'Saved'
+                            : state.error ?? 'Could not save',
+                        success: ok,
+                      );
+                      if (ok) Navigator.pop(context);
+                    }
+                  },
+            child: Text(
+              state.busy
+                  ? 'Saving...'
+                  : d.id == null
+                  ? 'Create book'
+                  : 'Update book',
+            ),
           ),
           const SizedBox(height: 30),
         ],
@@ -439,12 +727,30 @@ class AdminBookEditor extends ConsumerWidget {
 
 class _ErrorState extends StatelessWidget {
   const _ErrorState({required this.message, required this.retry});
-  final String message; final VoidCallback retry;
-  @override Widget build(BuildContext context) => Center(child: Padding(padding: const EdgeInsets.all(24), child: Column(mainAxisSize: MainAxisSize.min, children: [Text(message, textAlign: TextAlign.center), const SizedBox(height: 12), FilledButton(onPressed: retry, child: const Text('Retry'))])));
+  final String message;
+  final VoidCallback retry;
+  @override
+  Widget build(BuildContext context) => Center(
+    child: Padding(
+      padding: const EdgeInsets.all(24),
+      child: Column(
+        mainAxisSize: MainAxisSize.min,
+        children: [
+          Text(message, textAlign: TextAlign.center),
+          const SizedBox(height: 12),
+          FilledButton(onPressed: retry, child: const Text('Retry')),
+        ],
+      ),
+    ),
+  );
 }
 
 class AdminSnack {
-  static void show(BuildContext context, String message, {required bool success}) {
+  static void show(
+    BuildContext context,
+    String message, {
+    required bool success,
+  }) {
     AppMessage.show(context, message, success: success);
   }
 }

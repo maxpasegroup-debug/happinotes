@@ -8,7 +8,11 @@ import '../theme.dart';
 import '../widgets/app_message.dart';
 
 class EpisodePlayerScreen extends ConsumerWidget {
-  const EpisodePlayerScreen({super.key, required this.book, required this.episode});
+  const EpisodePlayerScreen({
+    super.key,
+    required this.book,
+    required this.episode,
+  });
   final Book book;
   final BookEpisode episode;
 
@@ -22,7 +26,10 @@ class EpisodePlayerScreen extends ConsumerWidget {
     return Scaffold(
       appBar: AppBar(
         title: const Text('Audio Only'),
-        leading: IconButton(icon: const Icon(Icons.keyboard_arrow_down), onPressed: () => Navigator.pop(context)),
+        leading: IconButton(
+          icon: const Icon(Icons.keyboard_arrow_down),
+          onPressed: () => Navigator.pop(context),
+        ),
       ),
       body: SafeArea(
         child: Padding(
@@ -33,15 +40,44 @@ class EpisodePlayerScreen extends ConsumerWidget {
                 child: ClipRRect(
                   borderRadius: BorderRadius.circular(18),
                   child: book.coverImageUrl.isEmpty
-                      ? const ColoredBox(color: AppColors.raised, child: Icon(Icons.headphones, size: 80))
-                      : CachedNetworkImage(imageUrl: book.coverImageUrl, fit: BoxFit.cover, width: double.infinity),
+                      ? const ColoredBox(
+                          color: AppColors.raised,
+                          child: Icon(Icons.headphones, size: 80),
+                        )
+                      : CachedNetworkImage(
+                          imageUrl: book.coverImageUrl,
+                          fit: BoxFit.cover,
+                          width: double.infinity,
+                        ),
                 ),
               ),
               const SizedBox(height: 18),
-              Align(alignment: Alignment.centerLeft, child: Text('${book.accessType.toUpperCase()}  •  Episode ${index + 1} / ${book.episodes.length}', style: const TextStyle(color: AppColors.muted))),
+              Align(
+                alignment: Alignment.centerLeft,
+                child: Text(
+                  '${book.accessType.toUpperCase()}  •  Episode ${index + 1} / ${book.episodes.length}',
+                  style: const TextStyle(color: AppColors.muted),
+                ),
+              ),
               const SizedBox(height: 6),
-              Align(alignment: Alignment.centerLeft, child: Text(current.title, style: Theme.of(context).textTheme.headlineSmall?.copyWith(fontWeight: FontWeight.w800))),
-              if (current.description.isNotEmpty) Align(alignment: Alignment.centerLeft, child: Text(current.description, maxLines: 2, overflow: TextOverflow.ellipsis)),
+              Align(
+                alignment: Alignment.centerLeft,
+                child: Text(
+                  current.title,
+                  style: Theme.of(context).textTheme.headlineSmall?.copyWith(
+                    fontWeight: FontWeight.w800,
+                  ),
+                ),
+              ),
+              if (current.description.isNotEmpty)
+                Align(
+                  alignment: Alignment.centerLeft,
+                  child: Text(
+                    current.description,
+                    maxLines: 2,
+                    overflow: TextOverflow.ellipsis,
+                  ),
+                ),
               const SizedBox(height: 12),
               StreamBuilder<Duration>(
                 stream: player.audioPlayer.positionStream,
@@ -49,11 +85,29 @@ class EpisodePlayerScreen extends ConsumerWidget {
                   stream: player.audioPlayer.durationStream,
                   builder: (_, duration) {
                     final total = duration.data ?? Duration.zero;
-                    final value = total.inMilliseconds == 0 ? 0.0 : (position.data ?? Duration.zero).inMilliseconds / total.inMilliseconds;
-                    return Column(children: [
-                      Slider(value: value.clamp(0.0, 1.0).toDouble(), onChanged: total == Duration.zero ? null : (v) => player.audioPlayer.seek(total * v)),
-                      Row(mainAxisAlignment: MainAxisAlignment.spaceBetween, children: [Text(_time(position.data ?? Duration.zero)), Text('-${_time(total - (position.data ?? Duration.zero))}')]),
-                    ]);
+                    final value = total.inMilliseconds == 0
+                        ? 0.0
+                        : (position.data ?? Duration.zero).inMilliseconds /
+                              total.inMilliseconds;
+                    return Column(
+                      children: [
+                        Slider(
+                          value: value.clamp(0.0, 1.0).toDouble(),
+                          onChanged: total == Duration.zero
+                              ? null
+                              : (v) => player.audioPlayer.seek(total * v),
+                        ),
+                        Row(
+                          mainAxisAlignment: MainAxisAlignment.spaceBetween,
+                          children: [
+                            Text(_time(position.data ?? Duration.zero)),
+                            Text(
+                              '-${_time(total - (position.data ?? Duration.zero))}',
+                            ),
+                          ],
+                        ),
+                      ],
+                    );
                   },
                 ),
               ),
@@ -72,7 +126,10 @@ class EpisodePlayerScreen extends ConsumerWidget {
                             tooltip: 'Previous episode',
                             iconSize: 36,
                             padding: EdgeInsets.zero,
-                            constraints: const BoxConstraints(minWidth: 48, minHeight: 48),
+                            constraints: const BoxConstraints(
+                              minWidth: 48,
+                              minHeight: 48,
+                            ),
                             onPressed: player.playPrevious,
                             icon: const Icon(Icons.skip_previous_rounded),
                           ),
@@ -86,10 +143,15 @@ class EpisodePlayerScreen extends ConsumerWidget {
                             tooltip: playing.data == true ? 'Pause' : 'Play',
                             iconSize: 68,
                             padding: EdgeInsets.zero,
-                            constraints: const BoxConstraints(minWidth: 72, minHeight: 72),
+                            constraints: const BoxConstraints(
+                              minWidth: 72,
+                              minHeight: 72,
+                            ),
                             onPressed: player.togglePlayback,
                             icon: Icon(
-                              playing.data == true ? Icons.pause_circle_filled : Icons.play_circle_filled,
+                              playing.data == true
+                                  ? Icons.pause_circle_filled
+                                  : Icons.play_circle_filled,
                               color: AppColors.coral,
                             ),
                           ),
@@ -102,7 +164,10 @@ class EpisodePlayerScreen extends ConsumerWidget {
                             tooltip: 'Next episode',
                             iconSize: 36,
                             padding: EdgeInsets.zero,
-                            constraints: const BoxConstraints(minWidth: 48, minHeight: 48),
+                            constraints: const BoxConstraints(
+                              minWidth: 48,
+                              minHeight: 48,
+                            ),
                             onPressed: player.playNext,
                             icon: const Icon(Icons.skip_next_rounded),
                           ),
@@ -112,25 +177,39 @@ class EpisodePlayerScreen extends ConsumerWidget {
                   ),
                 ),
               ),
-              Wrap(alignment: WrapAlignment.spaceEvenly, spacing: 18, runSpacing: 8, children: [
-                const _Action(icon: Icons.timer_outlined, label: 'Timer'),
-                _Action(
-                  icon: saved ? Icons.bookmark : Icons.bookmark_border,
-                  label: saved ? 'Saved' : 'Save',
-                  onTap: () async {
-                    final controller = ref.read(booksControllerProvider);
-                    final error = saved
-                        ? await controller.removeFromCollection(book)
-                        : await controller.addToCollection(book);
-                    if (context.mounted) AppMessage.show(context, error ?? (saved ? 'Removed from library' : 'Saved to library'), success: error == null);
-                  },
-                ),
-                _Action(
-                  icon: Icons.share_outlined,
-                  label: 'Share',
-                  onTap: () => Share.share('${book.title}\n\nListen on HappiNotes'),
-                ),
-              ]),
+              Wrap(
+                alignment: WrapAlignment.spaceEvenly,
+                spacing: 18,
+                runSpacing: 8,
+                children: [
+                  const _Action(icon: Icons.timer_outlined, label: 'Timer'),
+                  _Action(
+                    icon: saved ? Icons.bookmark : Icons.bookmark_border,
+                    label: saved ? 'Saved' : 'Save',
+                    onTap: () async {
+                      final controller = ref.read(booksControllerProvider);
+                      final error = saved
+                          ? await controller.removeFromCollection(book)
+                          : await controller.addToCollection(book);
+                      if (context.mounted)
+                        AppMessage.show(
+                          context,
+                          error ??
+                              (saved
+                                  ? 'Removed from library'
+                                  : 'Saved to library'),
+                          success: error == null,
+                        );
+                    },
+                  ),
+                  _Action(
+                    icon: Icons.share_outlined,
+                    label: 'Share',
+                    onTap: () =>
+                        Share.share('${book.title}\n\nListen on HappiNotes'),
+                  ),
+                ],
+              ),
             ],
           ),
         ),
@@ -138,12 +217,24 @@ class EpisodePlayerScreen extends ConsumerWidget {
     );
   }
 
-  static String _time(Duration value) => '${value.inMinutes.remainder(60).toString().padLeft(2, '0')}:${value.inSeconds.remainder(60).toString().padLeft(2, '0')}';
+  static String _time(Duration value) =>
+      '${value.inMinutes.remainder(60).toString().padLeft(2, '0')}:${value.inSeconds.remainder(60).toString().padLeft(2, '0')}';
 }
 
 class _Action extends StatelessWidget {
   const _Action({required this.icon, required this.label, this.onTap});
-  final IconData icon; final String label;
+  final IconData icon;
+  final String label;
   final VoidCallback? onTap;
-  @override Widget build(BuildContext context) => InkWell(onTap: onTap, borderRadius: BorderRadius.circular(12), child: Padding(padding: const EdgeInsets.all(8), child: Column(children: [Icon(icon), const SizedBox(height: 4), Text(label)])));
+  @override
+  Widget build(BuildContext context) => InkWell(
+    onTap: onTap,
+    borderRadius: BorderRadius.circular(12),
+    child: Padding(
+      padding: const EdgeInsets.all(8),
+      child: Column(
+        children: [Icon(icon), const SizedBox(height: 4), Text(label)],
+      ),
+    ),
+  );
 }

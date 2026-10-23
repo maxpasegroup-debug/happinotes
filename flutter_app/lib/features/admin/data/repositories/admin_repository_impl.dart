@@ -26,7 +26,8 @@ class AdminRepositoryImpl implements AdminRepository {
           .toList();
 
   @override
-  Future<void> deleteUser(String id) async => client.dio.delete('/admin/users/$id');
+  Future<void> deleteUser(String id) async =>
+      client.dio.delete('/admin/users/$id');
 
   @override
   Future<Map<String, dynamic>> upload(String path, String kind) async {
@@ -40,7 +41,11 @@ class AdminRepositoryImpl implements AdminRepository {
         ? 'image/webp'
         : 'image/jpeg';
     final form = FormData.fromMap({
-      'scope': kind == 'cover' ? 'cover' : kind == 'notification' ? 'notification' : 'lesson',
+      'scope': kind == 'cover'
+          ? 'cover'
+          : kind == 'notification'
+          ? 'notification'
+          : 'lesson',
       'media': await MultipartFile.fromFile(
         path,
         filename: fileName,
@@ -73,9 +78,9 @@ class AdminRepositoryImpl implements AdminRepository {
   Future<void> sendNotification(
     String title,
     String message,
-    String target,
-    {String? imageUrl}
-  ) async => client.dio.post(
+    String target, {
+    String? imageUrl,
+  }) async => client.dio.post(
     '/admin/notify',
     data: {
       'title': title,

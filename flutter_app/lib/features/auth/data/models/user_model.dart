@@ -14,22 +14,34 @@ class UserModel extends User {
     super.subscriptionExpiresAt,
   });
   factory UserModel.fromJson(Map<String, dynamic> json) {
-    final rawExpiry = json['subscriptionExpiresAt'] ??
-        (json['subscription'] is Map ? (json['subscription'] as Map)['expiresAt'] : null);
+    final rawExpiry =
+        json['subscriptionExpiresAt'] ??
+        (json['subscription'] is Map
+            ? (json['subscription'] as Map)['expiresAt']
+            : null);
     return UserModel(
-    id: (json['id'] ?? json['_id'] ?? '').toString(),
-    name: (json['name'] ?? '').toString(),
-    role: (json['role'] ?? 'user').toString(),
-    email: json['email']?.toString(),
-    phoneNumber: json['phoneNumber']?.toString(),
-    languagePreference: (json['languagePreference'] ?? 'all').toString(),
-    purchasedBookIds: (json['purchasedBookIds'] as List? ?? const []).map((e) => e.toString()).toList(),
-    subscriptionActive: json['subscriptionActive'] == true ||
-        (json['subscription'] is Map && (json['subscription'] as Map)['active'] == true),
-    subscriptionPlan: (json['subscriptionPlan'] ??
-            (json['subscription'] is Map ? (json['subscription'] as Map)['planKey'] : null))
-        ?.toString(),
-    subscriptionExpiresAt: rawExpiry == null ? null : DateTime.tryParse(rawExpiry.toString()),
+      id: (json['id'] ?? json['_id'] ?? '').toString(),
+      name: (json['name'] ?? '').toString(),
+      role: (json['role'] ?? 'user').toString(),
+      email: json['email']?.toString(),
+      phoneNumber: json['phoneNumber']?.toString(),
+      languagePreference: (json['languagePreference'] ?? 'all').toString(),
+      purchasedBookIds: (json['purchasedBookIds'] as List? ?? const [])
+          .map((e) => e.toString())
+          .toList(),
+      subscriptionActive:
+          json['subscriptionActive'] == true ||
+          (json['subscription'] is Map &&
+              (json['subscription'] as Map)['active'] == true),
+      subscriptionPlan:
+          (json['subscriptionPlan'] ??
+                  (json['subscription'] is Map
+                      ? (json['subscription'] as Map)['planKey']
+                      : null))
+              ?.toString(),
+      subscriptionExpiresAt: rawExpiry == null
+          ? null
+          : DateTime.tryParse(rawExpiry.toString()),
     );
   }
 }

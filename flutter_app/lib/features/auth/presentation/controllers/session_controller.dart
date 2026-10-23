@@ -14,11 +14,14 @@ class SessionController extends ChangeNotifier {
     await Future.wait([
       // Keep startup bounded when the saved token points at an unavailable
       // backend. Home/auth must still appear instead of looking frozen.
-      _restore().timeout(const Duration(seconds: 5), onTimeout: () {
-        // A slow/offline backend must not leave the app showing the splash
-        // indefinitely. The next authenticated request can retry normally.
-        if (!_disposed) user = null;
-      }),
+      _restore().timeout(
+        const Duration(seconds: 5),
+        onTimeout: () {
+          // A slow/offline backend must not leave the app showing the splash
+          // indefinitely. The next authenticated request can retry normally.
+          if (!_disposed) user = null;
+        },
+      ),
       // Keep the branded splash visible briefly, but do not make startup feel
       // frozen while the saved session is restored.
       // Keep the branded splash visible long enough for the native launch
@@ -110,7 +113,11 @@ class SessionController extends ChangeNotifier {
     notifyListeners();
   }
 
-  void updateSubscription({required bool active, String? plan, DateTime? expiresAt}) {
+  void updateSubscription({
+    required bool active,
+    String? plan,
+    DateTime? expiresAt,
+  }) {
     if (user == null) return;
     final current = user!;
     user = User(
@@ -128,8 +135,16 @@ class SessionController extends ChangeNotifier {
     notifyListeners();
   }
 
-  Future<void> signupWithEmail(String name, String email, String password) async {
-    user = await repository.signupWithEmail(name: name, email: email, password: password);
+  Future<void> signupWithEmail(
+    String name,
+    String email,
+    String password,
+  ) async {
+    user = await repository.signupWithEmail(
+      name: name,
+      email: email,
+      password: password,
+    );
     notifyListeners();
   }
 
@@ -138,14 +153,35 @@ class SessionController extends ChangeNotifier {
     notifyListeners();
   }
 
-  Future<Map<String, dynamic>> requestEmailOtp(String email, bool signup) => repository.requestEmailOtp(email: email, signup: signup);
-  Future<String> verifyEmailOtp(String email, String otp, bool signup) => repository.verifyEmailOtp(email: email, otp: otp, signup: signup);
-  Future<void> signupWithEmailChallenge(String name, String email, String password, String challenge) async {
-    user = await repository.signupWithEmailChallenge(name: name, email: email, password: password, challenge: challenge);
+  Future<Map<String, dynamic>> requestEmailOtp(String email, bool signup) =>
+      repository.requestEmailOtp(email: email, signup: signup);
+  Future<String> verifyEmailOtp(String email, String otp, bool signup) =>
+      repository.verifyEmailOtp(email: email, otp: otp, signup: signup);
+  Future<void> signupWithEmailChallenge(
+    String name,
+    String email,
+    String password,
+    String challenge,
+  ) async {
+    user = await repository.signupWithEmailChallenge(
+      name: name,
+      email: email,
+      password: password,
+      challenge: challenge,
+    );
     notifyListeners();
   }
-  Future<void> loginWithEmailChallenge(String email, String password, String challenge) async {
-    user = await repository.loginWithEmailChallenge(email: email, password: password, challenge: challenge);
+
+  Future<void> loginWithEmailChallenge(
+    String email,
+    String password,
+    String challenge,
+  ) async {
+    user = await repository.loginWithEmailChallenge(
+      email: email,
+      password: password,
+      challenge: challenge,
+    );
     notifyListeners();
   }
 

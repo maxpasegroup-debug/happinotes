@@ -67,7 +67,11 @@ class BookDraft {
     'introAudioFileName': audioFileName,
     'totalDurationSeconds': int.tryParse(duration) ?? 0,
     'sortOrder': int.tryParse(sortOrder) ?? 0,
-    'tags': tags.split(',').map((e) => e.trim()).where((e) => e.isNotEmpty).toList(),
+    'tags': tags
+        .split(',')
+        .map((e) => e.trim())
+        .where((e) => e.isNotEmpty)
+        .toList(),
     'isFeatured': featured,
     'isTrending': trending,
     'lessons': episodes,
@@ -75,7 +79,9 @@ class BookDraft {
 }
 
 class AdminController extends ChangeNotifier {
-  AdminController(this.repository, this.client) { loadAll(); }
+  AdminController(this.repository, this.client) {
+    loadAll();
+  }
   final AdminRepository repository;
   final ApiClient client;
   Map<String, dynamic> stats = {};
@@ -86,36 +92,56 @@ class AdminController extends ChangeNotifier {
   BookDraft draft = BookDraft();
   String notificationImageUrl = '';
 
-  void selectTab(int value) { tab = value; notifyListeners(); }
+  void selectTab(int value) {
+    tab = value;
+    notifyListeners();
+  }
+
   void notifyChanged() => notifyListeners();
-  void newBook() { draft = BookDraft(); error = null; notifyListeners(); }
-  void editBook(Map<String, dynamic> book) { draft = BookDraft.fromJson(book); error = null; notifyListeners(); }
+  void newBook() {
+    draft = BookDraft();
+    error = null;
+    notifyListeners();
+  }
+
+  void editBook(Map<String, dynamic> book) {
+    draft = BookDraft.fromJson(book);
+    error = null;
+    notifyListeners();
+  }
 
   Future<void> loadAll() async {
-    loading = true; error = null; notifyListeners();
+    loading = true;
+    error = null;
+    notifyListeners();
     try {
       final result = await Future.wait([
-        repository.getStats(), repository.getBooks(), repository.getUsers(),
+        repository.getStats(),
+        repository.getBooks(),
+        repository.getUsers(),
       ]);
       stats = result[0] as Map<String, dynamic>;
       books = result[1] as List<Map<String, dynamic>>;
       users = result[2] as List<Map<String, dynamic>>;
-    } catch (e) { error = client.errorMessage(e); }
-    loading = false; notifyListeners();
+    } catch (e) {
+      error = client.errorMessage(e);
+    }
+    loading = false;
+    notifyListeners();
   }
 
   Future<bool> uploadMedia(String kind) async {
     final result = await FilePicker.pickFiles(
       type: FileType.custom,
-      allowedExtensions: kind == 'cover' ? ['jpg', 'jpeg', 'png', 'webp'] : ['mp3'],
+      allowedExtensions: kind == 'cover'
+          ? ['jpg', 'jpeg', 'png', 'webp']
+          : ['mp3'],
     );
     if (result.isEmpty) return false;
     final file = result.single;
     final path = file.path;
     if (path == null) return false;
-    final maximumBytes = kind == 'cover'
-        ? 5 * 1024 * 1024
-        : 200 * 1024 * 1024;
+    final maximumBytes = kind == 'cover' ? 5 * 1024 * 1024 : 200 * 1024 * 1024;
     final fileSize = await file.length() ?? 0;
     if (fileSize > maximumBytes) {
       error = kind == 'cover'
@@ -124,7 +150,9 @@ class AdminController extends ChangeNotifier {
       notifyListeners();
       return false;
     }
-    busy = true; error = null; notifyListeners();
+    busy = true;
+    error = null;
+    notifyListeners();
     try {
       final media = await repository.upload(path, kind);
       if (kind == 'cover') {
@@ -150,8 +178,13 @@ class AdminController extends ChangeNotifier {
       }
       success = kind == 'cover' ? 'Cover uploaded' : 'MP3 uploaded';
       return true;
-    } catch (e) { error = client.errorMessage(e); return false; }
-    finally { busy = false; notifyListeners(); }
+    } catch (e) {
+      error = client.errorMessage(e);
+      return false;
+    } finally {
+      busy = false;
+      notifyListeners();
+    }
   }
 
   Future<bool> uploadEpisode() async {
@@ -184,7 +217,11 @@ class AdminController extends ChangeNotifier {
     }
   }
 
-  void episodesAdd({required String title, required String mediaUrl, required String fileName}) {
+  void episodesAdd({
+    required String title,
+    required String mediaUrl,
+    required String fileName,
+  }) {
     draft.episodes.add({
       'title': title,
       'description': '',
@@ -211,23 +248,47 @@ class AdminController extends ChangeNotifier {
 
   Future<bool> saveBook() async {
     if (draft.title.trim().isEmpty || draft.description.trim().isEmpty) {
-      error = 'Title and description are required.'; notifyListeners(); return false;
+      error = 'Title and description are required.';
+      notifyListeners();
+      return false;
     }
-    busy = true; error = null; success = null; notifyListeners();
+    busy = true;
+    error = null;
+    success = null;
+    notifyListeners();
     try {
-      if (draft.id == null) await repository.createBook(draft.toJson());
-      else await repository.updateBook(draft.id!, draft.toJson());
+      if (draft.id == null)
+        await repository.createBook(draft.toJson());
+      else
+        await repository.updateBook(draft.id!, draft.toJson());
       success = draft.id == null ? 'Book created' : 'Book updated';
-      await loadAll(); return true;
-    } catch (e) { error = client.errorMessage(e); return false; }
-    finally { busy = false; notifyListeners(); }
+      await loadAll();
+      return true;
+    } catch (e) {
+      error = client.errorMessage(e);
+      return false;
+    } finally {
+      busy = false;
+      notifyListeners();
+    }
   }
 
   Future<bool> removeBook(String id) async {
-    busy = true; error = null; notifyListeners();
-    try { await repository.deleteBook(id); success = 'Book deleted'; await loadAll(); return true; }
-    catch (e) { error = client.errorMessage(e); return false; }
-    finally { busy = false; notifyListeners(); }
+    busy = true;
+    error = null;
+    notifyListeners();
+    try {
+      await repository.deleteBook(id);
+      success = 'Book deleted';
+      await loadAll();
+      return true;
+    } catch (e) {
+      error = client.errorMessage(e);
+      return false;
+    } finally {
+      busy = false;
+      notifyListeners();
+    }
   }
 
   Future<bool> uploadNotificationImage() async {
@@ -257,17 +318,47 @@ class AdminController extends ChangeNotifier {
   }
 
   Future<bool> notifyUsers(String title, String message, String target) async {
-    if (title.trim().isEmpty || message.trim().isEmpty) { error = 'Enter a title and message.'; notifyListeners(); return false; }
-    busy = true; error = null; notifyListeners();
-    try { await repository.sendNotification(title.trim(), message.trim(), target, imageUrl: notificationImageUrl); success = 'Notification sent'; return true; }
-    catch (e) { error = client.errorMessage(e); return false; }
-    finally { busy = false; notifyListeners(); }
+    if (title.trim().isEmpty || message.trim().isEmpty) {
+      error = 'Enter a title and message.';
+      notifyListeners();
+      return false;
+    }
+    busy = true;
+    error = null;
+    notifyListeners();
+    try {
+      await repository.sendNotification(
+        title.trim(),
+        message.trim(),
+        target,
+        imageUrl: notificationImageUrl,
+      );
+      success = 'Notification sent';
+      return true;
+    } catch (e) {
+      error = client.errorMessage(e);
+      return false;
+    } finally {
+      busy = false;
+      notifyListeners();
+    }
   }
 
   Future<bool> removeUser(String id) async {
-    busy = true; error = null; notifyListeners();
-    try { await repository.deleteUser(id); success = 'User deleted'; await loadAll(); return true; }
-    catch (e) { error = client.errorMessage(e); return false; }
-    finally { busy = false; notifyListeners(); }
+    busy = true;
+    error = null;
+    notifyListeners();
+    try {
+      await repository.deleteUser(id);
+      success = 'User deleted';
+      await loadAll();
+      return true;
+    } catch (e) {
+      error = client.errorMessage(e);
+      return false;
+    } finally {
+      busy = false;
+      notifyListeners();
+    }
   }
 }
