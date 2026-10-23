@@ -97,13 +97,14 @@ DioException _sessionExpired() => DioException(
 Widget _app(_FakeDeletionRepository repository) {
   final session = SessionController(repository)..user = _user;
   return ProviderScope(
+    key: ValueKey(repository),
     overrides: [
       sessionControllerProvider.overrideWith((ref) => session),
       apiClientProvider.overrideWithValue(ApiClient()),
     ],
     child: MaterialApp(
       theme: buildHappiTheme(),
-      home: const AccountDeletionScreen(),
+      home: AccountDeletionScreen(key: ValueKey(repository)),
     ),
   );
 }

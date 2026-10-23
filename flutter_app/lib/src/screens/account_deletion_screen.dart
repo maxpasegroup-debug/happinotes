@@ -189,54 +189,10 @@ class _AccountDeletionScreenState extends ConsumerState<AccountDeletionScreen> {
       ) ??
       false;
 
-  Future<String?> _showReauthenticationDialog() async {
-    final controller = TextEditingController();
-    var obscure = true;
-    try {
-      return await showDialog<String>(
-        context: context,
-        builder: (dialogContext) => StatefulBuilder(
-          builder: (context, setDialogState) => AlertDialog(
-            title: const Text('Confirm your identity'),
-            content: TextField(
-              controller: controller,
-              autofocus: true,
-              obscureText: obscure,
-              autocorrect: false,
-              enableSuggestions: false,
-              onChanged: (_) => setDialogState(() {}),
-              textInputAction: TextInputAction.done,
-              onSubmitted: (value) {
-                if (value.length >= 6) Navigator.pop(dialogContext, value);
-              },
-              decoration: InputDecoration(
-                labelText: 'Password or PIN',
-                suffixIcon: IconButton(
-                  tooltip: obscure ? 'Show credential' : 'Hide credential',
-                  icon: Icon(obscure ? Icons.visibility_off : Icons.visibility),
-                  onPressed: () => setDialogState(() => obscure = !obscure),
-                ),
-              ),
-            ),
-            actions: [
-              TextButton(
-                onPressed: () => Navigator.pop(dialogContext),
-                child: const Text('Cancel'),
-              ),
-              FilledButton(
-                onPressed: controller.text.length < 6
-                    ? null
-                    : () => Navigator.pop(dialogContext, controller.text),
-                child: const Text('Verify'),
-              ),
-            ],
-          ),
-        ),
-      );
-    } finally {
-      controller.dispose();
-    }
-  }
+  Future<String?> _showReauthenticationDialog() => showDialog<String>(
+    context: context,
+    builder: (_) => const _ReauthenticationDialog(),
+  );
 
   Future<bool> _showFinalConfirmationDialog() async =>
       await showDialog<bool>(
@@ -439,6 +395,68 @@ class _AccountDeletionScreenState extends ConsumerState<AccountDeletionScreen> {
       ),
     );
   }
+}
+
+class _ReauthenticationDialog extends StatefulWidget {
+  const _ReauthenticationDialog();
+
+  @override
+  State<_ReauthenticationDialog> createState() =>
+      _ReauthenticationDialogState();
+}
+
+class _ReauthenticationDialogState extends State<_ReauthenticationDialog> {
+  late final TextEditingController _controller;
+  bool _obscure = true;
+
+  @override
+  void initState() {
+    super.initState();
+    _controller = TextEditingController();
+  }
+
+  @override
+  void dispose() {
+    _controller.dispose();
+    super.dispose();
+  }
+
+  @override
+  Widget build(BuildContext dialogContext) => AlertDialog(
+    title: const Text('Confirm your identity'),
+    content: TextField(
+      controller: _controller,
+      autofocus: true,
+      obscureText: _obscure,
+      autocorrect: false,
+      enableSuggestions: false,
+      onChanged: (_) => setState(() {}),
+      textInputAction: TextInputAction.done,
+      onSubmitted: (value) {
+        if (value.length >= 6) Navigator.pop(dialogContext, value);
+      },
+      decoration: InputDecoration(
+        labelText: 'Password or PIN',
+        suffixIcon: IconButton(
+          tooltip: _obscure ? 'Show credential' : 'Hide credential',
+          icon: Icon(_obscure ? Icons.visibility_off : Icons.visibility),
+          onPressed: () => setState(() => _obscure = !_obscure),
+        ),
+      ),
+    ),
+    actions: [
+      TextButton(
+        onPressed: () => Navigator.pop(dialogContext),
+        child: const Text('Cancel'),
+      ),
+      FilledButton(
+        onPressed: _controller.text.length < 6
+            ? null
+            : () => Navigator.pop(dialogContext, _controller.text),
+        child: const Text('Verify'),
+      ),
+    ],
+  );
 }
 
 class _StatusCard extends StatelessWidget {
