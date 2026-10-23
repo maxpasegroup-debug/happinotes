@@ -38,22 +38,3 @@ export type User = {
   subscriptionExpiry: string | null;
   createdAt: string;
 };
-
-export type Payment = {
-  _id: string;
-  planId: string;
-  amountINR: number;
-  status: 'pending' | 'completed' | 'failed' | 'refunded';
-  createdAt: string;
-  userId?: { name?: string; email?: string };
-};
-
-export type Offer = {
-  _id: string;
-  code?: string;
-  discountPercent: number;
-  validFrom: string;
-  validUntil: string;
-  isActive: boolean;
-  appliesToPlan: 'monthly' | 'yearly' | 'lifetime' | 'all';
-};

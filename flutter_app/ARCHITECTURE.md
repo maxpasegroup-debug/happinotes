@@ -1,4 +1,7 @@
-# Flutter architecture
+# Archived Flutter architecture
+
+> Reference only. This Flutter client is retired from the active product. The
+> supported Android and iOS customer app lives in `mobile/` and uses Expo.
 
 The Flutter client uses feature-first Clean Architecture.
 

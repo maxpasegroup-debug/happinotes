@@ -6,14 +6,15 @@ export type SubscriptionStatus = 'free' | 'premium' | 'lifetime';
 
 export interface IUser extends Document {
   name: string;
-  email?: string;
-  phoneNumber?: string;
+  email: string;
   password: string;
   role: UserRole;
   languagePreference: LanguagePreference;
   subscriptionStatus: SubscriptionStatus;
   subscriptionExpiry: Date | null;
-  razorpaySubscriptionId: string | null;
+  subscriptionSource: 'admin' | 'apple' | 'google' | null;
+  storeAccountToken: string | null;
+  googleObfuscatedAccountId: string | null;
   expoPushToken: string | null;
   bookCollection: mongoose.Types.ObjectId[];
   createdAt: Date;
@@ -23,8 +24,7 @@ export interface IUser extends Document {
 const userSchema = new Schema<IUser>(
   {
     name: { type: String, required: true, trim: true },
-    email: { type: String, unique: true, sparse: true, lowercase: true, trim: true },
-    phoneNumber: { type: String, unique: true, sparse: true, trim: true },
+    email: { type: String, required: true, unique: true, sparse: true, lowercase: true, trim: true },
     password: { type: String, required: true, select: false },
     role: { type: String, enum: ['admin', 'user'], default: 'user' },
     languagePreference: {
@@ -38,7 +38,9 @@ const userSchema = new Schema<IUser>(
       default: 'free',
     },
     subscriptionExpiry: { type: Date, default: null },
-    razorpaySubscriptionId: { type: String, default: null },
+    subscriptionSource: { type: String, enum: ['admin', 'apple', 'google'], default: null },
+    storeAccountToken: { type: String, default: null, select: false },
+    googleObfuscatedAccountId: { type: String, default: null, select: false },
     expoPushToken: { type: String, default: null },
     bookCollection: [{ type: Schema.Types.ObjectId, ref: 'Book', default: [] }],
   },

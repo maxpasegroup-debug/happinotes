@@ -19,7 +19,9 @@ const buildPublicBookFilter = (req: Request): FilterQuery<IBook> => {
 
 const hasPremiumAccess = (req: Request) => {
   const status = req.user?.subscriptionStatus;
-  return status === 'premium' || status === 'lifetime';
+  return status === 'lifetime' || (
+    status === 'premium' && Boolean(req.user?.subscriptionExpiry && req.user.subscriptionExpiry > new Date())
+  );
 };
 
 export const getBooks = async (

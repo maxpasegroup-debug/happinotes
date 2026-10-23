@@ -1,19 +1,80 @@
 import { useRouter } from "expo-router";
 import React, { useState } from "react";
-import { Pressable, ScrollView, StyleSheet, Text, TextInput, TouchableOpacity } from "react-native";
+import { KeyboardAvoidingView, Platform, Pressable, ScrollView, StyleSheet, Text, TextInput, TouchableOpacity } from "react-native";
 import { SafeAreaView } from "react-native-safe-area-context";
+import Toast from "react-native-toast-message";
 import { api } from "@/services/api";
 import { AuthUser, saveAuth } from "@/store/authStore";
 import { registerPushNotifications } from "@/services/notifications";
-import { OtpInput } from "@/components/OtpInput";
-import Toast from "react-native-toast-message";
+
 type AuthResponse = { success: boolean; token: string; user: AuthUser };
-type OtpResponse = { success: boolean; message: string; testOtp?: string };
-const cleanPhone = (v: string) => v.replace(/[^\d+]/g, "");
+
 export default function Signup() {
-  const router=useRouter(); const [name,setName]=useState(""); const [phoneNumber,setPhoneNumber]=useState("+91"); const [pin,setPin]=useState(""); const [confirmPin,setConfirmPin]=useState(""); const [otp,setOtp]=useState(""); const [testOtp,setTestOtp]=useState(""); const [requested,setRequested]=useState(false); const [error,setError]=useState(""); const [loading,setLoading]=useState(false); const phone=cleanPhone(phoneNumber);
-  const requestOtp=async()=>{ setError(""); if(!name.trim()||!/^\+[1-9]\d{7,14}$/.test(phone)) return setError("Enter your name and WhatsApp number with country code."); if(!/^\d{6}$/.test(pin)) return setError("PIN must be exactly 6 digits."); if(pin!==confirmPin) return setError("PINs do not match."); setLoading(true); const r=await api.post<OtpResponse>("/auth/request-signup-otp",{phoneNumber:phone},{skipAuth:true}); setLoading(false); if(!r.success||!r.data)return setError(r.error||"Could not generate OTP."); setTestOtp(r.data.testOtp||""); setRequested(true); };
-  const signup=async()=>{ setError(""); if(!/^\d{6}$/.test(otp))return setError("Enter the 6-digit OTP."); setLoading(true); const r=await api.post<AuthResponse>("/auth/signup",{name:name.trim(),phoneNumber:phone,pin,otp},{skipAuth:true}); setLoading(false); if(!r.success||!r.data)return setError(r.error||"Signup failed."); await saveAuth(r.data.token,r.data.user); Toast.show({type:"success",text1:"OTP verified",text2:"Your account was created successfully."}); void registerPushNotifications(); router.replace(r.data.user.role === "admin" ? "/(admin)/dashboard" : "/(app)/home"); };
-  return <SafeAreaView style={s.safe}><ScrollView contentContainerStyle={s.container} keyboardShouldPersistTaps="handled"><Text style={s.header}>Create Account</Text>{!requested?<><TextInput placeholder="Full Name" placeholderTextColor="#737373" selectionColor="#FF6B4A" style={s.input} value={name} onChangeText={setName}/><TextInput placeholder="WhatsApp number, e.g. +919876543210" placeholderTextColor="#737373" selectionColor="#FF6B4A" style={s.input} value={phoneNumber} onChangeText={setPhoneNumber} keyboardType="phone-pad"/><TextInput placeholder="Create 6-digit PIN" placeholderTextColor="#737373" selectionColor="#FF6B4A" style={s.input} value={pin} onChangeText={v=>setPin(v.replace(/\D/g,""))} keyboardType="number-pad" secureTextEntry maxLength={6}/><TextInput placeholder="Confirm 6-digit PIN" placeholderTextColor="#737373" selectionColor="#FF6B4A" style={s.input} value={confirmPin} onChangeText={v=>setConfirmPin(v.replace(/\D/g,""))} keyboardType="number-pad" secureTextEntry maxLength={6}/><TouchableOpacity style={s.button} onPress={requestOtp} disabled={loading}><Text style={s.buttonText}>{loading?"Generating...":"Get WhatsApp OTP"}</Text></TouchableOpacity></>:<><Text style={s.info}>Enter the 6-digit code sent to {phone}</Text>{testOtp?<Text style={s.test}>TEST OTP: {testOtp}</Text>:null}<OtpInput value={otp} onChange={setOtp} hasError={Boolean(error)}/><TouchableOpacity style={s.button} onPress={signup} disabled={loading}><Text style={s.buttonText}>{loading?"Creating...":"Verify & Create Account"}</Text></TouchableOpacity><Pressable onPress={()=>setRequested(false)}><Text style={s.link}>Change details</Text></Pressable></>}{error?<Text style={s.error}>{error}</Text>:null}<Pressable onPress={()=>router.back()}><Text style={s.link}>Already have an account? Login</Text></Pressable></ScrollView></SafeAreaView>;
+  const router = useRouter();
+  const [name, setName] = useState("");
+  const [email, setEmail] = useState("");
+  const [password, setPassword] = useState("");
+  const [confirmPassword, setConfirmPassword] = useState("");
+  const [error, setError] = useState("");
+  const [loading, setLoading] = useState(false);
+
+  const signup = async () => {
+    setError("");
+    const normalizedEmail = email.trim().toLowerCase();
+    if (!name.trim() || !normalizedEmail) return setError("Enter your name and email address.");
+    if (password.length < 8) return setError("Use a password with at least 8 characters.");
+    if (password !== confirmPassword) return setError("Your passwords do not match.");
+
+    setLoading(true);
+    const result = await api.post<AuthResponse>(
+      "/auth/signup",
+      { name: name.trim(), email: normalizedEmail, password },
+      { skipAuth: true }
+    );
+    setLoading(false);
+
+    if (!result.success || !result.data) {
+      setError(result.error || "Could not create your account.");
+      return;
+    }
+
+    await saveAuth(result.data.token, result.data.user);
+    Toast.show({ type: "success", text1: "Account created" });
+    void registerPushNotifications();
+    router.replace(result.data.user.role === "admin" ? "/(admin)/dashboard" : "/(app)/home");
+  };
+
+  return (
+    <SafeAreaView style={styles.safe}>
+      <KeyboardAvoidingView style={styles.safe} behavior={Platform.OS === "ios" ? "padding" : "height"}>
+        <ScrollView contentContainerStyle={styles.container} keyboardShouldPersistTaps="handled">
+          <Text style={styles.header}>Create account</Text>
+          <Text style={styles.subtitle}>Save your place and keep listening anywhere.</Text>
+          <TextInput autoCapitalize="words" autoComplete="name" placeholder="Full name" style={styles.input} value={name} onChangeText={setName} />
+          <TextInput autoCapitalize="none" autoComplete="email" keyboardType="email-address" placeholder="Email address" style={styles.input} value={email} onChangeText={setEmail} />
+          <TextInput autoCapitalize="none" autoComplete="new-password" placeholder="Password (at least 8 characters)" secureTextEntry style={styles.input} value={password} onChangeText={setPassword} />
+          <TextInput autoCapitalize="none" autoComplete="new-password" placeholder="Confirm password" secureTextEntry style={styles.input} value={confirmPassword} onChangeText={setConfirmPassword} />
+          {error ? <Text accessibilityRole="alert" style={styles.error}>{error}</Text> : null}
+          <TouchableOpacity style={styles.button} onPress={signup} disabled={loading}>
+            <Text style={styles.buttonText}>{loading ? "Creating account..." : "Create Account"}</Text>
+          </TouchableOpacity>
+          <Pressable onPress={() => router.replace("/")}>
+            <Text style={styles.link}>Already have an account? Sign in</Text>
+          </Pressable>
+        </ScrollView>
+      </KeyboardAvoidingView>
+    </SafeAreaView>
+  );
 }
-const s=StyleSheet.create({safe:{flex:1,backgroundColor:"#fff"},container:{flexGrow:1,backgroundColor:"#fff",justifyContent:"center",padding:24,paddingBottom:32},header:{fontSize:26,fontWeight:"700",marginBottom:30,textAlign:"center",color:"#242424"},input:{backgroundColor:"#F2F2F2",color:"#242424",padding:16,borderRadius:14,marginBottom:16},button:{backgroundColor:"#FF6B4A",padding:18,borderRadius:16,alignItems:"center"},buttonText:{color:"#fff",fontWeight:"700",fontSize:16},link:{marginTop:20,textAlign:"center",color:"#555"},error:{color:"#B42318",marginTop:14,textAlign:"center"},info:{textAlign:"center",marginBottom:14,color:"#555"},test:{backgroundColor:"#ECFDF3",color:"#067647",padding:14,borderRadius:12,textAlign:"center",fontSize:20,fontWeight:"800",marginBottom:16}});
+
+const styles = StyleSheet.create({
+  safe: { flex: 1, backgroundColor: "#FFFFFF" },
+  container: { flexGrow: 1, backgroundColor: "#FFFFFF", justifyContent: "center", padding: 24, paddingBottom: 32 },
+  header: { color: "#242424", fontSize: 28, fontWeight: "800", textAlign: "center" },
+  subtitle: { color: "#667085", marginBottom: 26, marginTop: 9, textAlign: "center" },
+  input: { backgroundColor: "#F2F2F2", borderRadius: 14, color: "#242424", marginBottom: 14, padding: 16 },
+  button: { alignItems: "center", backgroundColor: "#FF6B4A", borderRadius: 16, marginTop: 8, padding: 18 },
+  buttonText: { color: "#FFFFFF", fontSize: 16, fontWeight: "700" },
+  link: { color: "#555555", fontWeight: "600", marginTop: 20, textAlign: "center" },
+  error: { color: "#B42318", marginTop: 8, textAlign: "center" },
+});

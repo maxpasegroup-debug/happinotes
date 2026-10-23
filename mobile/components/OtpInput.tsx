@@ -18,7 +18,7 @@ export function OtpInput({ value, onChange, hasError = false }: Props) {
           </View>
         ))}
       </View>
-      <TextInput ref={inputRef} value={value} onChangeText={(text) => onChange(text.replace(/\D/g, "").slice(0, OTP_LENGTH))} keyboardType="number-pad" maxLength={OTP_LENGTH} autoComplete="sms-otp" textContentType="oneTimeCode" caretHidden selectionColor="transparent" style={styles.hiddenInput} />
+      <TextInput ref={inputRef} value={value} onChangeText={(text) => onChange(text.replace(/\D/g, "").slice(0, OTP_LENGTH))} keyboardType="number-pad" maxLength={OTP_LENGTH} autoComplete="one-time-code" textContentType="oneTimeCode" caretHidden selectionColor="transparent" style={styles.hiddenInput} />
     </Pressable>
   );
 }

@@ -18,6 +18,7 @@
   "author": "",
   "license": "ISC",
   "dependencies": {
+    "@apple/app-store-server-library": "^3.1.0",
     "@sentry/node": "^10.53.1",
     "bcryptjs": "^2.4.3",
     "cloudinary": "^2.10.0",
@@ -31,8 +32,6 @@
     "jsonwebtoken": "^9.0.2",
     "mongoose": "^8.0.3",
     "multer": "^2.1.1",
-    "nodemailer": "^8.0.7",
-    "razorpay": "^2.9.6",
     "socket.io": "^4.8.3"
   },
   "devDependencies": {

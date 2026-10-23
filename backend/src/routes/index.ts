@@ -4,8 +4,8 @@ import booksRoutes from './booksRoutes';
 import collectionRoutes from './collectionRoutes';
 import adminRoutes from './adminRoutes';
 import progressRoutes from './progressRoutes';
-import paymentsRoutes from './paymentsRoutes';
-import offersRoutes from './offersRoutes';
+import subscriptionsRoutes from './subscriptionsRoutes';
+import storeNotificationsRoutes from './storeNotificationsRoutes';
 
 const router = Router();
 
@@ -13,8 +13,8 @@ router.use('/auth', authRoutes);
 router.use('/books', booksRoutes);
 router.use('/collection', collectionRoutes);
 router.use('/progress', progressRoutes);
-router.use('/payments', paymentsRoutes);
-router.use('/offers', offersRoutes);
+router.use('/subscriptions', subscriptionsRoutes);
+router.use('/store-notifications', storeNotificationsRoutes);
 router.use('/admin', adminRoutes);
 
 export default router;

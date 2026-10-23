@@ -7,13 +7,12 @@ export type SubscriptionStatus = "free" | "premium" | "lifetime";
 export type AuthUser = {
   id: string;
   name: string;
-  email?: string;
-  phoneNumber?: string;
+  email: string;
   role: UserRole;
   languagePreference: LanguagePreference;
   subscriptionStatus: SubscriptionStatus;
   subscriptionExpiry: string | null;
-  razorpaySubscriptionId?: string | null;
+  subscriptionSource?: 'admin' | 'apple' | 'google' | null;
 };
 
 export const JWT_TOKEN_KEY = "jwt_token";

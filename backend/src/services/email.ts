@@ -1,31 +1,26 @@
-import nodemailer from 'nodemailer';
 import { env } from '../config/env';
 
-const hasSmtpConfig = Boolean(env.SMTP_HOST && env.SMTP_USER && env.SMTP_PASS);
-
 export const sendPasswordResetOtp = async (email: string, otp: string): Promise<void> => {
-  if (!hasSmtpConfig) {
-    if (env.NODE_ENV !== 'production') {
-      console.info(`Password reset OTP for ${email}: ${otp}`);
-      return;
-    }
-    throw new Error('SMTP is not configured');
+  if (!env.RESEND_API_KEY || !env.RESEND_FROM) {
+    throw new Error('Resend email delivery is not configured.');
   }
 
-  const transporter = nodemailer.createTransport({
-    host: env.SMTP_HOST,
-    port: env.SMTP_PORT,
-    secure: env.SMTP_PORT === 465,
-    auth: {
-      user: env.SMTP_USER,
-      pass: env.SMTP_PASS,
+  const response = await fetch('https://api.resend.com/emails', {
+    method: 'POST',
+    headers: {
+      Authorization: `Bearer ${env.RESEND_API_KEY}`,
+      'Content-Type': 'application/json',
     },
+    body: JSON.stringify({
+      from: env.RESEND_FROM,
+      to: [email],
+      subject: 'Your HappiNotes password reset code',
+      text: `Your HappiNotes password reset code is ${otp}. It expires in 10 minutes. If you did not request this, you can ignore this email.`,
+    }),
   });
 
-  await transporter.sendMail({
-    from: env.SMTP_FROM,
-    to: email,
-    subject: 'Your HappiNotes password reset OTP',
-    text: `Your HappiNotes password reset OTP is ${otp}. It expires in 10 minutes.`,
-  });
+  if (!response.ok) {
+    const detail = await response.text().catch(() => '');
+    throw new Error(`Resend email delivery failed (${response.status}): ${detail}`);
+  }
 };

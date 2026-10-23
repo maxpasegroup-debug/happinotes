@@ -3,9 +3,9 @@
 import { useState } from 'react';
 import { useRouter } from 'next/navigation';
 import { clientApi } from '@/lib/client-api';
-import type { Payment, User } from '@/lib/types';
+import type { User } from '@/lib/types';
 
-export function UserActions({ user, payments }: { user: User; payments?: Payment[] }) {
+export function UserActions({ user }: { user: User }) {
   const router = useRouter();
   const [expiry, setExpiry] = useState(user.subscriptionExpiry?.slice(0, 10) || '');
 
@@ -37,7 +37,6 @@ export function UserActions({ user, payments }: { user: User; payments?: Payment
           <button className="button secondary" onClick={() => subscription('free')}>Revoke Premium</button>
           <button className="button danger" onClick={remove}>Delete User</button>
         </div>
-        {payments?.length ? <p className="muted">{payments.length} payments found.</p> : null}
       </div>
     </details>
   );

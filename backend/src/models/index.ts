@@ -10,5 +10,5 @@ export {
 } from './Book';
 export { Chapter, IChapter } from './Chapter';
 export { ListeningProgress, IListeningProgress } from './ListeningProgress';
-export { Offer, IOffer, OfferPlanTarget } from './Offer';
-export { PaymentTransaction, IPaymentTransaction, PaymentStatus } from './PaymentTransaction';
+export { StoreSubscription, IStoreSubscription, StoreName, StoreSubscriptionState } from './StoreSubscription';
+export { StoreNotificationEvent, IStoreNotificationEvent } from './StoreNotificationEvent';

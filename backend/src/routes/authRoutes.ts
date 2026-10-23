@@ -1,86 +1,67 @@
 import { Router } from 'express';
 import { body } from 'express-validator';
+import rateLimit from 'express-rate-limit';
 import {
   changePassword,
-  changeLoginPhone,
   forgotPassword,
   getMe,
-  requestSignupOtp,
-  requestLoginOtp,
-  verifyLoginOtp,
-  forgotPin,
-  resetPin,
   login,
   resetPassword,
   signup,
   updateMe,
-  verifyOtp,
 } from '../controllers/authController';
 import { authenticate, validateRequest } from '../middleware';
 
 const router = Router();
 
-const phone = body('phoneNumber').matches(/^\+[1-9]\d{7,14}$/).withMessage('Use a valid WhatsApp number with country code');
-const sixDigitPin = (field: string) => body(field).matches(/^\d{6}$/).withMessage('PIN must be exactly 6 digits');
+const email = (field = 'email') =>
+  body(field).trim().toLowerCase().isEmail().withMessage('Enter a valid email address');
 
-const signupValidation = [
-  body('name').trim().notEmpty().withMessage('Name is required'),
-  body().custom((value) => {
-    if (value.phoneNumber) {
-      if (!/^\+[1-9]\d{7,14}$/.test(value.phoneNumber) || !/^\d{6}$/.test(value.pin) || !/^\d{6}$/.test(value.otp)) throw new Error('Valid WhatsApp number, OTP and 6-digit PIN are required');
-    } else if (!value.email || !value.password || value.password.length < 8) throw new Error('Valid email and password are required');
-    return true;
-  }),
-];
+const password = (field: string) =>
+  body(field)
+    .isString()
+    .isLength({ min: 8, max: 128 })
+    .withMessage('Password must be between 8 and 128 characters');
 
-const loginValidation = [
-  body().custom((value) => {
-    if (value.phoneNumber) {
-      if (!/^\+[1-9]\d{7,14}$/.test(value.phoneNumber) || !/^\d{6}$/.test(value.pin) || !value.loginChallenge) throw new Error('OTP verification and a valid 6-digit PIN are required');
-    } else if (!value.email || !value.password) throw new Error('Email and password are required');
-    return true;
-  }),
-];
+const passwordResetRequestLimiter = rateLimit({
+  windowMs: 60 * 60 * 1000,
+  limit: 3,
+  standardHeaders: true,
+  legacyHeaders: false,
+  message: {
+    success: true,
+    message: 'If an account exists for that email, a reset code will be sent shortly.',
+  },
+});
 
-const changePasswordValidation = [
-  body('oldPassword').notEmpty().withMessage('Old password is required'),
-  body('newPassword')
-    .isLength({ min: 8 })
-    .withMessage('New password must be at least 8 characters'),
-];
-
-const forgotPasswordValidation = [
-  body('email').isEmail().normalizeEmail().withMessage('Valid email is required'),
-];
-
-const otpValidation = [
-  body('email').isEmail().normalizeEmail().withMessage('Valid email is required'),
-  body('otp')
-    .isLength({ min: 6, max: 6 })
-    .isNumeric()
-    .withMessage('Valid 6-digit OTP is required'),
-];
-
-const resetPasswordValidation = [
-  ...otpValidation,
-  body('newPassword')
-    .isLength({ min: 8 })
-    .withMessage('New password must be at least 8 characters'),
-];
-
-router.post('/signup', signupValidation, validateRequest, signup);
-router.post('/login', loginValidation, validateRequest, login);
-router.post('/request-signup-otp', [phone], validateRequest, requestSignupOtp);
-router.post('/request-login-otp', [phone], validateRequest, requestLoginOtp);
-router.post('/verify-login-otp', [phone, body('otp').matches(/^\d{6}$/)], validateRequest, verifyLoginOtp);
-router.post('/forgot-pin', [phone], validateRequest, forgotPin);
-router.post('/reset-pin', [phone, body('otp').matches(/^\d{6}$/), sixDigitPin('newPin')], validateRequest, resetPin);
+router.post(
+  '/signup',
+  [body('name').trim().isLength({ min: 1, max: 100 }), email(), password('password')],
+  validateRequest,
+  signup
+);
+router.post('/login', [email(), body('password').isString().notEmpty()], validateRequest, login);
 router.get('/me', authenticate, getMe);
 router.put('/me', authenticate, updateMe);
-router.post('/change-login-phone', authenticate, [phone, sixDigitPin('currentPin')], validateRequest, changeLoginPhone);
-router.post('/change-password', authenticate, changePasswordValidation, validateRequest, changePassword);
-router.post('/forgot-password', forgotPasswordValidation, validateRequest, forgotPassword);
-router.post('/verify-otp', otpValidation, validateRequest, verifyOtp);
-router.post('/reset-password', resetPasswordValidation, validateRequest, resetPassword);
+router.post(
+  '/change-password',
+  authenticate,
+  [body('oldPassword').isString().notEmpty(), password('newPassword')],
+  validateRequest,
+  changePassword
+);
+router.post(
+  '/forgot-password',
+  passwordResetRequestLimiter,
+  [email()],
+  validateRequest,
+  forgotPassword
+);
+router.post(
+  '/reset-password',
+  [email(), body('otp').matches(/^\d{6}$/).withMessage('Enter the 6-digit reset code'), password('newPassword')],
+  validateRequest,
+  resetPassword
+);
 
 export default router;

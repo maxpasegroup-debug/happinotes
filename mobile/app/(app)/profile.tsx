@@ -8,10 +8,7 @@ import {
   TouchableOpacity,
   View,
 } from "react-native";
-import {
-  logoutUser,
-} from "../../store";
-import { getAuth } from "@/store/authStore";
+import { clearAuth, getAuth } from "@/store/authStore";
 import { api } from "@/services/api";
 import i18n from "@/i18n";
 import { Ionicons } from "@expo/vector-icons";
@@ -48,7 +45,7 @@ export default function Profile() {
         text: "Logout",
         style: "destructive",
         onPress: async () => {
-          await logoutUser();
+          await clearAuth();
           router.replace("/");
         },
       },
@@ -116,7 +113,7 @@ export default function Profile() {
         style={styles.secondaryButton}
         onPress={() => router.push("/history")}
       >
-        <Ionicons name="receipt-outline" size={21} color={Palette.coral} /><Text style={styles.secondaryText}>Subscription History</Text><Ionicons name="chevron-forward" size={19} color={Palette.muted} />
+        <Ionicons name="receipt-outline" size={21} color={Palette.coral} /><Text style={styles.secondaryText}>Membership & Billing</Text><Ionicons name="chevron-forward" size={19} color={Palette.muted} />
       </TouchableOpacity>
 
       {/* Logout Button */}

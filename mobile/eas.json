@@ -4,27 +4,22 @@
   },
   "build": {
     "development": {
+      "environment": "development",
       "developmentClient": true,
-      "distribution": "internal",
-      "env": {
-        "EXPO_PUBLIC_API_URL": "https://happinotes-production-6b44.up.railway.app/api"
-      }
+      "distribution": "internal"
     },
-    "preview": {
+    "test": {
+      "environment": "preview",
       "distribution": "internal",
       "android": {
         "buildType": "apk"
-      },
-      "env": {
-        "EXPO_PUBLIC_API_URL": "https://happinotes-production-6b44.up.railway.app/api"
       }
     },
     "production": {
+      "environment": "production",
+      "distribution": "store",
       "android": {
         "buildType": "app-bundle"
-      },
-      "env": {
-        "EXPO_PUBLIC_API_URL": "https://happinotes-production-6b44.up.railway.app/api"
       }
     }
   },

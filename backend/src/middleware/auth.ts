@@ -4,6 +4,7 @@ import { env } from '../config/env';
 import { User } from '../models';
 import { UnauthorizedError } from '../utils/errors';
 import type { IUser } from '../models/User';
+import { syncSubscriptionEntitlement } from '../services/subscriptionEntitlement';
 
 declare global {
   namespace Express {
@@ -27,11 +28,13 @@ export const authenticate = async (
     }
 
     const decoded = jwt.verify(token, env.JWT_SECRET) as { id: string };
-    const user = await User.findById(decoded.id);
+    const foundUser = await User.findById(decoded.id);
 
-    if (!user) {
+    if (!foundUser) {
       return next(new UnauthorizedError('User not found'));
     }
+
+    const user = await syncSubscriptionEntitlement(foundUser);
 
     req.user = user;
     next();

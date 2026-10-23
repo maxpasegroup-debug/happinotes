@@ -1,7 +1,7 @@
 import { Request, Response, NextFunction } from 'express';
 import { validationResult } from 'express-validator';
 import mongoose from 'mongoose';
-import { User, Book, Chapter, Offer, PaymentTransaction } from '../models';
+import { User, Book, Chapter } from '../models';
 import { BadRequestError, NotFoundError } from '../utils/errors';
 import { emitBooksChanged } from '../realtime';
 import { deleteMedia } from '../services/cloudinary';
@@ -28,29 +28,23 @@ export const getStats = async (
   next: NextFunction
 ): Promise<void> => {
   try {
-    const startOfMonth = new Date();
-    startOfMonth.setDate(1);
-    startOfMonth.setHours(0, 0, 0, 0);
-
     const [
       totalUsers,
       activePremiumSubscribers,
       totalBooksPublished,
       totalChaptersUploaded,
-      revenueAgg,
-      recentPayments,
       usersPerWeek,
       mostListened,
     ] = await Promise.all([
       User.countDocuments(),
-      User.countDocuments({ subscriptionStatus: { $in: ['premium', 'lifetime'] } }),
+      User.countDocuments({
+        $or: [
+          { subscriptionStatus: 'lifetime' },
+          { subscriptionStatus: 'premium', $or: [{ subscriptionExpiry: null }, { subscriptionExpiry: { $gt: new Date() } }] },
+        ],
+      }),
       Book.countDocuments({ status: 'live' }),
       Chapter.countDocuments(),
-      PaymentTransaction.aggregate([
-        { $match: { status: 'completed', createdAt: { $gte: startOfMonth } } },
-        { $group: { _id: null, revenue: { $sum: '$amountINR' } } },
-      ]),
-      PaymentTransaction.find().populate('userId', 'name email').sort({ createdAt: -1 }).limit(10),
       User.aggregate([
         {
           $match: {
@@ -88,13 +82,11 @@ export const getStats = async (
       stats: {
         totalUsers,
         activePremiumSubscribers,
-        revenueThisMonth: revenueAgg[0]?.revenue || 0,
         totalBooksPublished,
         totalChaptersUploaded,
         mostListenedBook: mostListened[0]?.book?.title || 'Not available',
       },
       usersPerWeek: usersPerWeek.map((item) => ({ week: `W${item._id}`, users: item.users })),
-      recentPayments,
     });
   } catch (err) {
     next(err);
@@ -289,8 +281,7 @@ export const getUserById = async (
   try {
     const user = await User.findById(req.params.id).select('-password');
     if (!user) return next(new NotFoundError('User not found'));
-    const payments = await PaymentTransaction.find({ userId: user._id }).sort({ createdAt: -1 });
-    res.json({ success: true, user, payments });
+    res.json({ success: true, user });
   } catch (err) {
     next(err);
   }
@@ -308,6 +299,7 @@ export const updateUserSubscription = async (
       {
         subscriptionStatus,
         subscriptionExpiry: subscriptionStatus === 'lifetime' ? null : subscriptionExpiry || null,
+        subscriptionSource: subscriptionStatus === 'free' ? null : 'admin',
       },
       { new: true, runValidators: true }
     ).select('-password');
@@ -327,84 +319,6 @@ export const deleteUser = async (
     const user = await User.findByIdAndDelete(req.params.id);
     if (!user) return next(new NotFoundError('User not found'));
     res.json({ success: true, message: 'User deleted' });
-  } catch (err) {
-    next(err);
-  }
-};
-
-export const getPayments = async (
-  _req: Request,
-  res: Response,
-  next: NextFunction
-): Promise<void> => {
-  try {
-    const payments = await PaymentTransaction.find()
-      .populate('userId', 'name email')
-      .sort({ createdAt: -1 });
-    res.json({ success: true, payments });
-  } catch (err) {
-    next(err);
-  }
-};
-
-export const getOffers = async (
-  _req: Request,
-  res: Response,
-  next: NextFunction
-): Promise<void> => {
-  try {
-    const offers = await Offer.find().sort({ createdAt: -1 });
-    res.json({ success: true, offers });
-  } catch (err) {
-    next(err);
-  }
-};
-
-export const createOffer = async (
-  req: Request,
-  res: Response,
-  next: NextFunction
-): Promise<void> => {
-  try {
-    const errors = validationResult(req);
-    if (!errors.isEmpty()) return next(new BadRequestError(errors.array()[0].msg));
-
-    const offer = await Offer.create(req.body);
-    res.status(201).json({ success: true, offer });
-  } catch (err) {
-    next(err);
-  }
-};
-
-export const updateOffer = async (
-  req: Request,
-  res: Response,
-  next: NextFunction
-): Promise<void> => {
-  try {
-    const errors = validationResult(req);
-    if (!errors.isEmpty()) return next(new BadRequestError(errors.array()[0].msg));
-
-    const offer = await Offer.findByIdAndUpdate(req.params.id, req.body, {
-      new: true,
-      runValidators: true,
-    });
-    if (!offer) return next(new NotFoundError('Offer not found'));
-    res.json({ success: true, offer });
-  } catch (err) {
-    next(err);
-  }
-};
-
-export const deleteOffer = async (
-  req: Request,
-  res: Response,
-  next: NextFunction
-): Promise<void> => {
-  try {
-    const offer = await Offer.findByIdAndDelete(req.params.id);
-    if (!offer) return next(new NotFoundError('Offer not found'));
-    res.json({ success: true, message: 'Offer deleted' });
   } catch (err) {
     next(err);
   }

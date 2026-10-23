@@ -2,21 +2,16 @@ import { Router } from 'express';
 import { body } from 'express-validator';
 import {
   addChapter,
-  createOffer,
   deleteChapter,
-  deleteOffer,
   deleteUser,
   getUsers,
   getAdminBooks,
   getAdminBookById,
-  getOffers,
-  getPayments,
   getStats,
   getUserById,
   createBook,
   updateBook,
   deleteBook,
-  updateOffer,
   updateChapter,
   updateUserSubscription,
 } from '../controllers/adminController';
@@ -48,20 +43,6 @@ const bookValidation = [
   body('isTrending').optional().isBoolean(),
   body('sortOrder').optional().isNumeric(),
   body('tags').optional().isArray(),
-];
-
-const offerValidation = [
-  body('code').optional().trim(),
-  body('discountPercent')
-    .isFloat({ min: 1, max: 100 })
-    .withMessage('Discount must be between 1 and 100'),
-  body('validFrom').isISO8601().withMessage('Valid start date is required'),
-  body('validUntil').isISO8601().withMessage('Valid end date is required'),
-  body('isActive').optional().isBoolean(),
-  body('appliesToPlan')
-    .optional()
-    .isIn(['monthly', 'yearly', 'lifetime', 'all'])
-    .withMessage('Invalid plan target'),
 ];
 
 const chapterValidation = [
@@ -96,11 +77,6 @@ router.delete('/books/:id', deleteBook);
 router.post('/books/:id/chapters', chapterValidation, addChapter);
 router.put('/chapters/:id', chapterValidation, updateChapter);
 router.delete('/chapters/:id', deleteChapter);
-router.get('/payments', getPayments);
-router.get('/offers', getOffers);
-router.post('/offers', offerValidation, createOffer);
-router.put('/offers/:id', offerValidation, updateOffer);
-router.delete('/offers/:id', deleteOffer);
 router.post('/notify', [
   body('title').trim().isLength({ min: 1, max: 100 }).withMessage('Title must be between 1 and 100 characters'),
   body('message').trim().isLength({ min: 1, max: 500 }).withMessage('Message must be between 1 and 500 characters'),

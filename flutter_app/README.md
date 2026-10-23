@@ -1,17 +1,9 @@
-# happinotes_flutter
+# Archived Flutter client
 
-A new Flutter project.
+This directory is retained as reference material only. It is not the active
+HappiNotes mobile app, is not used for Android or iOS launch builds, and should
+not receive new product features.
 
-## Getting Started
-
-This project is a starting point for a Flutter application.
-
-A few resources to get you started if this is your first Flutter project:
-
-- [Learn Flutter](https://docs.flutter.dev/get-started/learn-flutter)
-- [Write your first Flutter app](https://docs.flutter.dev/get-started/codelab)
-- [Flutter learning resources](https://docs.flutter.dev/reference/learning-resources)
-
-For help getting started with Flutter development, view the
-[online documentation](https://docs.flutter.dev/), which offers tutorials,
-samples, guidance on mobile development, and a full API reference.
+The supported customer app is the Expo project in [`../mobile`](../mobile).
+Use the repository-root [`README.md`](../README.md) and [`DEPLOYMENT.md`](../DEPLOYMENT.md)
+for the single mobile development and release path.
