@@ -392,3 +392,19 @@ isolated backend evidence remains: npm `10.9.3` clean install exit 0, build
 exit 0, and 114 tests passed (0 failed, 0 skipped). Release status remains
 **BLOCKED** until the owner publishes the workflow change and a new hosted run
 passes all jobs.
+
+### Flutter metadata fail-fast repair (2026-10-23)
+
+The pinned revision is valid: an available full Flutter checkout reports
+`HEAD=559ffa3f75e7402d65a8def9c28389a9b2e6fe42`, stable tag `3.44.0`, and
+`git describe` `3.44.0-0-g559ffa3f75e`. The repository lockfile requires Flutter
+`>=3.44.0`; no dependency or revision change is justified.
+
+Because the hosted failure persisted after the checkout-action history change,
+the workflow now explicitly fetches Flutter tags from the official repository,
+prints the pinned SHA, tags-at-SHA, and `git describe` output, and stops before
+`flutter pub get` if no stable tag is present or `flutter --version` contains
+`0.0.0-unknown`. This verifies the actual runtime metadata rather than
+silently accepting an unknown SDK. The exact hosted cause (stale run versus
+checkout metadata behavior) remains pending the next run's commit SHA and
+diagnostic output.

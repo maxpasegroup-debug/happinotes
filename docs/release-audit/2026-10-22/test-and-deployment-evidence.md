@@ -739,3 +739,25 @@ The next evidence event is a new GitHub Actions run on the owner-published
 workflow change. Until that run independently confirms Node 22 installation,
 backend build/tests, Flutter revision metadata, formatting, analysis, and full
 tests, the release verdict remains **BLOCKED**.
+
+## Flutter version-detection repair (2026-10-23)
+
+The pinned Flutter revision remains
+`559ffa3f75e7402d65a8def9c28389a9b2e6fe42`. Local full-checkout evidence:
+
+- `git -C C:\src\flutter rev-parse HEAD` — exact pinned SHA.
+- `git -C C:\src\flutter tag --points-at <pinned SHA>` — `3.44.0`.
+- `git -C C:\src\flutter describe --tags --always --long <pinned SHA>` —
+  `3.44.0-0-g559ffa3f75e`.
+
+The workflow now explicitly fetches tags after checkout, logs those metadata
+checks, and fails before dependency resolution when the stable tag is absent
+or Flutter prints `0.0.0-unknown`. This is a fail-closed diagnostic repair;
+it does not hardcode a version, alter `pubspec.yaml`/`pubspec.lock`, or change
+the pinned revision. A new hosted run is required to determine whether the
+previous failure came from an older commit or hosted checkout metadata.
+
+The metadata verification command completed successfully locally. The Git Bash
+syntax probe could not start because the Windows environment raised the known
+signal-pipe `Win32 error 5`/spawn limitation; no hosted Flutter command has
+been claimed as passing.
