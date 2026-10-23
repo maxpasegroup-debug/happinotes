@@ -319,10 +319,11 @@ absent. The current status is:
   workflow is configured for non-mutating formatting, analyzer, and full test
   checks on the pinned Flutter revision, but local Dart commands previously
   hung and no hosted run has been executed.
-- **QA-002 — admin validation: lint/type-check pass; production build pending.**
-  Local lint passes with 0 errors and 18 existing warnings, and the TypeScript
-  check passes. The Windows production-build `spawn EPERM` issue remains
-  unresolved; a clean-runner build result is still required.
+- **QA-002 — admin validation: HOSTED PASS for run `39909295456`.** The
+  hosted admin job completed lint, TypeScript, and production build on commit
+  `527f48c`; local lint also passes with 0 errors and 18 existing warnings.
+  The prior Windows `spawn EPERM` result remains an environment limitation,
+  but the clean hosted build evidence is now available.
 - **External deletion page: PREPARED / NOT PUBLISHED.** The page consumes
   `NEXT_PUBLIC_SUPPORT_EMAIL` only when an owner supplies an approved, verified
   address. No support address is inferred from unrelated admin or mail-sender
@@ -330,4 +331,41 @@ absent. The current status is:
 
 These clarifications preserve the dated historical findings above. They do not
 close any release gate or authorize Phase 2.
+
+### First hosted clean-validation run (2026-10-23) — PARTIAL / FAILED
+
+GitHub Actions run `39909295456` executed the workflow on commit `527f48c`
+(`main`). The run summary verifies:
+
+- **Admin lint, type-check, and production build: PASS** (job duration shown
+  as 36 seconds).
+- **Backend tests and build: FAIL** (job duration shown as 11 seconds). The
+  summary does not identify whether the failing step was installation, tests,
+  or build; the job log is required before assigning a root cause.
+- **Flutter analysis and tests: FAIL** (job duration shown as 35 seconds).
+  The summary does not identify whether formatting, analysis, or tests failed;
+  the job log is required before assigning a root cause.
+
+No artifacts were shown for this run. The hosted admin result closes the local
+admin-build evidence gap for this commit, but backend and Flutter validation
+remain release blockers. No deployment or release approval follows from this
+run.
+
+### Backend dependency and CI ordering repair (2026-10-23) — LOCAL PASS / HOSTED RERUN PENDING
+
+The backend lockfile was regenerated with npm `10.9.3`, the npm line paired
+with the selected Node 22 CI runtime. It now includes the missing nested
+`mongoose` peer entry for `gcp-metadata@5.3.0` without unrelated dependency
+version churn. The backend package engine is documented as `node >=22` because
+the direct `google-auth-library@11.1.0` dependency resolves
+`gcp-metadata@9.0.4`, which requires Node 22 or newer. The backend workflow job
+now uses Node `22.x`.
+
+The test script imports compiled `dist` output, so the backend workflow now
+builds before running tests. In an isolated copy, `npx --yes npm@10.9.3 ci
+--ignore-scripts --no-audit --no-fund` exited 0, `npm run build` exited 0, and
+`npm test` exited 0 with **114 passed, 0 failed, 0 skipped**. Running the test
+script before the build reproduced the expected missing-`dist` failures and
+was the reason for the workflow ordering change. A hosted rerun is still
+required; no hosted success is claimed.
 

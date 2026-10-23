@@ -661,6 +661,45 @@ warnings), while the Windows production build remains pending a reliable
 clean-runner result. No release gate is closed by these local results; the
 overall verdict remains **BLOCKED**.
 
+The subsequent hosted run `39909295456` on commit `527f48c` completed the
+admin lint, TypeScript, and production-build job successfully. This supersedes
+the local Windows build limitation for hosted admin validation; the backend
+and Flutter jobs from that run still failed.
+
+## First hosted clean-validation run (2026-10-23)
+
+The GitHub Actions summary for run `39909295456` records execution on commit
+`527f48c` on `main`:
+
+- **Admin lint, type-check, and production build — PASS** (36 seconds shown).
+- **Backend tests and build — FAIL** (11 seconds shown).
+- **Flutter analysis and tests — FAIL** (35 seconds shown).
+
+The supplied run summary does not expose the failing step or log message for
+the backend or Flutter jobs. Their causes therefore remain **UNRESOLVED**, not
+inferred from the workflow configuration. No artifacts were shown. The admin
+job result is hosted evidence for this commit; backend and Flutter gates remain
+open pending the detailed job logs and a corrective rerun.
+
+## Backend dependency and CI ordering repair (2026-10-23)
+
+The backend lockfile was regenerated with npm `10.9.3`. It now contains the
+missing nested `mongoose` peer entry for `gcp-metadata@5.3.0`; no unrelated
+package-version upgrades were introduced. Because the resolved direct
+`google-auth-library@11.1.0` dependency uses `gcp-metadata@9.0.4` (Node `>=22`),
+the backend package engine and backend CI job now require Node `22.x`.
+
+The backend workflow was also reordered to build before testing because
+`scripts/run-tests.cjs` loads compiled files from `dist`. Isolated validation
+with npm `10.9.3` produced:
+
+- `npm ci --ignore-scripts --no-audit --no-fund` — **PASS**, exit 0.
+- `npm run build` — **PASS**, exit 0.
+- `npm test` — **PASS**, exit 0; **114 passed, 0 failed, 0 skipped**.
+
+These are local isolated results. The hosted workflow must be rerun on the
+updated commit before the backend gate can be marked hosted-pass.
+
 Local validation for this page/workflow change:
 
 - `cd happinotes-admin; npx tsc --noEmit` — **PASS**, exit 0 (about 6.9s).
