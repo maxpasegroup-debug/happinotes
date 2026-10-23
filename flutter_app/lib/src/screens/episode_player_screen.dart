@@ -206,12 +206,11 @@ class EpisodePlayerScreen extends ConsumerWidget {
                   _Action(
                     icon: Icons.share_outlined,
                     label: 'Share',
-                    onTap: () =>
-                        SharePlus.instance.share(
-                          ShareParams(
-                            text: '${book.title}\n\nListen on HappiNotes',
-                          ),
-                        ),
+                    onTap: () => SharePlus.instance.share(
+                      ShareParams(
+                        text: '${book.title}\n\nListen on HappiNotes',
+                      ),
+                    ),
                   ),
                 ],
               ),
