@@ -153,7 +153,7 @@ void main() {
     await tester.enterText(find.byType(TextField), 'secret1');
     await tester.pump();
     await tester.tap(find.text('Verify'));
-    await tester.pumpAndSettle();
+    await tester.pump(const Duration(milliseconds: 300));
     expect(find.text('Final confirmation'), findsOneWidget);
     await tester.tap(find.widgetWithText(FilledButton, 'Delete account'));
     await tester.pumpAndSettle();
@@ -205,7 +205,7 @@ void main() {
     await tester.enterText(find.byType(TextField), 'secret1');
     await tester.pump();
     await tester.tap(find.text('Verify'));
-    await tester.pumpAndSettle();
+    await tester.pump(const Duration(milliseconds: 300));
     await tester.tap(find.widgetWithText(FilledButton, 'Delete account'));
     await tester.pumpAndSettle();
 
@@ -227,7 +227,7 @@ void main() {
     await tester.enterText(find.byType(TextField), 'secret1');
     await tester.pump();
     await tester.tap(find.text('Verify'));
-    await tester.pumpAndSettle();
+    await tester.pump(const Duration(milliseconds: 300));
     await tester.tap(find.widgetWithText(FilledButton, 'Delete account'));
     await tester.pumpAndSettle();
 
