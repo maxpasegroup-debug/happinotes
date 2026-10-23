@@ -646,6 +646,21 @@ No hosted workflow run was performed, and the local Flutter commands remain
 blocked by the existing Windows Dart-process hang. Release status remains
 **BLOCKED**.
 
+### Current disposition clarification (2026-10-23)
+
+Earlier sections in this file preserve historical baselines. The current
+evidence should be read as follows: the account-deletion flow and worker
+foundation are implemented but remain policy-gated; `/account-deletion` is an
+informational, unpublished route rather than a web deletion endpoint; and
+publication still requires owner configuration of an approved, verified
+`NEXT_PUBLIC_SUPPORT_EMAIL` plus public domain approval. The pinned Flutter CI
+checks are configured but hosted validation is **NOT TESTED**; local Flutter
+commands remain **BLOCKED** by the existing Dart-process hang. Admin lint and
+TypeScript validation are **PASS** locally (0 lint errors, 18 existing
+warnings), while the Windows production build remains pending a reliable
+clean-runner result. No release gate is closed by these local results; the
+overall verdict remains **BLOCKED**.
+
 Local validation for this page/workflow change:
 
 - `cd happinotes-admin; npx tsc --noEmit` — **PASS**, exit 0 (about 6.9s).

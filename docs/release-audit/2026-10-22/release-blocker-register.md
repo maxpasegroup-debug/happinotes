@@ -302,3 +302,32 @@ Flutter revision read from `.metadata` (`559ffa3f75e7402d65a8def9c28389a9b2e6fe4
 The existing local Dart-process hang remains unresolved; no hosted workflow run
 was executed in this session. Release status remains **BLOCKED**.
 
+### Current disposition clarification (2026-10-23)
+
+The original blocker table and earlier sections are retained as historical
+baseline evidence; they are not a claim that newer implementation work is
+absent. The current status is:
+
+- **POLICY-001 — account deletion: BLOCKED / implemented with conditions.**
+  Authenticated Flutter/backend request and status handling, the policy-gated
+  worker foundation, and the public informational `/account-deletion` route
+  exist. A secure unauthenticated web-request contract, approved retention and
+  account-recreation policy, approved public support address/domain, and clean
+  Flutter validation are still missing. The informational page does not itself
+  submit or confirm deletion.
+- **QA-001 — Flutter validation: BLOCKED / hosted validation not tested.** The
+  workflow is configured for non-mutating formatting, analyzer, and full test
+  checks on the pinned Flutter revision, but local Dart commands previously
+  hung and no hosted run has been executed.
+- **QA-002 — admin validation: lint/type-check pass; production build pending.**
+  Local lint passes with 0 errors and 18 existing warnings, and the TypeScript
+  check passes. The Windows production-build `spawn EPERM` issue remains
+  unresolved; a clean-runner build result is still required.
+- **External deletion page: PREPARED / NOT PUBLISHED.** The page consumes
+  `NEXT_PUBLIC_SUPPORT_EMAIL` only when an owner supplies an approved, verified
+  address. No support address is inferred from unrelated admin or mail-sender
+  variables, and no public deployment/domain has been verified.
+
+These clarifications preserve the dated historical findings above. They do not
+close any release gate or authorize Phase 2.
+
