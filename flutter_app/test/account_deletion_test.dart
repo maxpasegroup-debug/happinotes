@@ -151,10 +151,11 @@ void main() {
     await tester.tap(find.text('Continue'));
     await tester.pumpAndSettle();
     await tester.enterText(find.byType(TextField), 'secret1');
+    await tester.pump();
     await tester.tap(find.text('Verify'));
     await tester.pumpAndSettle();
     expect(find.text('Final confirmation'), findsOneWidget);
-    await tester.tap(find.text('Delete account'));
+    await tester.tap(find.widgetWithText(FilledButton, 'Delete account'));
     await tester.pumpAndSettle();
 
     expect(repository.requestCount, 1);
@@ -202,9 +203,10 @@ void main() {
     await tester.tap(find.text('Continue'));
     await tester.pumpAndSettle();
     await tester.enterText(find.byType(TextField), 'secret1');
+    await tester.pump();
     await tester.tap(find.text('Verify'));
     await tester.pumpAndSettle();
-    await tester.tap(find.text('Delete account'));
+    await tester.tap(find.widgetWithText(FilledButton, 'Delete account'));
     await tester.pumpAndSettle();
 
     expect(repository.requestCount, 1);
@@ -223,9 +225,10 @@ void main() {
     await tester.tap(find.text('Continue'));
     await tester.pumpAndSettle();
     await tester.enterText(find.byType(TextField), 'secret1');
+    await tester.pump();
     await tester.tap(find.text('Verify'));
     await tester.pumpAndSettle();
-    await tester.tap(find.text('Delete account'));
+    await tester.tap(find.widgetWithText(FilledButton, 'Delete account'));
     await tester.pumpAndSettle();
 
     expect(find.text('Retry deletion request'), findsOneWidget);
