@@ -75,8 +75,22 @@ test('Play restore of an acknowledged purchase does not acknowledge again', asyn
 });
 
 test('Apple refuses to verify when store credentials are absent', async () => {
+  const oldEnvironment = process.env.APPLE_IAP_ENVIRONMENT;
+  const oldPrivateKey = process.env.APPLE_IAP_PRIVATE_KEY;
   delete process.env.APPLE_IAP_ENVIRONMENT;
-  await assert.rejects(verifyStorePurchase('ios', 'book.one', '123', 'expected'), /not configured/);
+  process.env.APPLE_IAP_PRIVATE_KEY = 'test-private-key-do-not-disclose';
+  try {
+    await assert.rejects(
+      verifyStorePurchase('ios', 'book.one', '123', 'expected'),
+      (error) => error.statusCode === 503 && error.message.includes('APPLE_IAP_ENVIRONMENT') &&
+        !error.message.includes('test-private-key-do-not-disclose'),
+    );
+  } finally {
+    if (oldEnvironment === undefined) delete process.env.APPLE_IAP_ENVIRONMENT;
+    else process.env.APPLE_IAP_ENVIRONMENT = oldEnvironment;
+    if (oldPrivateKey === undefined) delete process.env.APPLE_IAP_PRIVATE_KEY;
+    else process.env.APPLE_IAP_PRIVATE_KEY = oldPrivateKey;
+  }
 });
 
 function appleResponse(changes = {}) {

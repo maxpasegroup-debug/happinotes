@@ -15,6 +15,42 @@ const INVALID_TOKEN_ERRORS = new Set([
   'messaging/registration-token-not-registered',
 ]);
 
+const TRANSIENT_FIREBASE_ERRORS = new Set([
+  'messaging/server-unavailable',
+  'messaging/internal-error',
+  'messaging/unknown-error',
+]);
+const RATE_LIMIT_FIREBASE_ERRORS = new Set([
+  'messaging/message-rate-exceeded',
+  'messaging/device-message-rate-exceeded',
+  'messaging/topics-message-rate-exceeded',
+]);
+const AUTH_FIREBASE_ERRORS = new Set([
+  'messaging/authentication-error',
+  'messaging/third-party-auth-error',
+  'messaging/mismatched-credential',
+  'messaging/invalid-apns-credentials',
+]);
+const REQUEST_FIREBASE_ERRORS = new Set([
+  'messaging/invalid-argument',
+  'messaging/invalid-recipient',
+  'messaging/invalid-options',
+  'messaging/payload-size-limit-exceeded',
+]);
+
+function firebaseFailureCategory(error: unknown): string {
+  const code = error && typeof error === 'object' && 'code' in error
+    ? (error as { code?: unknown }).code
+    : undefined;
+  if (typeof code !== 'string') return 'provider_error';
+  if (INVALID_TOKEN_ERRORS.has(code)) return 'invalid_token';
+  if (TRANSIENT_FIREBASE_ERRORS.has(code)) return 'transient_provider_error';
+  if (RATE_LIMIT_FIREBASE_ERRORS.has(code)) return 'rate_limited';
+  if (AUTH_FIREBASE_ERRORS.has(code)) return 'provider_authentication_error';
+  if (REQUEST_FIREBASE_ERRORS.has(code)) return 'invalid_request';
+  return 'provider_error';
+}
+
 export async function sendPushNotification(input: {
   tokens: string[];
   title: string;
@@ -25,7 +61,7 @@ export async function sendPushNotification(input: {
 }): Promise<PushNotificationResult> {
   const messaging = getFirebaseMessaging();
   if (!messaging) {
-    console.warn('[FCM] FIREBASE_SERVICE_ACCOUNT_JSON is not configured; push skipped');
+    console.warn('push_delivery_skipped', { provider: 'firebase', reason: 'not_configured' });
     return {
       configured: false,
       sent: 0,
@@ -38,10 +74,7 @@ export async function sendPushNotification(input: {
 
   const tokens = [...new Set(input.tokens.filter(Boolean))];
   if (tokens.length === 0) {
-    console.info('[FCM] No recipient tokens found', {
-      target: input.target,
-      title: input.title,
-    });
+    console.info('push_delivery_skipped', { provider: 'firebase', reason: 'no_recipients' });
     return {
       configured: true,
       sent: 0,
@@ -86,15 +119,15 @@ export async function sendPushNotification(input: {
       response.responses.forEach((result, index) => {
         const code = result.error?.code;
         if (code) {
-          failureCodes[code] = (failureCodes[code] ?? 0) + 1;
+          const category = firebaseFailureCategory(result.error);
+          failureCodes[category] = (failureCodes[category] ?? 0) + 1;
           if (INVALID_TOKEN_ERRORS.has(code)) invalidTokens.add(batch[index]);
         }
       });
     }
 
-    console.info('[FCM] Notification delivery complete', {
-      target: input.target,
-      title: input.title,
+    console.info('push_delivery_completed', {
+      provider: 'firebase',
       tokensFound: tokens.length,
       sent,
       failed,
@@ -111,8 +144,13 @@ export async function sendPushNotification(input: {
       failureCodes,
     };
   } catch (error) {
-    const message = error instanceof Error ? error.message : String(error);
-    console.error('[FCM] Push delivery failed:', message);
+    const category = firebaseFailureCategory(error);
+    console.error('push_delivery_failed', {
+      provider: 'firebase',
+      category,
+      sent,
+      failed,
+    });
     return {
       configured: true,
       sent,
@@ -120,7 +158,7 @@ export async function sendPushNotification(input: {
       removed: 0,
       invalidTokens: [],
       failureCodes,
-      error: message,
+      error: 'Push delivery failed',
     };
   }
 }

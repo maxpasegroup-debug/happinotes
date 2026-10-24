@@ -5,6 +5,7 @@ export interface IPasswordResetToken extends Document {
   otpHash: string;
   expiresAt: Date;
   attempts: number;
+  consumedAt?: Date;
   createdAt: Date;
 }
 
@@ -18,6 +19,7 @@ const passwordResetTokenSchema = new Schema<IPasswordResetToken>(
     otpHash: { type: String, required: true },
     expiresAt: { type: Date, required: true },
     attempts: { type: Number, default: 0 },
+    consumedAt: { type: Date },
     createdAt: { type: Date, default: Date.now },
   },
   { timestamps: false }

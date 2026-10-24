@@ -9,6 +9,8 @@ import 'package:happinotes_flutter/core/network/api_client.dart';
 import 'package:happinotes_flutter/core/payments/store_purchase_controller.dart';
 
 class _Api extends ApiClient {
+  _Api() : super(apiBaseUrl: 'http://127.0.0.1:5000', releaseBuild: false);
+
   @override
   Future<String?> readToken() async => 'test';
 }

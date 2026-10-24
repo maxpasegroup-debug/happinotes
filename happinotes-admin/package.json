@@ -6,7 +6,8 @@
     "dev": "next dev",
     "build": "next build",
     "start": "next start",
-    "lint": "eslint"
+    "lint": "eslint",
+    "test:auth": "node --experimental-strip-types --test test/*.test.mjs"
   },
   "dependencies": {
     "framer-motion": "^13.4.5",

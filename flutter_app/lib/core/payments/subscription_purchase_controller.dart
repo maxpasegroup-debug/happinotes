@@ -113,8 +113,10 @@ class SubscriptionPurchaseController extends ChangeNotifier {
       for (final raw in (response.data['plans'] as List? ?? const [])) {
         if (raw is! Map) continue;
         final key = raw['key']?.toString();
-        final productId =
-            raw[_platform]?.toString() ?? raw['productId']?.toString();
+        final rawStoreIds = raw['storeProductIds'];
+        final productId = rawStoreIds is Map
+            ? rawStoreIds[_platform]?.toString()
+            : null;
         if (key != null && productId != null && productId.isNotEmpty) {
           final rawPrice = raw['priceInr'];
           final priceInr = rawPrice is num

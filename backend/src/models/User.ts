@@ -14,6 +14,8 @@ export interface ISubscriptionEntitlement {
   expiresAt?: Date;
   autoRenewing?: boolean;
   lastVerifiedAt?: Date;
+  /** Latest signed Apple lifecycle state applied for this subscription chain. */
+  providerStateSignedAt?: Date;
 }
 
 export interface IUser extends Document {
@@ -29,6 +31,8 @@ export interface IUser extends Document {
   fcmTokens: string[];
   subscription?: ISubscriptionEntitlement;
   blocked: boolean;
+  /** Incremented atomically with password changes to revoke prior access tokens. */
+  sessionVersion: number;
   /**
    * Missing on legacy documents means active.  The deletion workflow sets
    * this before any cleanup so existing JWTs are rejected by middleware.
@@ -69,8 +73,10 @@ const userSchema = new Schema<IUser>(
       expiresAt: Date,
       autoRenewing: Boolean,
       lastVerifiedAt: Date,
+      providerStateSignedAt: Date,
     },
     blocked: { type: Boolean, default: false },
+    sessionVersion: { type: Number, default: 0, min: 0 },
     deletionState: { type: String, enum: ['active', 'pending', 'completed'], default: 'active', index: true },
     deletionRequestedAt: Date,
     deletionCompletedAt: Date,

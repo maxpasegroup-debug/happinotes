@@ -12,6 +12,40 @@ import { assertAccountWritable, isAccountWritable } from '../services/accountDel
 
 const OTP_EXPIRY_MINUTES = 5;
 const EMAIL_OTP_RESEND_COOLDOWN_SECONDS = 60;
+const MAX_OTP_ATTEMPTS = 5;
+const MAX_EMAIL_OTP_ATTEMPTS = 5;
+const INVALID_RESET_OTP_MESSAGE = 'Invalid or expired OTP';
+
+async function comparePasswordResetOtp(userId: string, otp: string) {
+  const candidate = await PasswordResetToken.findOne({ userId }).sort({ createdAt: -1 });
+  const now = new Date();
+  if (!candidate || candidate.consumedAt || candidate.expiresAt <= now || candidate.attempts >= MAX_OTP_ATTEMPTS) {
+    return null;
+  }
+
+  if (!(await bcrypt.compare(otp, candidate.otpHash))) {
+    // Increment only incorrect attempts. MongoDB applies this condition and
+    // increment atomically, so parallel wrong guesses cannot overwrite one
+    // another or exceed the configured limit.
+    await PasswordResetToken.updateOne(
+      {
+        _id: candidate._id,
+        userId,
+        attempts: { $lt: MAX_OTP_ATTEMPTS },
+        expiresAt: { $gt: now },
+        consumedAt: { $exists: false },
+      },
+      { $inc: { attempts: 1 } },
+    );
+    return null;
+  }
+
+  return candidate;
+}
+
+function respondInvalidResetOtp(res: Response): void {
+  res.status(400).json({ message: INVALID_RESET_OTP_MESSAGE });
+}
 
 const isConfiguredAdminEmail = (email: string): boolean =>
   Boolean(env.ADMIN_EMAIL && email.trim().toLowerCase() === env.ADMIN_EMAIL.toLowerCase());
@@ -157,14 +191,15 @@ const createEmailOtp = async (email: string, purpose: 'email-signup' | 'email-lo
 
 const verifyEmailChallenge = (token: string, email: string, type: 'email-signup' | 'email-login') => {
   try {
-    const challenge = jwt.verify(token, env.JWT_SECRET) as { email?: string; type?: string };
+    const challenge = jwt.verify(token, env.JWT_SECRET, { algorithms: ['HS256'] }) as { email?: string; type?: string };
     if (challenge.type !== type || challenge.email !== email) return false;
     return true;
   } catch { return false; }
 };
 
-const signToken = (id: string): string => {
-  return jwt.sign({ id }, env.JWT_SECRET, {
+const signToken = (id: string, sessionVersion: number): string => {
+  return jwt.sign({ id, sessionVersion }, env.JWT_SECRET, {
+    algorithm: 'HS256',
     expiresIn: env.JWT_EXPIRES_IN as jwt.SignOptions['expiresIn'],
   });
 };
@@ -203,7 +238,7 @@ export const signup = async (
       });
       otpRecord.used = true;
       await otpRecord.save();
-      res.status(201).json({ success: true, token: signToken(user.id), user: userResponse(user) });
+      res.status(201).json({ success: true, token: signToken(user.id, user.sessionVersion ?? 0), user: userResponse(user) });
       return;
     }
     const normalizedEmail = email.toLowerCase();
@@ -224,7 +259,7 @@ export const signup = async (
       role: 'user',
     });
 
-    const token = signToken(user._id.toString());
+    const token = signToken(user._id.toString(), user.sessionVersion ?? 0);
     res.status(201).json({
       success: true,
       token,
@@ -255,7 +290,7 @@ export const login = async (
     const { email, password, phoneNumber, pin, loginChallenge, emailChallenge } = req.body;
     if (phoneNumber) {
       try {
-        const challenge = jwt.verify(loginChallenge, env.JWT_SECRET) as {
+        const challenge = jwt.verify(loginChallenge, env.JWT_SECRET, { algorithms: ['HS256'] }) as {
           phoneNumber?: string;
           type?: string;
         };
@@ -271,7 +306,7 @@ export const login = async (
       }
       if (phoneUser.blocked) return next(new UnauthorizedError('Account is blocked'));
       if (!(await isAccountWritable(phoneUser._id))) return next(new UnauthorizedError('Account deletion is in progress'));
-      res.json({ success: true, token: signToken(phoneUser.id), user: userResponse(phoneUser) });
+      res.json({ success: true, token: signToken(phoneUser.id, phoneUser.sessionVersion ?? 0), user: userResponse(phoneUser) });
       return;
     }
     const normalizedEmail = email.toLowerCase();
@@ -297,7 +332,7 @@ export const login = async (
       return next(new UnauthorizedError('Account deletion is in progress'));
     }
 
-    const token = signToken(user._id.toString());
+    const token = signToken(user._id.toString(), user.sessionVersion ?? 0);
     res.json({
       success: true,
       token,
@@ -374,11 +409,47 @@ export const verifyEmailOtp = async (req: Request, res: Response, next: NextFunc
     const email = (req.body.email ?? '').toString().trim().toLowerCase();
     const otp = (req.body.otp ?? '').toString().trim();
     const purpose = req.body.purpose === 'signup' ? 'email-signup' : 'email-login';
-    const record = await Otp.findOne({ identifier: email, purpose, used: false, otp: hashOtp(email, otp), expiresAt: { $gt: new Date() } });
-    if (!record) return next(new BadRequestError('Invalid or expired OTP'));
-    const emailChallenge = jwt.sign({ email, type: purpose }, env.JWT_SECRET, { expiresIn: '10m' });
-    record.used = true;
-    await record.save();
+    const now = new Date();
+    const activeChallenge = {
+      identifier: email,
+      purpose,
+      used: false,
+      expiresAt: { $gt: now },
+      $or: [
+        { attempts: { $lt: MAX_EMAIL_OTP_ATTEMPTS } },
+        // Older OTP documents predate the attempts field; treat them as zero.
+        { attempts: { $exists: false } },
+      ],
+    };
+    const candidate = await Otp.findOne(activeChallenge).sort({ createdAt: -1 });
+    if (!candidate) {
+      return next(new BadRequestError('Invalid or expired OTP'));
+    }
+
+    const storedHash = Buffer.from(candidate.otp, 'hex');
+    const suppliedHash = Buffer.from(hashOtp(email, otp), 'hex');
+    const otpMatches = storedHash.length === suppliedHash.length &&
+      crypto.timingSafeEqual(storedHash, suppliedHash);
+    if (!otpMatches) {
+      // Increment this exact challenge in MongoDB. Conditional $inc prevents
+      // parallel bad guesses from bypassing or exceeding the attempt limit.
+      await Otp.findOneAndUpdate(
+        { _id: candidate._id, ...activeChallenge },
+        { $inc: { attempts: 1 } },
+        { new: true },
+      );
+      return next(new BadRequestError('Invalid or expired OTP'));
+    }
+
+    // A conditional atomic claim ensures only one concurrent request can
+    // consume this challenge. It also rechecks expiry and the attempt limit.
+    const consumed = await Otp.findOneAndUpdate(
+      { _id: candidate._id, ...activeChallenge },
+      { $set: { used: true } },
+      { new: true },
+    );
+    if (!consumed) return next(new BadRequestError('Invalid or expired OTP'));
+    const emailChallenge = jwt.sign({ email, type: purpose }, env.JWT_SECRET, { algorithm: 'HS256', expiresIn: '10m' });
     res.json({ success: true, emailChallenge });
   } catch (err) { next(err); }
 };
@@ -441,7 +512,7 @@ export const verifyLoginOtp = async (req: Request, res: Response, next: NextFunc
     const loginChallenge = jwt.sign(
       { phoneNumber, type: 'phone-login' },
       env.JWT_SECRET,
-      { expiresIn: '5m' }
+      { algorithm: 'HS256', expiresIn: '5m' }
     );
     res.json({ success: true, message: 'OTP verified', loginChallenge });
   } catch (err) { next(err); }
@@ -513,13 +584,23 @@ export const forgotPassword = async (
     const expiresAt = new Date(Date.now() + OTP_EXPIRY_MINUTES * 60 * 1000);
 
     await PasswordResetToken.deleteMany({ userId: user._id });
-    await PasswordResetToken.create({
+    const resetToken = await PasswordResetToken.create({
       userId: user._id,
       otpHash,
       expiresAt,
     });
 
-    await sendOTPEmail(email, otp);
+    try {
+      await sendOTPEmail(email, otp);
+    } catch {
+      // Keep the response indistinguishable from an unknown email address.
+      // The undelivered code must not remain usable.
+      try {
+        await PasswordResetToken.deleteOne({ _id: resetToken._id });
+      } catch {
+        // Do not expose provider or persistence errors through this endpoint.
+      }
+    }
 
     res.status(200).json({
       message: 'If an account exists, an OTP has been sent.',
@@ -528,8 +609,6 @@ export const forgotPassword = async (
     next(err);
   }
 };
-
-const MAX_OTP_ATTEMPTS = 5;
 
 export const verifyOTP = async (
   req: Request,
@@ -546,36 +625,14 @@ export const verifyOTP = async (
     const otp = (req.body.otp ?? '').toString().trim();
 
     const user = await User.findOne({ email });
-    if (!user) {
-      res.status(400).json({ message: 'Invalid or expired OTP' });
-      return;
-    }
-    if (!(await isAccountWritable(user._id))) {
-      res.status(400).json({ message: 'Invalid or expired OTP' });
+    if (!user || !(await isAccountWritable(user._id))) {
+      respondInvalidResetOtp(res);
       return;
     }
 
-    const token = await PasswordResetToken.findOne({ userId: user._id });
+    const token = await comparePasswordResetOtp(user._id.toString(), otp);
     if (!token) {
-      res.status(400).json({ message: 'Invalid or expired OTP' });
-      return;
-    }
-
-    if (token.expiresAt < new Date()) {
-      res.status(400).json({ message: 'OTP expired' });
-      return;
-    }
-
-    if (token.attempts >= MAX_OTP_ATTEMPTS) {
-      res.status(400).json({ message: 'Too many attempts' });
-      return;
-    }
-
-    const match = await bcrypt.compare(otp, token.otpHash);
-    if (!match) {
-      token.attempts += 1;
-      await token.save();
-      res.status(400).json({ message: 'Invalid OTP' });
+      respondInvalidResetOtp(res);
       return;
     }
 
@@ -601,35 +658,45 @@ export const resetPassword = async (
     const newPassword = (req.body.newPassword ?? '').toString();
 
     const user = await User.findOne({ email });
-    if (!user) {
-      res.status(400).json({ message: 'Invalid request' });
-      return;
-    }
-    if (!(await isAccountWritable(user._id))) {
-      res.status(400).json({ message: 'Invalid request' });
+    if (!user || !(await isAccountWritable(user._id))) {
+      respondInvalidResetOtp(res);
       return;
     }
 
-    const token = await PasswordResetToken.findOne({ userId: user._id });
+    const token = await comparePasswordResetOtp(user._id.toString(), otp);
     if (!token) {
-      res.status(400).json({ message: 'Invalid or expired OTP' });
+      respondInvalidResetOtp(res);
       return;
     }
 
-    if (token.expiresAt < new Date()) {
-      res.status(400).json({ message: 'OTP expired' });
-      return;
-    }
-
-    const match = await bcrypt.compare(otp, token.otpHash);
-    if (!match) {
-      res.status(400).json({ message: 'Invalid OTP' });
+    const consumedAt = new Date();
+    const claimed = await PasswordResetToken.findOneAndUpdate(
+      {
+        _id: token._id,
+        userId: user._id,
+        attempts: token.attempts,
+        expiresAt: { $gt: consumedAt },
+        consumedAt: { $exists: false },
+      },
+      { $set: { consumedAt } },
+      { new: true },
+    );
+    if (!claimed) {
+      respondInvalidResetOtp(res);
       return;
     }
 
     const hashedPassword = await bcrypt.hash(newPassword, 12);
-    user.password = hashedPassword;
-    await user.save();
+    // A single document update changes the credential and revokes every
+    // previously issued access token atomically.
+    const passwordUpdate = await User.updateOne(
+      { _id: user._id },
+      { $set: { password: hashedPassword }, $inc: { sessionVersion: 1 } },
+    );
+    if (passwordUpdate.matchedCount !== 1) {
+      respondInvalidResetOtp(res);
+      return;
+    }
 
     await PasswordResetToken.deleteMany({ userId: user._id });
 

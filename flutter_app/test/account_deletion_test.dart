@@ -100,7 +100,9 @@ Widget _app(_FakeDeletionRepository repository) {
     key: ValueKey(repository),
     overrides: [
       sessionControllerProvider.overrideWith((ref) => session),
-      apiClientProvider.overrideWithValue(ApiClient()),
+      apiClientProvider.overrideWithValue(
+        ApiClient(apiBaseUrl: 'http://127.0.0.1:5000', releaseBuild: false),
+      ),
     ],
     child: MaterialApp(
       theme: buildHappiTheme(),

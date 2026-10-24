@@ -337,15 +337,25 @@ for (const [name, method] of [['adminController', 'createBook'], ['adminContentC
     process.env.CLOUDINARY_API_KEY = 'test-key';
     process.env.CLOUDINARY_API_SECRET = 'test-secret';
     const { cloudinary } = require('../dist/config/cloudinary');
-    mock.method(cloudinary.uploader, 'upload_stream', (_options, callback) => ({
-      end: () => callback(null, { secure_url: 'https://cdn.example.test/cover.png', resource_type: 'image' }),
-    }));
+    const { Writable } = require('node:stream');
+    mock.method(cloudinary.uploader, 'upload_stream', (_options, callback) => {
+      const stream = new Writable({ write: (_chunk, _encoding, done) => done() });
+      stream.on('finish', () => callback(null, {
+        secure_url: 'https://cdn.example.test/cover.png',
+        public_id: 'test-cover',
+        resource_type: 'image',
+      }));
+      return stream;
+    });
     mock.method(Content, 'create', async (payload) => ({ id: bookId, ...payload }));
     const controller = require(`../dist/controllers/${name}`);
     let error, result, code;
     const req = { body: { ...book, status: 'draft', language: 'English', thumbnailUrl: '/image',
       intro: { title: 'Intro', mediaUrl: '/audio', mediaType: 'audio' }, lessons: [] },
-      files: { thumbnail: [{ originalname: 'cover.png', mimetype: 'image/png', buffer: Buffer.from('mock') }] } };
+      files: { thumbnail: [{ originalname: 'cover.png', mimetype: 'image/png', buffer: Buffer.from(
+        'iVBORw0KGgoAAAANSUhEUgAAAAEAAAABCAQAAAC1HAwCAAAAC0lEQVR42mP8/x8AAwMCAO+jFsQAAAAASUVORK5CYII=',
+        'base64',
+      ) }] } };
     const res = { status: (value) => { code = value; return res; }, json: (value) => { result = value; } };
     await controller[method](req, res, (e) => { error = e; });
     assert.equal(error, undefined); assert.equal(code, 201); assert.equal(result.success, true);

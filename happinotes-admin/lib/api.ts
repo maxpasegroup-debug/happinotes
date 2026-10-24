@@ -26,7 +26,6 @@ function readErrorMessage(parsed: unknown, status: number): string {
   ) {
     return (parsed as { message: string }).message;
   }
-  if (typeof parsed === "string" && parsed) return parsed;
   return `Request failed with status ${status}`;
 }
 
@@ -61,6 +60,7 @@ export async function uploadMultipart<T = unknown>(
     const xhr = new XMLHttpRequest();
     xhr.open(method, getUrl(endpoint), true);
     xhr.setRequestHeader("Authorization", `Bearer ${token}`);
+    xhr.timeout = 120_000;
 
     xhr.upload.onprogress = (event) => {
       if (!event.lengthComputable || !onProgress) return;
@@ -69,6 +69,7 @@ export async function uploadMultipart<T = unknown>(
     };
 
     xhr.onerror = () => reject(new Error("Network error during upload"));
+    xhr.ontimeout = () => reject(new Error("Upload timed out. Check your connection and try again."));
     xhr.onload = () => {
       let parsed: unknown = null;
       try {

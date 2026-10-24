@@ -23,3 +23,11 @@ test('same-transaction lifecycle transitions are authoritative and idempotent', 
   }), true);
   assert.equal(shouldReplaceSubscriptionEntitlement(current, current), true);
 });
+
+test('an older signed Apple lifecycle state cannot overwrite a newer state in the same chain', () => {
+  const current = { transactionKey: 'Sandbox:original', active: true, expiresAt: future(90),
+    providerStateSignedAt: new Date('2026-10-24T10:00:00Z') };
+  const staleNotification = { transactionKey: 'Sandbox:original', active: false, expiresAt: future(10),
+    providerStateSignedAt: new Date('2026-10-24T09:00:00Z') };
+  assert.equal(shouldReplaceSubscriptionEntitlement(current, staleNotification), false);
+});

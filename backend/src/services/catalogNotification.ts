@@ -44,18 +44,15 @@ export async function notifyCatalogUsers(
         ...(input.episodeId ? { episodeId: input.episodeId } : {}),
         ...(imageUrl ? { imageUrl } : {}),
       });
-    } catch (error) {
-      console.error('[Notifications] Failed to save catalog notification:', error);
+    } catch {
+      console.error('catalog_notification_persist_failed', { eventType: input.eventType });
     }
     const recipients = await User.find({
       $or: [{ deletionState: 'active' }, { deletionState: { $exists: false } }],
     }).select({ fcmTokens: 1 }).lean();
     const tokens = [...new Set(recipients.flatMap((user) => user.fcmTokens ?? []))];
     if (tokens.length === 0) {
-      console.info('[FCM] Catalog notification skipped: no recipient tokens', {
-        eventType: input.eventType,
-        bookId: input.bookId,
-      });
+      console.info('catalog_push_skipped', { eventType: input.eventType, reason: 'no_recipients' });
       return;
     }
     const push = await sendPushNotification({
@@ -78,10 +75,8 @@ export async function notifyCatalogUsers(
       );
     }
 
-    console.info('[FCM] Catalog notification', {
+    console.info('catalog_push_completed', {
       eventType: input.eventType,
-      bookId: input.bookId,
-      ...(input.episodeId ? { episodeId: input.episodeId } : {}),
       tokensFound: tokens.length,
       sent: push.sent,
       failed: push.failed,
@@ -97,7 +92,7 @@ export async function notifyCatalogUsers(
         failureCodes: push.failureCodes,
       });
     }
-  } catch (error) {
-    console.error('[FCM] Catalog notification failed:', error);
+  } catch {
+    console.error('catalog_notification_failed', { eventType: input.eventType });
   }
 }

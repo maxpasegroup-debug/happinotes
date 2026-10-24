@@ -5,10 +5,19 @@ const FROM_NAME = "Happinotes";
 const FROM_EMAIL = env.RESEND_FROM_EMAIL.trim();
 const OTP_EXPIRY_MINUTES = 5;
 
+type EmailDeliveryFailureCategory = 'configuration_missing' | 'provider_rejected' | 'provider_exception';
+
+export class EmailDeliveryError extends Error {
+  constructor(readonly category: EmailDeliveryFailureCategory) {
+    super('Email delivery failed');
+    this.name = 'EmailDeliveryError';
+  }
+}
+
 function getClient(): Resend {
   const apiKey = env.RESEND_API_KEY.trim();
   if (!apiKey) {
-    throw new Error("RESEND_API_KEY is not set");
+    throw new EmailDeliveryError('configuration_missing');
   }
   return new Resend(apiKey);
 }
@@ -41,22 +50,22 @@ function buildOTPHtml(otp: string): string {
 }
 
 export async function sendOTPEmail(to: string, otp: string): Promise<void> {
-  console.log("[Email] Sending OTP email to:", to);
   try {
     const resend = getClient();
-    const { data, error } = await resend.emails.send({
+    const { error } = await resend.emails.send({
       from: `${FROM_NAME} <${FROM_EMAIL}>`,
       to: [to],
       subject: "Your OTP Code - Happinotes",
       html: buildOTPHtml(otp),
     });
 
-    if (error) throw new Error(error.message);
-    console.log("[Email] Email sent successfully to", to, data?.id ?? 'accepted');
-  } catch (err) {
-    console.error("[Email] Email sending failed:", err);
-    const message = err instanceof Error ? err.message : String(err);
-    console.error("[Email] Failed to send OTP to", to, message);
-    throw err;
+    if (error) throw new EmailDeliveryError('provider_rejected');
+    console.info('email_delivery_succeeded', { provider: 'resend' });
+  } catch (error) {
+    const category = error instanceof EmailDeliveryError
+      ? error.category
+      : 'provider_exception';
+    console.error('email_delivery_failed', { provider: 'resend', category });
+    throw new EmailDeliveryError(category);
   }
 }

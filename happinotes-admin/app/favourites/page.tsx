@@ -1,10 +1,16 @@
 "use client";
 
 import Link from "next/link";
-import { useEffect, useMemo, useState } from "react";
+import { useEffect, useState, useSyncExternalStore } from "react";
 import { MobileShell } from "@/components/mobile-shell";
 import { BASE_URL } from "@/lib/content-api";
-import { getStoredUser, getUserToken } from "@/lib/user-session";
+import {
+  getServerUserSessionSnapshot,
+  getStoredUser,
+  getUserSessionSnapshot,
+  getUserToken,
+  subscribeToUserSession,
+} from "@/lib/user-session";
 
 type FavContent = {
   _id: string;
@@ -21,22 +27,40 @@ const FALLBACK_IMAGE =
 
 export default function FavouritesPage() {
   const [items, setItems] = useState<FavContent[]>([]);
-  const [loading, setLoading] = useState(true);
-  const user = useMemo(() => getStoredUser(), []);
+  const [loadedForToken, setLoadedForToken] = useState<string | null>(null);
+  const sessionSnapshot = useSyncExternalStore(
+    subscribeToUserSession,
+    getUserSessionSnapshot,
+    getServerUserSessionSnapshot,
+  );
+  const sessionToken = sessionSnapshot.split("\u0000", 1)[0] ? getUserToken() : null;
+  const user = sessionToken ? getStoredUser() : null;
+  const loading = Boolean(sessionToken && loadedForToken !== sessionToken);
 
   useEffect(() => {
-    const token = getUserToken();
-    if (!token) return;
+    if (!sessionToken) {
+      return;
+    }
+    let active = true;
     fetch(`${BASE_URL}/favourites`, {
-      headers: { Authorization: `Bearer ${token}` },
+      headers: { Authorization: `Bearer ${sessionToken}` },
     })
       .then((res) => (res.ok ? res.json() : { favourites: [] }))
       .then((data) => {
         const favs = (data?.favourites || []) as FavContent[];
-        setItems(favs.filter((x) => x.contentType === "lifebook"));
+        if (active) {
+          setItems(favs.filter((x) => x.contentType === "lifebook"));
+          setLoadedForToken(sessionToken);
+        }
       })
-      .finally(() => setLoading(false));
-  }, []);
+      .catch(() => {
+        if (active) {
+          setItems([]);
+          setLoadedForToken(sessionToken);
+        }
+      });
+    return () => { active = false; };
+  }, [sessionToken]);
 
   return (
     <MobileShell>
@@ -47,8 +71,8 @@ export default function FavouritesPage() {
 
       {!user ? (
         <div className="mt-5 rounded-2xl border border-white/10 bg-[#141a2a] p-5">
-          <p className="text-sm text-[#b7c0d8]">Please sign up or login from Lifebooks to use favourites.</p>
-          <Link href="/" className="mt-3 inline-block text-sm text-[#f6c453]">Go to Lifebooks</Link>
+          <p className="text-sm text-[#b7c0d8]">Sign in or create an account to use favourites.</p>
+          <Link href="/profile" className="mt-3 inline-block text-sm text-[#f6c453]">Go to profile and sign in</Link>
         </div>
       ) : loading ? (
         <div className="mt-5 rounded-2xl border border-white/10 bg-[#141a2a] p-5 text-sm text-[#b7c0d8]">Loading...</div>

@@ -7,7 +7,7 @@ import { StorePurchase } from '../models/StorePurchase';
 import { User } from '../models';
 import { SubscriptionPurchase } from '../models/SubscriptionPurchase';
 import { applePurchaseClient, googlePurchase, accountToken } from '../services/storePurchase';
-import { googleSubscriptionNotification } from '../services/subscriptionPurchase';
+import { appleSubscriptionNotification, googleSubscriptionNotification } from '../services/subscriptionPurchase';
 import { applySubscriptionEntitlement } from '../services/subscriptionEntitlement';
 import { AppError, BadRequestError, UnauthorizedError } from '../utils/errors';
 import { isAccountWritable } from '../services/accountDeletion';
@@ -38,17 +38,28 @@ async function updateAccess(claim: { _id: Types.ObjectId; userId: Types.ObjectId
 
 async function updateSubscriptionAccess(
   claim: { _id: Types.ObjectId; userId: Types.ObjectId; planKey: 'monthly' | 'yearly'; productId: string; store: 'android' | 'ios' },
-  active: boolean,
-  expiresAt: Date | undefined,
-  autoRenewing: boolean | undefined,
-  transactionKey: string,
+  state: { active: boolean; expiresAt?: Date; autoRenewing?: boolean; transactionKey: string;
+    providerStateSignedAt?: Date },
 ) {
-  await SubscriptionPurchase.updateOne({ _id: claim._id }, { $set: {
-    active, expiresAt, autoRenewing, transactionKey,
+  const filter: Record<string, unknown> = { _id: claim._id };
+  if (state.providerStateSignedAt) {
+    filter.$or = [
+      { providerStateSignedAt: { $lte: state.providerStateSignedAt } },
+      { providerStateSignedAt: { $exists: false } },
+    ];
+  }
+  const update = await SubscriptionPurchase.updateOne(filter, { $set: {
+    active: state.active, expiresAt: state.expiresAt, autoRenewing: state.autoRenewing,
+    transactionKey: state.transactionKey,
+    ...(state.providerStateSignedAt ? { providerStateSignedAt: state.providerStateSignedAt } : {}),
   } });
+  const result = update as unknown as { matchedCount?: number; n?: number } | undefined;
+  if (state.providerStateSignedAt && result && (result.matchedCount ?? result.n ?? 0) === 0) return;
   await applySubscriptionEntitlement(claim.userId, {
     store: claim.store, planKey: claim.planKey, productId: claim.productId,
-    transactionKey, active, expiresAt, autoRenewing, lastVerifiedAt: new Date(),
+    transactionKey: state.transactionKey, active: state.active, expiresAt: state.expiresAt,
+    autoRenewing: state.autoRenewing, providerStateSignedAt: state.providerStateSignedAt,
+    lastVerifiedAt: new Date(),
   });
 }
 
@@ -90,8 +101,7 @@ router.post('/google', async (req, res, next) => {
         if (!googleNotificationClaimMatches(claim, verified.externalAccountId)) {
           throw new BadRequestError('Subscription notification account does not match the existing claim');
         }
-        await updateSubscriptionAccess(claim, verified.active, verified.expiresAt, verified.autoRenewing,
-          verified.transactionKey);
+        await updateSubscriptionAccess(claim, verified);
       }
       res.sendStatus(204);
       return;
@@ -127,31 +137,40 @@ router.post('/apple', async (req, res, next) => {
     try { notification = await verifier.verifyAndDecodeNotification(signedPayload); }
     catch { throw new UnauthorizedError('Invalid store notification signature'); }
     const signedTransaction = notification.data?.signedTransactionInfo;
-    if (!signedTransaction) { res.sendStatus(204); return; }
-    const transaction = await verifier.verifyAndDecodeTransaction(signedTransaction);
-    if (!transaction.originalTransactionId || !transaction.transactionId) throw new BadRequestError('Missing transaction');
-    const claim = await StorePurchase.findOne({ store: 'ios',
-      transactionKey: `${environment}:${transaction.originalTransactionId}` });
-    if (claim) {
-      const latest = await client.getTransactionInfo(transaction.transactionId);
-      if (!latest.signedTransactionInfo) throw new AppError('Transaction lookup failed', 503);
-      const current = await verifier.verifyAndDecodeTransaction(latest.signedTransactionInfo);
-      const active = current.revocationDate == null && current.type === Type.NON_CONSUMABLE &&
-        current.productId === claim.productId && current.appAccountToken === accountToken(String(claim.userId));
-      await updateAccess(claim, active);
+    const signedRenewal = notification.data?.signedRenewalInfo;
+    const transaction = signedTransaction
+      ? await verifier.verifyAndDecodeTransaction(signedTransaction)
+      : undefined;
+    const renewal = signedRenewal
+      ? await verifier.verifyAndDecodeRenewalInfo(signedRenewal)
+      : undefined;
+    const originalTransactionId = transaction?.originalTransactionId ?? renewal?.originalTransactionId;
+    if (!originalTransactionId || (renewal?.originalTransactionId &&
+        renewal.originalTransactionId !== originalTransactionId)) {
+      if (!signedTransaction && !signedRenewal) { res.sendStatus(204); return; }
+      throw new BadRequestError('Missing subscription transaction');
+    }
+    if (transaction?.transactionId) {
+      const claim = await StorePurchase.findOne({ store: 'ios',
+        transactionKey: `${environment}:${originalTransactionId}` });
+      if (claim) {
+        const latest = await client.getTransactionInfo(transaction.transactionId);
+        if (!latest.signedTransactionInfo) throw new AppError('Transaction lookup failed', 503);
+        const current = await verifier.verifyAndDecodeTransaction(latest.signedTransactionInfo);
+        const active = current.revocationDate == null && current.type === Type.NON_CONSUMABLE &&
+          current.productId === claim.productId && current.appAccountToken === accountToken(String(claim.userId));
+        await updateAccess(claim, active);
+      }
     }
     const subscriptionClaim = await SubscriptionPurchase.findOne({ store: 'ios',
-      transactionKey: `${environment}:${transaction.originalTransactionId}` });
+      transactionKey: `${environment}:${originalTransactionId}` });
     if (subscriptionClaim) {
-      const latest = await client.getTransactionInfo(transaction.transactionId);
-      if (!latest.signedTransactionInfo) throw new AppError('Transaction lookup failed', 503);
-      const current = await verifier.verifyAndDecodeTransaction(latest.signedTransactionInfo);
-      const expiresAt = current.expiresDate ? new Date(current.expiresDate) : undefined;
-      const active = current.revocationDate == null && current.type === Type.AUTO_RENEWABLE_SUBSCRIPTION &&
-        current.productId === subscriptionClaim.productId && current.appAccountToken === accountToken(String(subscriptionClaim.userId)) &&
-        Boolean(expiresAt && expiresAt.getTime() > Date.now());
-      await updateSubscriptionAccess(subscriptionClaim, active, expiresAt, active,
-        `${environment}:${current.originalTransactionId || transaction.originalTransactionId}`);
+      const verified = await appleSubscriptionNotification(
+        originalTransactionId,
+        subscriptionClaim.productId,
+        accountToken(String(subscriptionClaim.userId)),
+      );
+      await updateSubscriptionAccess(subscriptionClaim, verified);
     }
     res.sendStatus(204);
   } catch (error) {

@@ -22,6 +22,15 @@ export default function ProfilePage() {
   const [forgotStep, setForgotStep] = useState<1 | 2 | 3>(1);
   const [forgotLoading, setForgotLoading] = useState(false);
   const [forgotMessage, setForgotMessage] = useState("");
+  const [forgotResendAfterSeconds, setForgotResendAfterSeconds] = useState(0);
+
+  useEffect(() => {
+    if (forgotResendAfterSeconds <= 0) return;
+    const timer = window.setInterval(() => {
+      setForgotResendAfterSeconds((remaining) => Math.max(0, remaining - 1));
+    }, 1000);
+    return () => window.clearInterval(timer);
+  }, [forgotResendAfterSeconds]);
 
   useEffect(() => {
     const stored = getStoredUser();
@@ -32,7 +41,13 @@ export default function ProfilePage() {
       headers: { Authorization: `Bearer ${token}` },
       cache: "no-store",
     })
-      .then((res) => (res.ok ? res.json() : null))
+      .then((res) => {
+        if (!res.ok) {
+          clearUserSession();
+          return null;
+        }
+        return res.json();
+      })
       .then((data) => {
         const user = (data?.user || null) as Me | null;
         setMe(user);
@@ -58,9 +73,15 @@ export default function ProfilePage() {
         body: JSON.stringify({ email }),
       });
       if (!res.ok) {
-        setForgotMessage("Unable to send OTP right now.");
+        const data = await res.json().catch(() => ({})) as { message?: string };
+        const retryAfter = Number(res.headers.get("Retry-After"));
+        if (res.status === 429 && Number.isFinite(retryAfter) && retryAfter > 0) {
+          setForgotResendAfterSeconds(Math.ceil(retryAfter));
+        }
+        setForgotMessage(data.message || "Unable to send a reset code right now. Please try again later.");
         return;
       }
+      setForgotResendAfterSeconds(0);
       setForgotStep(2);
       setForgotMessage("OTP sent. Check your email.");
     } catch {
@@ -83,7 +104,8 @@ export default function ProfilePage() {
         }),
       });
       if (!res.ok) {
-        setForgotMessage("Invalid OTP.");
+        const data = await res.json().catch(() => ({})) as { message?: string };
+        setForgotMessage(data.message || "Invalid or expired code. Request a new one and try again.");
         return;
       }
       setForgotStep(3);
@@ -109,12 +131,15 @@ export default function ProfilePage() {
         }),
       });
       if (!res.ok) {
-        setForgotMessage("Could not reset password.");
+        const data = await res.json().catch(() => ({})) as { message?: string };
+        setForgotMessage(data.message || "Could not reset the password. Check the code and try again.");
         return;
       }
       setForgotStep(1);
       setForgotOtp("");
       setForgotNewPassword("");
+      clearUserSession();
+      setMe(null);
       setForgotMessage("Password reset successful. Please login.");
     } catch {
       setForgotMessage("Could not reset password.");
@@ -173,13 +198,17 @@ export default function ProfilePage() {
               onChange={(e) => setForgotEmail(e.target.value)}
               placeholder="Email"
               type="email"
+              autoComplete="email"
               className="w-full rounded-lg border border-white/15 bg-[#0f1422] px-3 py-2 text-sm text-white outline-none"
             />
             {forgotStep >= 2 ? (
               <input
                 value={forgotOtp}
-                onChange={(e) => setForgotOtp(e.target.value)}
+                onChange={(e) => setForgotOtp(e.target.value.replace(/\D/g, "").slice(0, 6))}
                 placeholder="6-digit OTP"
+                inputMode="numeric"
+                autoComplete="one-time-code"
+                maxLength={6}
                 className="w-full rounded-lg border border-white/15 bg-[#0f1422] px-3 py-2 text-sm text-white outline-none"
               />
             ) : null}
@@ -189,6 +218,8 @@ export default function ProfilePage() {
                 onChange={(e) => setForgotNewPassword(e.target.value)}
                 placeholder="New Password"
                 type="password"
+                autoComplete="new-password"
+                minLength={6}
                 className="w-full rounded-lg border border-white/15 bg-[#0f1422] px-3 py-2 text-sm text-white outline-none"
               />
             ) : null}
@@ -197,10 +228,10 @@ export default function ProfilePage() {
                 <button
                   type="button"
                   onClick={startForgotPassword}
-                  disabled={forgotLoading || !forgotEmail}
+                  disabled={forgotLoading || !forgotEmail || forgotResendAfterSeconds > 0}
                   className="rounded-lg border border-white/20 px-3 py-2 text-xs text-white disabled:opacity-60"
                 >
-                  Send OTP
+                  {forgotResendAfterSeconds > 0 ? `Try again in ${forgotResendAfterSeconds}s` : "Send OTP"}
                 </button>
               ) : null}
               {forgotStep === 2 ? (
@@ -242,17 +273,19 @@ export default function ProfilePage() {
           </div>
         </div>
 
-        <button
-          type="button"
-          onClick={() => {
-            clearUserSession();
-            setMe(null);
-            router.refresh();
-          }}
-          className="w-full rounded-xl border border-red-300/20 bg-red-500/10 px-4 py-3 text-sm font-semibold text-red-200"
-        >
-          Logout
-        </button>
+        {me ? (
+          <button
+            type="button"
+            onClick={() => {
+              clearUserSession();
+              setMe(null);
+              router.refresh();
+            }}
+            className="w-full rounded-xl border border-red-300/20 bg-red-500/10 px-4 py-3 text-sm font-semibold text-red-200"
+          >
+            Logout
+          </button>
+        ) : null}
         <Link href="/" className="block text-center text-sm text-[#f6c453]">
           Back to Lifebooks
         </Link>

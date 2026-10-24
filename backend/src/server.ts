@@ -8,6 +8,7 @@ import { registerRealtimeServer } from './services/realtime';
 import { startProductProvisioningWorker } from './services/storeProductProvisioning';
 import { startAccountDeletionWorker } from './services/accountDeletionWorker';
 import { configureCloudinary, isCloudinaryConfigured } from './config/cloudinary';
+import { corsConfiguration } from './config/cors';
 
 if (!process.env.PORT && process.env.NODE_ENV === 'production') {
   throw new Error('PORT is not defined in production');
@@ -16,6 +17,9 @@ if (!process.env.PORT && process.env.NODE_ENV === 'production') {
 const PORT = Number(process.env.PORT);
 
 const start = async (): Promise<void> => {
+  if (env.RATE_LIMIT_STORE_WARNING) {
+    console.warn('auth_rate_limit_store_mode', { mode: env.RATE_LIMIT_STORE_MODE, shared: env.RATE_LIMIT_STORE_SHARED });
+  }
   configureCloudinary();
   console.log('ADMIN_EMAIL:', process.env.ADMIN_EMAIL ? 'SET' : 'MISSING');
   console.log('RESEND_API_KEY:', process.env.RESEND_API_KEY ? 'SET' : 'MISSING');
@@ -34,29 +38,20 @@ const start = async (): Promise<void> => {
   startProductProvisioningWorker();
   startAccountDeletionWorker();
   const httpServer = createServer(app);
-  const configuredOrigins = (process.env.CORS_ORIGINS || '')
-    .split(',')
-    .map((origin) => origin.trim())
-    .filter(Boolean);
   const io = new Server(httpServer, {
-    cors: {
-      origin: configuredOrigins.length > 0 ? configuredOrigins : true,
-      methods: ['GET', 'POST'],
-      credentials: true,
-    },
+    cors: corsConfiguration.socketIoOptions,
   });
   registerRealtimeServer(io);
   io.on('connection', (socket) => {
-    console.log(`Realtime client connected: ${socket.id}`);
+    console.log('realtime_client_connected');
   });
 
   httpServer.listen(PORT, () => {
-    console.log('PORT ENV:', process.env.PORT);
-    console.log(`Server running on port ${PORT}`);
+    console.log('server_listening');
   });
 };
 
-start().catch((err) => {
-  console.error('Failed to start server:', err);
+start().catch(() => {
+  console.error('server_start_failed', { category: 'startup_error' });
   process.exit(1);
 });

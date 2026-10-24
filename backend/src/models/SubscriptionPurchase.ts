@@ -10,6 +10,7 @@ export interface ISubscriptionPurchase extends mongoose.Document {
   active: boolean;
   expiresAt?: Date;
   autoRenewing?: boolean;
+  providerStateSignedAt?: Date;
   createdAt: Date;
   updatedAt: Date;
 }
@@ -23,6 +24,7 @@ const schema = new Schema<ISubscriptionPurchase>({
   active: { type: Boolean, default: true },
   expiresAt: Date,
   autoRenewing: Boolean,
+  providerStateSignedAt: Date,
 }, { timestamps: true });
 
 schema.index({ store: 1, transactionKey: 1 }, { unique: true });

@@ -33,8 +33,10 @@ function getFirebaseApp(): App | null {
       }),
     });
     return firebaseApp;
-  } catch (error) {
-    console.error('[FCM] Firebase Admin initialization failed:', error);
+  } catch {
+    console.error('firebase_admin_initialization_failed', {
+      category: 'configuration_or_initialization',
+    });
     firebaseApp = null;
     return firebaseApp;
   }

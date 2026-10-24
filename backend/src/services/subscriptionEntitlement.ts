@@ -29,6 +29,9 @@ export function shouldReplaceSubscriptionEntitlement(
   incoming: Partial<ISubscriptionEntitlement>,
 ): boolean {
   if (!current) return true;
+  const currentSignedAt = timestamp(current.providerStateSignedAt);
+  const incomingSignedAt = timestamp(incoming.providerStateSignedAt);
+  if (currentSignedAt > 0 && incomingSignedAt > 0 && incomingSignedAt < currentSignedAt) return false;
   if (current.transactionKey && current.transactionKey === incoming.transactionKey) return true;
 
   const currentActive = isCurrentlyActive(current);
@@ -60,6 +63,12 @@ export async function applySubscriptionEntitlement(
   };
   if (currentKey) filter['subscription.transactionKey'] = currentKey;
   else filter['subscription.transactionKey'] = { $exists: false };
+  if (incoming.providerStateSignedAt) {
+    filter.$and = [{ $or: [
+      { 'subscription.providerStateSignedAt': { $lte: incoming.providerStateSignedAt } },
+      { 'subscription.providerStateSignedAt': { $exists: false } },
+    ] }];
+  }
 
   const result = await User.updateOne(filter, { $set: { subscription: incoming } });
   const writeResult = result as unknown as { matchedCount?: number; n?: number };

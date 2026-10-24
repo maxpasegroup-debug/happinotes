@@ -112,7 +112,7 @@ const deletionRequestValidation = [
   body('idempotencyKey').isString().isLength({ min: 16, max: 128 }).withMessage('A valid idempotency key is required'),
 ];
 
-router.post('/signup', signupValidation, signup);
+router.post('/signup', authRateLimiter, signupValidation, signup);
 router.post('/login', authRateLimiter, loginValidation, login);
 router.post('/request-email-otp', authRateLimiter, emailOtpValidation, requestEmailOtp);
 router.post('/verify-email-otp', authRateLimiter, emailVerifyOtpValidation, verifyEmailOtp);
@@ -128,7 +128,7 @@ router.post(
 );
 router.post('/forgot-password', authRateLimiter, forgotPasswordValidation, forgotPassword);
 router.post('/verify-otp', authRateLimiter, verifyOTPValidation, verifyOTP);
-router.post('/reset-password', resetPasswordValidation, resetPassword);
+router.post('/reset-password', authRateLimiter, resetPasswordValidation, resetPassword);
 router.post('/me/fcm-token', authenticate, body('token').isString().trim().isLength({ min: 20, max: 4096 }), registerFcmToken);
 router.delete('/me/fcm-token', authenticate, body('token').isString().trim().isLength({ min: 20, max: 4096 }), unregisterFcmToken);
 router.get('/me', authenticate, getMe);

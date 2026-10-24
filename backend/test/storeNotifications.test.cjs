@@ -234,3 +234,106 @@ test('Apple refuses unverified notifications without modifying ownership', async
   assert.equal(result.error.statusCode, 401);
   assert.equal(state.changes.length, 0);
 });
+
+test('Apple subscription notifications refresh canonical status, preserving owner and handling duplicate or stale delivery', async () => {
+  const { appleSubscriptionNotification } = require('../dist/services/subscriptionPurchase');
+  const claim = { _id: 'subscription-claim', userId: 'user', planKey: 'monthly',
+    productId: 'premium.monthly', store: 'ios' };
+  const writes = [];
+  const userWrites = [];
+  mock.method(service, 'applePurchaseClient', () => ({
+    environment: 'Sandbox',
+    verifier: {
+      verifyAndDecodeNotification: async () => ({ data: { signedTransactionInfo: 'notification-jws' } }),
+      verifyAndDecodeTransaction: async () => ({ originalTransactionId: 'original', transactionId: 'old-tx' }),
+    },
+  }));
+  mock.method(StorePurchase, 'findOne', async () => null);
+  mock.method(SubscriptionPurchase, 'findOne', async () => claim);
+  mock.method(SubscriptionPurchase, 'updateOne', async (filter, update) => {
+    writes.push({ filter, update });
+    return { matchedCount: 1 };
+  });
+  mock.method(AccountDeletionRequest, 'exists', async () => false);
+  mock.method(User, 'findById', () => ({ select: async () => ({ subscription: undefined }) }));
+  mock.method(User, 'updateOne', async (_, update) => { userWrites.push(update); return { matchedCount: 1 }; });
+  let statusLookups = 0;
+  mock.method(require('../dist/services/subscriptionPurchase'), 'appleSubscriptionNotification', async (original, product, owner) => {
+    statusLookups += 1;
+    assert.equal(original, 'original');
+    assert.equal(product, 'premium.monthly');
+    assert.equal(owner, service.accountToken('user'));
+    // Apple status is refreshed on every notification; delivery order does not
+    // supply the state that is applied.
+    return { transactionKey: 'Sandbox:original', active: true,
+      expiresAt: new Date(Date.now() + 60_000), autoRenewing: false,
+      providerStateSignedAt: new Date('2026-10-24T10:00:00Z') };
+  });
+  const request = { body: { signedPayload: 'signed-notification' } };
+  assert.equal((await dispatch('/apple', request)).status, 204);
+  assert.equal((await dispatch('/apple', request)).status, 204);
+  assert.equal(statusLookups, 2);
+  assert.equal(writes.length, 2);
+  assert.equal(userWrites.length, 2);
+  assert.equal(writes[0].update.$set.active, true);
+  assert.equal(writes[0].filter.$or[0].providerStateSignedAt.$lte.toISOString(), '2026-10-24T10:00:00.000Z');
+});
+
+test('an Apple lifecycle response older than the persisted signed state cannot alter user entitlement', async () => {
+  const claim = { _id: 'subscription-claim', userId: 'user', planKey: 'monthly',
+    productId: 'premium.monthly', store: 'ios' };
+  let entitlementWrites = 0;
+  mock.method(service, 'applePurchaseClient', () => ({
+    environment: 'Sandbox',
+    verifier: {
+      verifyAndDecodeNotification: async () => ({ data: { signedTransactionInfo: 'notification-jws' } }),
+      verifyAndDecodeTransaction: async () => ({ originalTransactionId: 'original', transactionId: 'old-tx' }),
+    },
+  }));
+  mock.method(StorePurchase, 'findOne', async () => null);
+  mock.method(SubscriptionPurchase, 'findOne', async () => claim);
+  mock.method(SubscriptionPurchase, 'updateOne', async () => ({ matchedCount: 0 }));
+  mock.method(AccountDeletionRequest, 'exists', async () => false);
+  mock.method(User, 'findById', () => ({ select: async () => ({ subscription: undefined }) }));
+  mock.method(User, 'updateOne', async () => { entitlementWrites += 1; return { matchedCount: 1 }; });
+  mock.method(require('../dist/services/subscriptionPurchase'), 'appleSubscriptionNotification', async () => ({
+    transactionKey: 'Sandbox:original', active: false,
+    providerStateSignedAt: new Date('2026-10-24T09:00:00Z'),
+  }));
+  const result = await dispatch('/apple', { body: { signedPayload: 'signed-notification' } });
+  assert.equal(result.status, 204);
+  assert.equal(entitlementWrites, 0);
+});
+
+test('Apple renewal-only notifications are signature-checked and refresh the existing subscription chain', async () => {
+  const claim = { _id: 'subscription-claim', userId: 'user', planKey: 'monthly',
+    productId: 'premium.monthly', store: 'ios' };
+  let refreshed = false;
+  mock.method(service, 'applePurchaseClient', () => ({
+    environment: 'Sandbox',
+    verifier: {
+      verifyAndDecodeNotification: async () => ({ data: { signedRenewalInfo: 'renewal-jws' } }),
+      verifyAndDecodeRenewalInfo: async (signed) => {
+        assert.equal(signed, 'renewal-jws');
+        return { originalTransactionId: 'original' };
+      },
+    },
+  }));
+  mock.method(StorePurchase, 'findOne', async () => { throw new Error('no transaction is expected'); });
+  mock.method(SubscriptionPurchase, 'findOne', async () => claim);
+  mock.method(SubscriptionPurchase, 'updateOne', async () => ({ matchedCount: 1 }));
+  mock.method(AccountDeletionRequest, 'exists', async () => false);
+  mock.method(User, 'findById', () => ({ select: async () => ({ subscription: undefined }) }));
+  mock.method(User, 'updateOne', async () => ({ matchedCount: 1 }));
+  mock.method(require('../dist/services/subscriptionPurchase'), 'appleSubscriptionNotification', async (original, product, owner) => {
+    assert.equal(original, 'original');
+    assert.equal(product, 'premium.monthly');
+    assert.equal(owner, service.accountToken('user'));
+    refreshed = true;
+    return { transactionKey: 'Sandbox:original', active: true,
+      expiresAt: new Date(Date.now() + 60_000), providerStateSignedAt: new Date() };
+  });
+  const result = await dispatch('/apple', { body: { signedPayload: 'signed-notification' } });
+  assert.equal(result.status, 204);
+  assert.equal(refreshed, true);
+});

@@ -5,6 +5,7 @@ import { ensureSubscriptionPlans } from '../services/subscriptionPlans';
 import { SubscriptionPlan, SubscriptionPlanKey } from '../models/SubscriptionPlan';
 import { syncGoogleSubscriptionPlan } from '../services/googleSubscriptionCatalog';
 import { emitSubscriptionPlansChanged } from '../services/realtime';
+import { subscriptionProductIdForStore } from '../services/subscriptionProductMapping';
 
 const router = Router();
 router.use(authenticate, requireAdmin);
@@ -38,8 +39,10 @@ router.patch('/:key', async (req, res, next) => {
     // mobile app's backend price display working even when Play synchronization
     // is temporarily unavailable or the service account needs attention.
     try {
+      const googleProductId = subscriptionProductIdForStore(plan, 'android');
+      if (!googleProductId) throw new AppError('Google Play product is not configured', 503);
       await syncGoogleSubscriptionPlan({
-        productId: plan.productId,
+        productId: googleProductId,
         basePlanId: key,
         billingPeriod: plan.billingPeriod,
         priceInr,
@@ -50,7 +53,10 @@ router.patch('/:key', async (req, res, next) => {
       const warning = error instanceof AppError
         ? error.message
         : 'Google Play synchronization failed; retry it before accepting purchases.';
-      console.error('[Subscriptions] Price saved but Google Play plan sync failed', { key, priceInr, warning });
+      console.error('google_play_plan_sync_failed', {
+        plan: key,
+        category: error instanceof AppError ? 'service_error' : 'provider_error',
+      });
       res.json({ success: true, plan, googlePlaySync: 'failed', warning });
     }
   } catch (error) { next(error); }

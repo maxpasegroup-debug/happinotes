@@ -1,6 +1,7 @@
 "use client";
 
 import { useEffect, useMemo, useState } from "react";
+import { useRouter } from "next/navigation";
 import { apiRequest, uploadMultipart } from "@/lib/api";
 
 type Status = "draft" | "coming_soon" | "live";
@@ -146,6 +147,7 @@ function emptyForm(): ContentForm {
 }
 
 export default function AdminDashboardPage() {
+  const router = useRouter();
   const [activeModule, setActiveModule] = useState<ModuleKey>("lifebooks");
   const [contents, setContents] = useState<Content[]>([]);
   const [users, setUsers] = useState<User[]>([]);
@@ -239,6 +241,10 @@ export default function AdminDashboardPage() {
   }, [lifebooks, viewPlatform]);
 
   function openCreate(kind: Kind) {
+    if (kind === "lifebook") {
+      router.push("/admin/content/new");
+      return;
+    }
     setCreateKind(kind);
     setForm(emptyForm());
     setMessage("");
@@ -247,6 +253,10 @@ export default function AdminDashboardPage() {
   }
 
   async function openEdit(item: Content) {
+    if (item.contentType === "lifebook") {
+      router.push(`/admin/content/${item._id}/edit`);
+      return;
+    }
     setMessage("");
     setEditing(item);
     const next = emptyForm();
@@ -620,7 +630,7 @@ export default function AdminDashboardPage() {
               onClick={() => openCreate("lifebook")}
               className="rounded-lg bg-[#f97316] px-4 py-2 text-sm font-semibold text-white hover:bg-[#ea580c]"
             >
-              Create New
+              Add New Book
             </button>
           </div>
           <div className="grid grid-cols-1 gap-3 sm:grid-cols-2 xl:grid-cols-3 2xl:grid-cols-4">

@@ -63,7 +63,8 @@ Dependencies: `express`, `mongoose`, `bcryptjs`, `jsonwebtoken`, `helmet`, `cors
 2. **Environment**
    - Copy `.env.example` to `.env`
    - Set `MONGODB_URI` (e.g. local MongoDB or MongoDB Atlas)
-   - Set `JWT_SECRET` (strong secret for production)
+   - Set `JWT_SECRET` to at least 32 cryptographically random bytes (256 bits), with at least 12 distinct bytes. For example, generate it locally with `node -e "console.log(require('node:crypto').randomBytes(32).toString('base64url'))"`; do not commit or print the generated value into logs or reports. Production rejects missing, short, placeholder, fallback, or low-diversity values without displaying the configured value.
+   - Rate limits use the installed `express-rate-limit` process-local memory store. They protect each backend process independently and are not shared across Railway replicas. `RATE_LIMIT_STORE` may be omitted or set to `memory`; unsupported values such as `redis` fail startup instead of silently falling back. A shared store requires a separately reviewed adapter and infrastructure configuration.
    - Set `ADMIN_EMAIL` to the real administrator account.
    - If that account is not yet in MongoDB, set a strong, unique
      `ADMIN_BOOTSTRAP_PASSWORD` for one startup only, then remove the variable
@@ -108,7 +109,8 @@ Dependencies: `express`, `mongoose`, `bcryptjs`, `jsonwebtoken`, `helmet`, `cors
 4. **Variables**
    - In the service → **Variables**, add:
      - `MONGODB_URI` = the MongoDB connection URL from step 2
-     - `JWT_SECRET` = a long random secret (e.g. from `openssl rand -base64 32`)
+     - `JWT_SECRET` = a randomly generated value with at least 32 bytes and 12 distinct bytes (see Environment above)
+     - `RATE_LIMIT_STORE` = `memory` (explicitly process-local; not shared between replicas)
      - `NODE_ENV` = `production`
     - `ADMIN_EMAIL` = the real administrator email
     - `ADMIN_BOOTSTRAP_PASSWORD` = one-time secret only if this admin does not exist yet (remove after first successful startup)
@@ -135,6 +137,19 @@ Dependencies: `express`, `mongoose`, `bcryptjs`, `jsonwebtoken`, `helmet`, `cors
 
 ## Subscription verification and lifecycle
 
+- Subscription plans expose store-specific identifiers as `storeProductIds.android`
+  and `storeProductIds.ios`; verification requires an exact store/product match.
+  Android uses `GOOGLE_PLAY_SUBSCRIPTION_MONTHLY_PRODUCT_ID` and
+  `GOOGLE_PLAY_SUBSCRIPTION_YEARLY_PRODUCT_ID` (existing plan records retain
+  their legacy `productId` mapping). Apple identifiers are intentionally
+  unconfigured until confirmed by the owner:
+  `APPLE_IAP_SUBSCRIPTION_MONTHLY_PRODUCT_ID` and
+  `APPLE_IAP_SUBSCRIPTION_YEARLY_PRODUCT_ID`. Never copy Google IDs into the
+  Apple settings without confirming the App Store Connect product IDs.
+- Existing transaction-ledger claims remain eligible for same-owner restore
+  using their stored store, product ID, and monthly/yearly `planKey`, even when
+  a new per-store mapping is absent or changes later. This compatibility path
+  does not authorize a new purchase and still requires provider verification.
 - Google Play purchase and RTDN lookups use SHA-256 token keys; raw Play tokens
   are never persisted. Existing records created by an older raw-token build
   require an audited migration before they can be restored by the hashed-key

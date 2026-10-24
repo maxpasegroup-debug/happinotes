@@ -83,8 +83,8 @@ export const sendNotification = async (
         type: 'admin',
         ...(imageUrl ? { imageUrl } : {}),
       });
-    } catch (error) {
-      console.error('[Notifications] Failed to save admin notification:', error);
+    } catch {
+      console.error('admin_notification_persist_failed', { target });
     }
     const now = new Date();
     const activeSubscription = {

@@ -1,7 +1,11 @@
 const { test, afterEach, mock } = require('node:test');
 const assert = require('node:assert/strict');
 const { GoogleAuth } = require('google-auth-library');
+const { AutoRenewStatus, Status, Type } = require('@apple/app-store-server-library');
+const storePurchaseService = require('../dist/services/storePurchase');
 const {
+  appleSubscription,
+  appleSubscriptionNotification,
   googleSubscription,
   googleSubscriptionNotification,
   subscriptionTransactionKey,
@@ -39,6 +43,42 @@ const activePurchase = (changes = {}) => ({
   ...changes,
 });
 
+function appleStatus({ status = Status.ACTIVE, expiry = Date.now() + 60_000,
+  graceExpiry, autoRenew = AutoRenewStatus.ON, revocationDate, account = 'expected-account',
+  renewalAccount = account, signedDate = Date.now(), transactionProduct = 'premium.monthly' } = {}) {
+  const checked = [];
+  mock.method(storePurchaseService, 'applePurchaseClient', () => ({
+    environment: 'Sandbox',
+    client: {
+      getTransactionInfo: async () => ({ signedTransactionInfo: 'purchase-jws' }),
+      getAllSubscriptionStatuses: async (originalId) => {
+        assert.equal(originalId, 'original-id');
+        return { data: [{ lastTransactions: [{ status, signedTransactionInfo: 'current-jws', signedRenewalInfo: 'renewal-jws' }] }] };
+      },
+    },
+    verifier: {
+      verifyAndDecodeTransaction: async (signed) => {
+        checked.push(signed);
+        return {
+          originalTransactionId: 'original-id', productId: transactionProduct,
+          type: Type.AUTO_RENEWABLE_SUBSCRIPTION, appAccountToken: account,
+          purchaseDate: Date.now() - 60_000, expiresDate: expiry, revocationDate,
+          signedDate,
+        };
+      },
+      verifyAndDecodeRenewalInfo: async (signed) => {
+        checked.push(signed);
+        return {
+          originalTransactionId: 'original-id', appAccountToken: renewalAccount,
+          autoRenewStatus: autoRenew, gracePeriodExpiresDate: graceExpiry,
+          signedDate: signedDate - 1,
+        };
+      },
+    },
+  }));
+  return checked;
+}
+
 test('Play subscription requires an exact account binding', async () => {
   for (const externalAccountIdentifiers of [undefined, {}, { obfuscatedExternalAccountId: 42 }, { obfuscatedExternalAccountId: '' }]) {
     const requests = playResponse(activePurchase({ externalAccountIdentifiers }));
@@ -57,6 +97,55 @@ test('Play subscription requires an exact account binding', async () => {
     /invalid or belongs to another account/,
   );
   assert.equal(requests.length, 1);
+});
+
+test('Apple status lookup keeps a canceled subscription entitled only through expiry and reports renewal state', async () => {
+  const checked = appleStatus({ autoRenew: AutoRenewStatus.OFF });
+  const result = await appleSubscription('transaction-id', 'premium.monthly', 'expected-account');
+  assert.equal(result.active, true);
+  assert.equal(result.autoRenewing, false);
+  assert.equal(result.transactionKey, 'Sandbox:original-id');
+  assert.equal(checked.includes('renewal-jws'), true);
+});
+
+test('Apple verified grace period extends entitlement only to its signed grace expiry', async () => {
+  appleStatus({ status: Status.BILLING_GRACE_PERIOD, expiry: Date.now() - 60_000,
+    graceExpiry: Date.now() + 60_000 });
+  const result = await appleSubscription('transaction-id', 'premium.monthly', 'expected-account');
+  assert.equal(result.active, true);
+  assert.ok(result.expiresAt.getTime() > Date.now());
+});
+
+test('Apple expired, billing retry without grace, and revoked states do not grant access', async () => {
+  for (const options of [
+    { status: Status.EXPIRED, expiry: Date.now() - 1 },
+    { status: Status.BILLING_RETRY, expiry: Date.now() - 1 },
+    { status: Status.ACTIVE, revocationDate: Date.now() },
+  ]) {
+    appleStatus(options);
+    const result = await appleSubscription('transaction-id', 'premium.monthly', 'expected-account');
+    assert.equal(result.active, false);
+  }
+});
+
+test('Apple transaction and renewal account ownership must match the authenticated user', async () => {
+  appleStatus({ account: 'another-account' });
+  await assert.rejects(appleSubscription('transaction-id', 'premium.monthly', 'expected-account'), /another account/);
+  appleStatus({ renewalAccount: 'another-account' });
+  await assert.rejects(appleSubscription('transaction-id', 'premium.monthly', 'expected-account'), /another account/);
+});
+
+test('Apple status API failures fail closed with a retryable service error', async () => {
+  mock.method(storePurchaseService, 'applePurchaseClient', () => ({
+    client: { getTransactionInfo: async () => ({ signedTransactionInfo: 'purchase-jws' }),
+      getAllSubscriptionStatuses: async () => { throw new Error('provider details'); } },
+    verifier: { verifyAndDecodeTransaction: async () => ({
+      originalTransactionId: 'original-id', productId: 'premium.monthly',
+      type: Type.AUTO_RENEWABLE_SUBSCRIPTION, appAccountToken: 'expected-account',
+    }) },
+  }));
+  await assert.rejects(appleSubscription('transaction-id', 'premium.monthly', 'expected-account'),
+    (error) => error.statusCode === 503 && !error.message.includes('provider details'));
 });
 
 test('explicit restore can recover a missing Play binding, but not a mismatch', async () => {

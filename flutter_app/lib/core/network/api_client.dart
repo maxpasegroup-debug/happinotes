@@ -1,13 +1,22 @@
 import 'package:dio/dio.dart';
+import 'package:flutter/foundation.dart';
 import 'package:flutter_secure_storage/flutter_secure_storage.dart';
+import 'api_config.dart';
 
 class ApiClient {
-  ApiClient({FlutterSecureStorage? secureStorage})
-    : _storage = secureStorage ?? const FlutterSecureStorage() {
+  ApiClient({
+    FlutterSecureStorage? secureStorage,
+    String? apiBaseUrl,
+    bool? releaseBuild,
+  }) : _storage = secureStorage ?? const FlutterSecureStorage(),
+       _baseUrl = resolveApiBaseUrl(
+         apiBaseUrl ?? configuredApiBaseUrl.value,
+         isRelease: releaseBuild ?? kReleaseMode,
+       ) {
     dio =
         Dio(
             BaseOptions(
-              baseUrl: baseUrl,
+              baseUrl: _baseUrl,
               connectTimeout: const Duration(seconds: 20),
               receiveTimeout: const Duration(seconds: 30),
             ),
@@ -24,12 +33,13 @@ class ApiClient {
             ),
           );
   }
-  static const baseUrl = String.fromEnvironment(
-    'API_BASE_URL',
-    defaultValue: 'https://happinotes-production-6b44.up.railway.app',
+  static String get baseUrl => resolveApiBaseUrl(
+    configuredApiBaseUrl.value,
+    isRelease: kReleaseMode,
   );
   static const _tokenKey = 'jwt_token';
   final FlutterSecureStorage _storage;
+  final String _baseUrl;
   late final Dio dio;
   Future<void> saveToken(String value) =>
       _storage.write(key: _tokenKey, value: value);

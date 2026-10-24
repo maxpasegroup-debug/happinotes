@@ -1,5 +1,7 @@
 import { GoogleAuth } from 'google-auth-library';
-import { Type } from '@apple/app-store-server-library';
+import {
+  AutoRenewStatus, JWSRenewalInfoDecodedPayload, JWSTransactionDecodedPayload, Status, Type,
+} from '@apple/app-store-server-library';
 import { createHash } from 'crypto';
 import { applePurchaseClient } from './storePurchase';
 import { AppError, BadRequestError } from '../utils/errors';
@@ -10,6 +12,7 @@ export type VerifiedSubscription = {
   active: boolean;
   expiresAt?: Date;
   autoRenewing?: boolean;
+  providerStateSignedAt?: Date;
 };
 
 export type VerifiedGoogleSubscriptionNotification = VerifiedSubscription & {
@@ -58,6 +61,72 @@ function alreadyAcknowledged(error: unknown): boolean {
 
 export function subscriptionTransactionKey(proof: string): string {
   return createHash('sha256').update(proof).digest('hex');
+}
+
+async function appleCurrentSubscription(
+  originalTransactionId: string,
+  productId: string,
+  expectedAccount: string,
+): Promise<VerifiedSubscription> {
+  const { client, verifier, environment } = applePurchaseClient();
+  let response;
+  try { response = await client.getAllSubscriptionStatuses(originalTransactionId); }
+  catch { throw new AppError('Apple subscription status lookup failed; please retry.', 503); }
+
+  const candidates: Array<{ status?: number; transaction: JWSTransactionDecodedPayload;
+    renewal?: JWSRenewalInfoDecodedPayload }> = [];
+  try {
+    for (const group of response.data ?? []) {
+      for (const item of group.lastTransactions ?? []) {
+        if (!item.signedTransactionInfo) continue;
+        const transaction = await verifier.verifyAndDecodeTransaction(item.signedTransactionInfo);
+        if (transaction.originalTransactionId !== originalTransactionId) continue;
+        const renewal = item.signedRenewalInfo
+          ? await verifier.verifyAndDecodeRenewalInfo(item.signedRenewalInfo)
+          : undefined;
+        candidates.push({ status: item.status, transaction, renewal });
+      }
+    }
+  } catch { throw new AppError('Apple subscription status could not be verified.', 503); }
+
+  candidates.sort((left, right) => (right.transaction.purchaseDate ?? 0) - (left.transaction.purchaseDate ?? 0));
+  const current = candidates[0];
+  if (!current || current.transaction.productId !== productId ||
+      current.transaction.type !== Type.AUTO_RENEWABLE_SUBSCRIPTION ||
+      current.transaction.appAccountToken !== expectedAccount ||
+      (current.renewal?.appAccountToken != null && current.renewal.appAccountToken !== expectedAccount) ||
+      (current.renewal?.originalTransactionId != null && current.renewal.originalTransactionId !== originalTransactionId)) {
+    throw new BadRequestError('Subscription is invalid or belongs to another account');
+  }
+
+  const expiresAt = safeDate(current.transaction.expiresDate);
+  const graceExpiresAt = safeDate(current.renewal?.gracePeriodExpiresDate);
+  const entitledUntil = current.status === Status.BILLING_GRACE_PERIOD && graceExpiresAt &&
+    (!expiresAt || graceExpiresAt > expiresAt) ? graceExpiresAt : expiresAt;
+  const activeStatus = current.status === Status.ACTIVE || current.status === Status.BILLING_GRACE_PERIOD;
+  const active = current.transaction.revocationDate == null && activeStatus &&
+    Boolean(entitledUntil && entitledUntil.getTime() > Date.now());
+  const signedAtMs = Math.max(current.transaction.signedDate ?? 0, current.renewal?.signedDate ?? 0);
+  if (!Number.isFinite(signedAtMs) || signedAtMs <= 0) {
+    throw new AppError('Apple subscription status is missing a signed timestamp.', 503);
+  }
+  return {
+    transactionKey: `${environment}:${originalTransactionId}`,
+    active,
+    expiresAt: entitledUntil,
+    autoRenewing: current.renewal?.autoRenewStatus === undefined
+      ? undefined
+      : current.renewal.autoRenewStatus === AutoRenewStatus.ON,
+    providerStateSignedAt: new Date(signedAtMs),
+  };
+}
+
+export async function appleSubscriptionNotification(
+  originalTransactionId: string,
+  productId: string,
+  expectedAccount: string,
+): Promise<VerifiedSubscription> {
+  return appleCurrentSubscription(originalTransactionId, productId, expectedAccount);
 }
 
 async function fetchGoogleSubscription(productId: string, proof: string, fromNotification = false) {
@@ -174,7 +243,7 @@ export async function googleSubscriptionNotification(
 }
 
 export async function appleSubscription(proof: string, productId: string, expectedAccount: string): Promise<VerifiedSubscription> {
-  const { client, verifier, environment } = applePurchaseClient();
+  const { client, verifier } = applePurchaseClient();
   let response;
   try { response = await client.getTransactionInfo(proof); }
   catch { throw new BadRequestError('Subscription could not be verified'); }
@@ -184,9 +253,7 @@ export async function appleSubscription(proof: string, productId: string, expect
       transaction.appAccountToken !== expectedAccount || !transaction.originalTransactionId) {
     throw new BadRequestError('Subscription is invalid or belongs to another account');
   }
-  const expiresAt = safeDate(transaction.expiresDate);
-  const active = transaction.revocationDate == null && Boolean(expiresAt && expiresAt.getTime() > Date.now());
-  return { transactionKey: `${environment}:${transaction.originalTransactionId}`, active, expiresAt, autoRenewing: active };
+  return appleCurrentSubscription(transaction.originalTransactionId, productId, expectedAccount);
 }
 
 export async function verifySubscriptionPurchase(

@@ -3,7 +3,13 @@
 import { useEffect, useState } from "react";
 import { apiRequest } from "@/lib/api";
 
-type Plan = { key: "monthly" | "yearly"; productId: string; priceInr: number; billingPeriod: string };
+type Plan = {
+  key: "monthly" | "yearly";
+  productId: string;
+  storeProductIds?: { android?: string; ios?: string };
+  priceInr: number;
+  billingPeriod: string;
+};
 type SavePlanResponse = { success: boolean; plan: Plan; googlePlaySync?: "synced" | "failed"; warning?: string };
 
 export default function AdminSettingsPage() {
@@ -45,7 +51,11 @@ export default function AdminSettingsPage() {
         {plans.map((plan) => (
           <div key={plan.key} style={{ border: "1px solid #232329", borderRadius: 12, padding: 18 }}>
             <h2 style={{ marginTop: 0 }}>{plan.key === "monthly" ? "Monthly plan" : "Yearly plan"}</h2>
-            <p style={{ color: "#a1a1aa", fontSize: 13 }}>Store product: {plan.productId}</p>
+            <p style={{ color: "#a1a1aa", fontSize: 13 }}>
+              Google Play product: {plan.storeProductIds?.android ?? plan.productId}
+              <br />
+              Apple product: {plan.storeProductIds?.ios ?? "Not configured"}
+            </p>
             <label style={{ display: "grid", gap: 6, maxWidth: 300 }}>
               Price (INR)
               <input

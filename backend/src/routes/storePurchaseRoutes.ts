@@ -12,6 +12,7 @@ import { SubscriptionPurchase } from '../models/SubscriptionPurchase';
 import { verifySubscriptionPurchase } from '../services/subscriptionPurchase';
 import { applySubscriptionEntitlement } from '../services/subscriptionEntitlement';
 import { assertAccountWritable } from '../services/accountDeletion';
+import { resolveSubscriptionPlanForStoreProduct } from '../services/subscriptionProductMapping';
 
 const router = Router();
 router.use(authenticate);
@@ -39,7 +40,15 @@ router.post('/subscription-verify', async (req, res, next) => {
       throw new BadRequestError('Subscription verification data is required');
     }
     const plans = await ensureSubscriptionPlans();
-    const plan = plans.find((item) => item.productId === productId && item.active);
+    let plan = resolveSubscriptionPlanForStoreProduct(plans, store, productId);
+    if (!plan && restore === true) {
+      // Legacy shared IDs can only be resolved for this authenticated user when
+      // a persisted ledger claim already links that exact store/product/plan.
+      const legacyClaim = await SubscriptionPurchase.findOne({
+        store, userId: req.user!._id, productId,
+      }).select('store productId planKey');
+      plan = resolveSubscriptionPlanForStoreProduct(plans, store, productId, legacyClaim);
+    }
     if (!plan) throw new BadRequestError('Unknown subscription plan');
     const expectedAccount = accountToken(String(req.user!._id));
     // Play may omit the obfuscated account identifier for an older purchase.
@@ -74,12 +83,31 @@ router.post('/subscription-verify', async (req, res, next) => {
       throw new ForbiddenError('This subscription is linked to another account');
     }
     await assertAccountWritable(req.user!._id);
-    await SubscriptionPurchase.updateOne({ _id: claim._id }, { $set: {
+    const stateFilter: Record<string, unknown> = { _id: claim._id };
+    if (verified.providerStateSignedAt) stateFilter.$or = [
+      { providerStateSignedAt: { $lte: verified.providerStateSignedAt } },
+      { providerStateSignedAt: { $exists: false } },
+    ];
+    const stateWrite = await SubscriptionPurchase.updateOne(stateFilter, { $set: {
       active: verified.active, expiresAt: verified.expiresAt, autoRenewing: verified.autoRenewing,
+      ...(verified.providerStateSignedAt ? { providerStateSignedAt: verified.providerStateSignedAt } : {}),
     } });
+    const stateWriteResult = stateWrite as unknown as { matchedCount?: number; n?: number } | undefined;
+    if (verified.providerStateSignedAt && stateWriteResult &&
+        (stateWriteResult.matchedCount ?? stateWriteResult.n ?? 0) === 0) {
+      const currentUser = await User.findById(req.user!._id).select('subscription');
+      const current = currentUser?.subscription;
+      const currentActive = current?.active === true &&
+        Boolean(!current.expiresAt || current.expiresAt.getTime() > Date.now());
+      res.json({ success: true, subscriptionActive: currentActive,
+        subscriptionPlan: current?.planKey ?? plan.key,
+        subscriptionExpiresAt: current?.expiresAt ?? null });
+      return;
+    }
     await applySubscriptionEntitlement(req.user!._id, {
         store, planKey: plan.key, productId, transactionKey: verified.transactionKey,
         active: verified.active, expiresAt: verified.expiresAt, autoRenewing: verified.autoRenewing,
+        providerStateSignedAt: verified.providerStateSignedAt,
         lastVerifiedAt: new Date(),
     });
     // Return the currently stored entitlement. A stale verification request

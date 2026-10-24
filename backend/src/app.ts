@@ -4,25 +4,12 @@ import cors from 'cors';
 import routes from './routes';
 import { errorHandler } from './middleware';
 import path from 'path';
+import { corsConfiguration } from './config/cors';
 
 const app = express();
 // Railway sits behind one reverse proxy and forwards the client address in
 // X-Forwarded-For. Trust that proxy so express-rate-limit can identify users.
 app.set('trust proxy', 1);
-const configuredOrigins = (process.env.CORS_ORIGINS || '')
-  .split(',')
-  .map((x) => x.trim())
-  .filter(Boolean);
-const staticOrigins = [
-  'http://localhost:8081',
-  'http://localhost:3000',
-  'http://localhost:3001',
-  'https://happinotes-production.up.railway.app',
-  'https://happinotes.online',
-  'https://www.happinotes.online',
-];
-const allowedOrigins = new Set([...staticOrigins, ...configuredOrigins]);
-
 // Media is served from this API and rendered by the separate admin web app
 // (and the mobile client). Helmet's default same-origin resource policy would
 // make those image/audio responses unusable cross-origin in a browser.
@@ -32,19 +19,7 @@ app.use(
   })
 );
 app.use(
-  cors({
-    origin: (origin, callback) => {
-      if (!origin) return callback(null, true);
-      if (allowedOrigins.has(origin)) return callback(null, true);
-      // Allow common frontend hosting domains unless restricted via CORS_ORIGINS.
-      if (origin.endsWith('.vercel.app') || origin.endsWith('.railway.app')) {
-        return callback(null, true);
-      }
-      return callback(new Error('Not allowed by CORS'));
-    },
-    methods: ['GET', 'POST', 'PUT', 'PATCH', 'DELETE'],
-    credentials: true,
-  })
+  cors(corsConfiguration.httpOptions)
 );
 app.use(express.json());
 app.use(express.urlencoded({ extended: true }));

@@ -37,7 +37,10 @@ export function accountToken(userId: string): string {
 
 function required(name: string): string {
   const value = process.env[name];
-  if (!value) throw new AppError('Store purchases are not configured', 503);
+  if (!value || !value.trim()) {
+    // The setting name is useful to the operator; never include its value.
+    throw new AppError(`Store purchase configuration is missing (${name})`, 503);
+  }
   return value;
 }
 

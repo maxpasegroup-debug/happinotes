@@ -53,10 +53,10 @@ export function AppHeader() {
             </Link>
           ) : (
             <Link
-              href="/admin/login"
+              href="/profile"
               className="rounded-full border border-white/20 px-3 py-1 text-xs font-semibold text-white hover:border-[#f6c453]"
             >
-              Login
+              Sign in
             </Link>
           )}
         </div>
