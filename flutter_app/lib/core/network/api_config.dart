@@ -1,14 +1,6 @@
-const _knownProductionHosts = {
-  'happinotes-production-6b44.up.railway.app',
-};
+const _knownProductionHosts = {'happinotes-production-6b44.up.railway.app'};
 
-const _localHosts = {
-  'localhost',
-  '127.0.0.1',
-  '::1',
-  '10.0.2.2',
-  '10.0.3.2',
-};
+const _localHosts = {'localhost', '127.0.0.1', '::1', '10.0.2.2', '10.0.3.2'};
 
 const _developmentHostLabels = {
   'dev',
@@ -77,9 +69,7 @@ String resolveApiBaseUrl(String configuredUrl, {required bool isRelease}) {
   }
   if (!isRelease &&
       !_localHosts.contains(host) &&
-      !host
-          .split(RegExp(r'[.-]'))
-          .any(_developmentHostLabels.contains)) {
+      !host.split(RegExp(r'[.-]')).any(_developmentHostLabels.contains)) {
     throw const FormatException(
       'Non-release HTTPS API_BASE_URL must use a development, test, staging, or sandbox host.',
     );

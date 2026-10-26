@@ -59,7 +59,8 @@ void main() {
       throwsA(isA<FormatException>()),
     );
     expect(
-      () => resolveApiBaseUrl('https://api.happinotes.online', isRelease: false),
+      () =>
+          resolveApiBaseUrl('https://api.happinotes.online', isRelease: false),
       throwsA(isA<FormatException>()),
     );
     expect(

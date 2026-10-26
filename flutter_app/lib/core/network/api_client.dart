@@ -33,10 +33,8 @@ class ApiClient {
             ),
           );
   }
-  static String get baseUrl => resolveApiBaseUrl(
-    configuredApiBaseUrl.value,
-    isRelease: kReleaseMode,
-  );
+  static String get baseUrl =>
+      resolveApiBaseUrl(configuredApiBaseUrl.value, isRelease: kReleaseMode);
   static const _tokenKey = 'jwt_token';
   final FlutterSecureStorage _storage;
   final String _baseUrl;
