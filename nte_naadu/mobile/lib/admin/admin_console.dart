@@ -1,4 +1,4 @@
-import 'package:flutter/material.dart';
+﻿import 'package:flutter/material.dart';
 import '../localization/language_picker.dart';
 import '../localization/locale_controller.dart';
 import '../onboarding/onboarding_session.dart';
@@ -107,19 +107,110 @@ class _ContentPageState extends State<_ContentPage> {
   Future<void> _load() async { setState(() { _busy = true; _failed = false; }); try { final values = await Future.wait([widget.repo.contentItems(), widget.repo.programmes(), widget.repo.topics()]); if (mounted) setState(() { _items = values[0]; _programmes = values[1]; _topics = values[2]; _busy = false; }); } catch (_) { if (mounted) setState(() { _failed = true; _busy = false; }); } }
   String _slug(String value) => value.toLowerCase().trim().replaceAll(RegExp(r'[^a-z0-9]+'), '-').replaceAll(RegExp(r'^-|-$'), '');
   Future<void> _author(String kind, {String? programmeId}) async {
-    final id = TextEditingController(), title = TextEditingController(), description = TextEditingController(), asset = TextEditingController();
-    final bands = <String>{'child', 'youth'}; String language = 'en', mediaType = 'audio', access = 'free';
-    final saved = await showDialog<bool>(context: context, builder: (ctx) => StatefulBuilder(builder: (ctx, update) => AlertDialog(title: Text(t('admin.create.$kind')), content: SizedBox(width: 520, child: SingleChildScrollView(child: Column(mainAxisSize: MainAxisSize.min, children: [TextField(controller: id, decoration: InputDecoration(labelText: t('admin.identifier')), onChanged: (v) { if (title.text.isEmpty) title.text = v.replaceAll('-', ' '); }), TextField(controller: title, decoration: InputDecoration(labelText: t('admin.titleField'))), TextField(controller: description, minLines: 2, maxLines: 4, decoration: InputDecoration(labelText: t('admin.descriptionField'))), DropdownButtonFormField<String>(value: language, decoration: InputDecoration(labelText: t('admin.contentLanguage')), items: ['en','hi','ml','ta'].map((v) => DropdownMenuItem(value: v, child: Text(v.toUpperCase()))).toList(), onChanged: (v) => update(() => language = v ?? 'en')), if (kind == 'content') ...[DropdownButtonFormField<String>(value: mediaType, decoration: InputDecoration(labelText: t('admin.mediaType')), items: ['audio','video'].map((v) => DropdownMenuItem(value: v, child: Text(v))).toList(), onChanged: (v) => update(() => mediaType = v ?? 'audio')), TextField(controller: asset, decoration: InputDecoration(labelText: t('admin.assetKey')))], if (['content','programme','activity'].contains(kind)) ...[DropdownButtonFormField<String>(value: access, decoration: InputDecoration(labelText: t('admin.access')), items: ['free','paid'].map((v) => DropdownMenuItem(value: v, child: Text(v))).toList(), onChanged: (v) => update(() => access = v ?? 'free')), for (final band in ['child','youth']) CheckboxListTile(value: bands.contains(band), title: Text(t('age.$band')), onChanged: (v) => update(() => v == true ? bands.add(band) : bands.remove(band)))]]))), actions: [TextButton(onPressed: () => Navigator.pop(ctx, false), child: Text(t('action.cancel'))), FilledButton(onPressed: () => Navigator.pop(ctx, true), child: Text(t('action.save')))])));
+    final id = TextEditingController();
+    final title = TextEditingController();
+    final description = TextEditingController();
+    final asset = TextEditingController();
+    final bands = <String>{'child', 'youth'};
+    var language = 'en';
+    var mediaType = 'audio';
+    var access = 'free';
+
+    final saved = await showDialog<bool>(
+      context: context,
+      builder: (ctx) => StatefulBuilder(
+        builder: (ctx, update) => AlertDialog(
+          title: Text(t('admin.create.$kind')),
+          content: SizedBox(
+            width: 520,
+            child: SingleChildScrollView(
+              child: Column(
+                mainAxisSize: MainAxisSize.min,
+                children: [
+                  TextField(
+                    controller: id,
+                    decoration: InputDecoration(labelText: t('admin.identifier')),
+                    onChanged: (value) {
+                      if (title.text.isEmpty) title.text = value.replaceAll('-', ' ');
+                    },
+                  ),
+                  TextField(controller: title, decoration: InputDecoration(labelText: t('admin.titleField'))),
+                  TextField(controller: description, minLines: 2, maxLines: 4, decoration: InputDecoration(labelText: t('admin.descriptionField'))),
+                  DropdownButtonFormField<String>(
+                    value: language,
+                    decoration: InputDecoration(labelText: t('admin.contentLanguage')),
+                    items: ['en', 'hi', 'ml', 'ta'].map((value) => DropdownMenuItem(value: value, child: Text(value.toUpperCase()))).toList(),
+                    onChanged: (value) => update(() => language = value ?? 'en'),
+                  ),
+                  if (kind == 'content') ...[
+                    DropdownButtonFormField<String>(
+                      value: mediaType,
+                      decoration: InputDecoration(labelText: t('admin.mediaType')),
+                      items: ['audio', 'video'].map((value) => DropdownMenuItem(value: value, child: Text(value))).toList(),
+                      onChanged: (value) => update(() => mediaType = value ?? 'audio'),
+                    ),
+                    TextField(controller: asset, decoration: InputDecoration(labelText: t('admin.assetKey'))),
+                    DropdownButtonFormField<String>(
+                      value: access,
+                      decoration: InputDecoration(labelText: t('admin.access')),
+                      items: ['free', 'paid'].map((value) => DropdownMenuItem(value: value, child: Text(value))).toList(),
+                      onChanged: (value) => update(() => access = value ?? 'free'),
+                    ),
+                  ],
+                  if (kind == 'programme')
+                    Padding(
+                      padding: const EdgeInsets.only(top: 8),
+                      child: Align(
+                        alignment: AlignmentDirectional.centerStart,
+                        child: Text(t('admin.paidProgrammesUnavailable')),
+                      ),
+                    ),
+                  if (['content', 'programme', 'activity'].contains(kind))
+                    for (final band in ['child', 'youth'])
+                      CheckboxListTile(
+                        value: bands.contains(band),
+                        title: Text(t('age.$band')),
+                        onChanged: (value) => update(() => value == true ? bands.add(band) : bands.remove(band)),
+                      ),
+                ],
+              ),
+            ),
+          ),
+          actions: [
+            TextButton(onPressed: () => Navigator.pop(ctx, false), child: Text(t('action.cancel'))),
+            FilledButton(onPressed: () => Navigator.pop(ctx, true), child: Text(t('action.save'))),
+          ],
+        ),
+      ),
+    );
     if (saved != true) return;
-    final itemId = _slug(id.text); if (itemId.length < 2 || title.text.trim().isEmpty || (kind != 'topic' && description.text.trim().length < 5)) { ScaffoldMessenger.of(context).showSnackBar(SnackBar(content: Text(t('admin.formInvalid')))); return; }
+    final itemId = _slug(id.text);
+    if (itemId.length < 2 || title.text.trim().isEmpty || (kind != 'topic' && description.text.trim().length < 5)) {
+      ScaffoldMessenger.of(context).showSnackBar(SnackBar(content: Text(t('admin.formInvalid'))));
+      return;
+    }
     try {
       if (kind == 'topic') await widget.repo.createTopic(itemId, title.text.trim());
-      if (kind == 'content') await widget.repo.createContent({'contentId': itemId, 'contentGroupId': itemId, 'title': title.text.trim(), 'description': description.text.trim(), 'contentLanguage': language, 'mediaType': mediaType, 'mediaAssetKey': asset.text.trim(), 'ageBands': bands.toList(), 'accessRequirement': access, 'topicIds': [], 'learningObjectives': []});
-      if (kind == 'programme') await widget.repo.createProgramme({'programmeId': itemId, 'title': title.text.trim(), 'description': description.text.trim(), 'contentLanguage': language, 'ageBands': bands.toList(), 'accessRequirement': access, 'learningObjectives': []});
-      if (kind == 'module' && programmeId != null) await widget.repo.createModule(programmeId, {'moduleId': itemId, 'title': title.text.trim(), 'description': description.text.trim(), 'contentLanguage': language});
-      if (kind == 'activity' && programmeId != null) await widget.repo.createActivity(programmeId, {'activityId': itemId, 'title': title.text.trim(), 'description': description.text.trim(), 'contentLanguage': language, 'ageBands': bands.toList()});
+      if (kind == 'content') await widget.repo.createContent({
+        'contentId': itemId, 'contentGroupId': itemId, 'title': title.text.trim(), 'description': description.text.trim(),
+        'contentLanguage': language, 'mediaType': mediaType, 'mediaAssetKey': asset.text.trim(), 'ageBands': bands.toList(),
+        'accessRequirement': access, 'topicIds': [], 'learningObjectives': [],
+      });
+      if (kind == 'programme') await widget.repo.createProgramme({
+        'programmeId': itemId, 'title': title.text.trim(), 'description': description.text.trim(),
+        'contentLanguage': language, 'ageBands': bands.toList(), 'accessRequirement': 'free', 'learningObjectives': [],
+      });
+      if (kind == 'module' && programmeId != null) await widget.repo.createModule(programmeId, {
+        'moduleId': itemId, 'title': title.text.trim(), 'description': description.text.trim(), 'contentLanguage': language,
+      });
+      if (kind == 'activity' && programmeId != null) await widget.repo.createActivity(programmeId, {
+        'activityId': itemId, 'title': title.text.trim(), 'description': description.text.trim(),
+        'contentLanguage': language, 'ageBands': bands.toList(),
+      });
       await _load();
-    } catch (_) { if (mounted) ScaffoldMessenger.of(context).showSnackBar(SnackBar(content: Text(t('admin.actionFailed')))); }
+    } catch (_) {
+      if (mounted) ScaffoldMessenger.of(context).showSnackBar(SnackBar(content: Text(t('admin.actionFailed'))));
+    }
   }
   Future<void> _change(Map<String,dynamic> item, bool programme, String status) async { final reason = TextEditingController(); final yes = await showDialog<bool>(context: context, builder: (ctx) => AlertDialog(title: Text(t('admin.publicationReason')), content: TextField(controller: reason, minLines: 2, maxLines: 4, decoration: InputDecoration(labelText: t('admin.reason'))), actions: [TextButton(onPressed: () => Navigator.pop(ctx, false), child: Text(t('action.cancel'))), FilledButton(onPressed: () => Navigator.pop(ctx, true), child: Text(t('action.save')))])); if (yes != true || reason.text.trim().length < 5) return; try { if (programme) await widget.repo.setProgrammeStatus('${item['id']}', status, reason.text.trim()); else await widget.repo.setContentStatus('${item['id']}', status, reason.text.trim()); await _load(); } catch (_) { if (mounted) ScaffoldMessenger.of(context).showSnackBar(SnackBar(content: Text(t('admin.actionFailed')))); } }
   Future<void> _changeTopic(String id, String status) async { final reason = TextEditingController(); final ok = await showDialog<bool>(context: context, builder: (ctx) => AlertDialog(title: Text(t('admin.publicationReason')), content: TextField(controller: reason, decoration: InputDecoration(labelText: t('admin.reason'))), actions: [TextButton(onPressed: () => Navigator.pop(ctx, false), child: Text(t('action.cancel'))), FilledButton(onPressed: () => Navigator.pop(ctx, true), child: Text(t('action.save')))])); if (ok != true || reason.text.trim().length < 5) return; try { await widget.repo.setTopicStatus(id, status, reason.text.trim()); await _load(); } catch (_) { if (mounted) ScaffoldMessenger.of(context).showSnackBar(SnackBar(content: Text(t('admin.actionFailed')))); } }

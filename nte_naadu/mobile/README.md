@@ -3,6 +3,15 @@
 This is an isolated NTE Naadu Flutter app surface. It does not change the HappiNotes
 Flutter app, identifiers, backend, or deployment configuration.
 
+## Android release foundation
+
+The Android project is under `android/`, with separate staging and production
+application variants. API origins are supplied per controlled build through
+`NTE_API_BASE_URL`; do not commit live config or signing material. See
+`../NTE_ANDROID_RELEASE.md` for candidate package ID, SDK/permission policy, and
+upload-key custody requirements. The application ID and live API origins still
+need owner approval/provisioning before a build.
+
 ## Localization behavior
 
 - English (`en`) is the initial default.

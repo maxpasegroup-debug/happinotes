@@ -7,6 +7,10 @@ const isProduction = nodeEnv === 'production';
 const mongoUri = process.env.NTE_MONGODB_URI?.trim() ?? '';
 const mongoDatabase = process.env.NTE_MONGODB_DATABASE?.trim() ?? '';
 const jwtSecret = process.env.NTE_JWT_SECRET?.trim() ?? '';
+const configuredPort = Number(process.env.NTE_PORT || process.env.PORT || '3100');
+if (!Number.isSafeInteger(configuredPort) || configuredPort < 1 || configuredPort > 65_535) {
+  throw new Error('NTE_PORT or PORT must be a valid TCP port.');
+}
 
 function assertDatabaseIsolation(): void {
   if (!mongoUri) throw new Error('NTE_MONGODB_URI is required.');
@@ -36,7 +40,10 @@ function assertSecret(): void {
 
 function canonicalOrigins(): string[] {
   const raw = process.env.NTE_CORS_ORIGINS?.trim() ?? '';
-  if (isProduction && !raw) throw new Error('NTE_CORS_ORIGINS is required in production.');
+  // An empty production allowlist intentionally disables browser cross-origin
+  // access. Native mobile clients do not send a browser Origin header. Add
+  // exact HTTPS origins only when an NTE browser client is provisioned.
+  if (isProduction && !raw) return [];
   const entries = raw ? raw.split(',').map((item) => item.trim()) : [
     'http://localhost:5173', 'http://localhost:3000', 'http://127.0.0.1:5173',
   ];
@@ -79,7 +86,7 @@ assertSecret();
 export const env = Object.freeze({
   nodeEnv,
   isProduction,
-  port: Number.parseInt(process.env.NTE_PORT || '3100', 10),
+  port: configuredPort,
   mongoUri,
   mongoDatabase,
   jwtSecret,

@@ -37,7 +37,7 @@ export async function listProgrammes(req: Request, res: Response): Promise<void>
   const current = auth(req);
   const profileId = req.query.studentProfileId;
   const { student } = profileId ? await ownStudent(current.parentId, profileId) : { student: undefined };
-  const query: Record<string, unknown> = { publicationStatus: 'published' };
+  const query: Record<string, unknown> = { publicationStatus: 'published', accessRequirement: 'free' };
   if (student) query.ageBands = student.ageGroup;
   if (typeof req.query.language === 'string') query.contentLanguage = req.query.language;
   if (typeof req.query.q === 'string' && req.query.q.trim()) {
@@ -62,7 +62,7 @@ export async function listProgrammes(req: Request, res: Response): Promise<void>
 export async function getProgramme(req: Request, res: Response): Promise<void> {
   const current = auth(req);
   const { student } = req.query.studentProfileId ? await ownStudent(current.parentId, req.query.studentProfileId) : { student: undefined };
-  const programme = await Programme.findOne({ programmeId: req.params.programmeId, publicationStatus: 'published' });
+  const programme = await Programme.findOne({ programmeId: req.params.programmeId, publicationStatus: 'published', accessRequirement: 'free' });
   if (!programme || (student && !programme.ageBands.includes(student.ageGroup))) throw notFound();
   const entitlement = student && programme.accessRequirement === 'paid' ? await PaymentEntitlement.findOne({ guardianId: current.parentId, studentId: student._id, programmeId: programme.programmeId, status: 'active', $or: [{ expiresAt: null }, { expiresAt: { $gt: new Date() } }] }) : null;
   const canAccessContent = programme.accessRequirement === 'free' || Boolean(entitlement);
@@ -84,7 +84,7 @@ export async function enroll(req: Request, res: Response): Promise<void> {
   const studentId = req.body?.studentProfileId;
   const { family, student } = await ownStudent(current.parentId, studentId);
   const programmeId = req.params.programmeId;
-  const programme = await Programme.findOne({ programmeId, publicationStatus: 'published' });
+  const programme = await Programme.findOne({ programmeId, publicationStatus: 'published', accessRequirement: 'free' });
   if (!programme || !programme.ageBands.includes(student.ageGroup)) throw notFound();
   if (programme.accessRequirement === 'paid') {
     const entitlement = await PaymentEntitlement.findOne({ guardianId: current.parentId, studentId: student._id, programmeId, status: 'active', $or: [{ expiresAt: null }, { expiresAt: { $gt: new Date() } }] });
@@ -103,7 +103,7 @@ export async function updateProgress(req: Request, res: Response): Promise<void>
   const { family, student } = await ownStudent(current.parentId, req.body?.studentProfileId);
   const programmeId = req.params.programmeId;
   const activityId = req.params.activityId;
-  const programme = await Programme.findOne({ programmeId, publicationStatus: 'published', ageBands: student.ageGroup });
+  const programme = await Programme.findOne({ programmeId, publicationStatus: 'published', accessRequirement: 'free', ageBands: student.ageGroup });
   if (!programme) throw notFound();
   if (programme.accessRequirement === 'paid') {
     const entitlement = await PaymentEntitlement.findOne({ guardianId: current.parentId, studentId: student._id, programmeId, status: 'active', $or: [{ expiresAt: null }, { expiresAt: { $gt: new Date() } }] });
@@ -135,6 +135,8 @@ export async function listProgress(req: Request, res: Response): Promise<void> {
   const current = auth(req);
   const { student } = await ownStudent(current.parentId, req.query.studentProfileId);
   const programmeId = req.params.programmeId;
+  const programme = await Programme.findOne({ programmeId, publicationStatus: 'published', accessRequirement: 'free', ageBands: student.ageGroup });
+  if (!programme) throw notFound();
   const enrollment = await ProgrammeEnrollment.findOne({ programmeId, guardianId: current.parentId, studentId: student._id, status: { $in: ['active', 'completed'] } });
   if (!enrollment) throw notFound();
   const [activities, progress] = await Promise.all([

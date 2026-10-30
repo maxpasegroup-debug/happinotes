@@ -165,6 +165,7 @@ export async function createProgramme(req: Request, res: Response): Promise<void
   const body = req.body ?? {};
   if (!languages.has(body.contentLanguage)) throw badRequest('CONTENT_LANGUAGE_INVALID', 'Select a supported content language.');
   if (!['free', 'paid'].includes(body.accessRequirement)) throw badRequest('PROGRAMME_ACCESS_INVALID', 'Select free or paid access.');
+  if (body.accessRequirement === 'paid') throw unavailable('PAID_PROGRAMMES_DISABLED', 'Paid programme publishing is disabled until payment policy and provider approval are complete.');
   const programme = await Programme.create({ programmeId: slug(body.programmeId, 'programme identifier'), title: str(body.title, 'title', 1, 240), description: str(body.description, 'description', 1, 4000),
     contentLanguage: body.contentLanguage, ageBands: list(body.ageBands, ageBands, 'age groups'),
     ...(Number.isSafeInteger(body.durationMinutes) && body.durationMinutes > 0 ? { durationMinutes: body.durationMinutes } : {}),
@@ -182,7 +183,11 @@ export async function updateProgramme(req: Request, res: Response): Promise<void
   if (body.description != null) programme.description = str(body.description, 'description', 1, 4000);
   if (body.contentLanguage != null) { if (!languages.has(body.contentLanguage)) throw badRequest('CONTENT_LANGUAGE_INVALID', 'Select a supported content language.'); programme.contentLanguage = body.contentLanguage; }
   if (body.ageBands != null) programme.ageBands = list(body.ageBands, ageBands, 'age groups');
-  if (body.accessRequirement != null) { if (!['free', 'paid'].includes(body.accessRequirement)) throw badRequest('PROGRAMME_ACCESS_INVALID', 'Select free or paid access.'); programme.accessRequirement = body.accessRequirement; }
+  if (body.accessRequirement != null) {
+    if (!['free', 'paid'].includes(body.accessRequirement)) throw badRequest('PROGRAMME_ACCESS_INVALID', 'Select free or paid access.');
+    if (body.accessRequirement === 'paid') throw unavailable('PAID_PROGRAMMES_DISABLED', 'Paid programme publishing is disabled until payment policy and provider approval are complete.');
+    programme.accessRequirement = body.accessRequirement;
+  }
   if (body.durationMinutes != null) { if (!Number.isSafeInteger(body.durationMinutes) || body.durationMinutes < 1) throw badRequest('PROGRAMME_DURATION_INVALID', 'Enter a positive duration.'); programme.durationMinutes = body.durationMinutes; }
   if (body.learningObjectives != null) programme.learningObjectives = Array.isArray(body.learningObjectives) ? body.learningObjectives.map((x: unknown) => str(x, 'learning objective', 1, 500)) : [];
   await programme.save(); await audit(req, 'admin.programme_updated', programme.programmeId);
@@ -290,6 +295,7 @@ export async function setProgrammePublication(req: Request, res: Response): Prom
   if (status === 'in_review' && programme.publicationStatus !== 'draft') throw badRequest('PUBLICATION_TRANSITION_INVALID', 'Only drafts can be submitted for review.');
   if (status === 'published') {
     if (programme.publicationStatus !== 'in_review') throw badRequest('PUBLICATION_TRANSITION_INVALID', 'Only reviewed programmes can be published.');
+    if (programme.accessRequirement === 'paid') throw unavailable('PAID_PROGRAMMES_DISABLED', 'Paid programme publishing is disabled until payment policy and provider approval are complete.');
     const modules = await ProgrammeModule.countDocuments({ programmeId: programme.programmeId, contentLanguage: programme.contentLanguage, publicationStatus: 'published' });
     const activities = await ProgrammeActivity.countDocuments({ programmeId: programme.programmeId, contentLanguage: programme.contentLanguage, publicationStatus: 'published' });
     if (!modules || !activities) throw badRequest('PROGRAMME_INCOMPLETE', 'Publish at least one module and activity before the programme.');

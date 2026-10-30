@@ -12,6 +12,8 @@ yarn-error.log*
 .env
 backend/.env
 mobile/.env
+nte_naadu/mobile/config/api.staging.json
+nte_naadu/mobile/config/api.production.json
 
 # =========================
 # Build Output
@@ -33,6 +35,8 @@ android/
 # Keep the standalone Flutter application's native projects buildable.
 !flutter_app/android/
 !flutter_app/android/**
+!nte_naadu/mobile/android/
+!nte_naadu/mobile/android/**
 !flutter_app/ios/
 !flutter_app/ios/**
 
@@ -54,6 +58,9 @@ logs/
 **/key.properties
 *.jks
 *.keystore
+**/keys/
+**/local.properties
+**/.gradle/
 
 # =========================
 # OS Files

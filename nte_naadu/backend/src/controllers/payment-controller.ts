@@ -6,6 +6,7 @@ import { Family, GuardianRelationship, ParentAccount, PaymentAuditEvent, Payment
 import { paymentProvider } from '../services/payments/payment-provider';
 
 const supportedLanguages = new Set(['en', 'hi', 'ml', 'ta']);
+const paidProgrammesEnabled = false;
 
 function auth(req: Request) { if (!req.nteAuth) throw unauthorized(); return req.nteAuth; }
 function requestId(req: Request) { return req.nteRequestId ?? ''; }
@@ -29,6 +30,7 @@ async function audit(input: { actorType: 'guardian' | 'finance_support' | 'provi
 }
 
 async function purchaseContext(guardianId: string, programmeId: string, studentProfileId: unknown) {
+  if (!paidProgrammesEnabled) throw unavailable('PAID_PROGRAMMES_DISABLED', 'Paid programmes are not available in this MVP.');
   const { family, student } = await ownStudent(guardianId, studentProfileId);
   const programme = await Programme.findOne({ programmeId, publicationStatus: 'published', accessRequirement: 'paid' });
   if (!programme || !programme.ageBands.includes(student.ageGroup)) throw notFound();
@@ -81,6 +83,7 @@ export async function createOrder(req: Request, res: Response): Promise<void> {
     learnerName: student.preferredName, programmeId: programme.programmeId, programmeTitle: programme.title, amountMinor: programme.priceAmountMinor,
     currency: programme.priceCurrency, currencyExponent: programme.priceCurrencyExponent, purchaseType: programme.purchaseType, purchaseTermsVersion: programme.purchaseTermsVersion, purchaseTermsLanguageCode: programme.purchaseTermsLanguageCode,
     providerId: paymentProvider.providerId, status: 'pending' });
+  const orderId = order.orderId;
   try {
     const checkout = await paymentProvider.createCheckoutSession({ orderId, amountMinor: programme.priceAmountMinor, currency: programme.priceCurrency,
       description: programme.title, purchaserReference: String(guardian._id), idempotencyKey: key });
