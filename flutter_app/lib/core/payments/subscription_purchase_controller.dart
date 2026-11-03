@@ -189,8 +189,9 @@ class SubscriptionPurchaseController extends ChangeNotifier {
       }
       if (_plans.isNotEmpty) {
         final productIds = _plans.values.map((p) => p.productId).toSet();
-        if (_activeProductId != null && _activeProductId!.isNotEmpty)
+        if (_activeProductId != null && _activeProductId!.isNotEmpty) {
           productIds.add(_activeProductId!);
+        }
         final details = await _store.queryProductDetails(productIds);
         if (revision != _revision || _disposed) return;
         if (details.error != null) throw StateError(details.error!.message);

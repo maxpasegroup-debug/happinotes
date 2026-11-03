@@ -238,7 +238,7 @@ Future<void> _openStoreSubscriptions(
   final uri = isAndroid
       ? Uri.https('play.google.com', '/store/account/subscriptions', {
           'package': 'com.happinotes.happinotes_flutter',
-          if (productId != null) 'sku': productId,
+          if (productId case final String id) 'sku': id,
         })
       : Uri.parse('https://apps.apple.com/account/subscriptions');
   try {
