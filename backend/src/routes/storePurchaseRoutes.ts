@@ -44,12 +44,14 @@ router.post('/subscription-verify', async (req, res, next) => {
       throw new BadRequestError('Subscription verification data is required');
     }
     const plans = await ensureSubscriptionPlans();
-    // An old store product is accepted only when this account already has a
-    // verified ledger claim for it. This lets active subscribers renew/restore
-    // their historical price cohort without making that product the new offer.
-    const existingClaim = await SubscriptionPurchase.findOne({ store, userId: req.user!._id, productId })
-      .select('store productId planKey');
-    const plan = resolveSubscriptionPlanForStoreProduct(plans, store, productId, existingClaim);
+    let plan = resolveSubscriptionPlanForStoreProduct(plans, store, productId);
+    if (!plan && restore === true) {
+      // Historical product IDs are accepted only for a verified ledger claim
+      // owned by this account. New purchases always use the current product.
+      const existingClaim = await SubscriptionPurchase.findOne({ store, userId: req.user!._id, productId })
+        .select('store productId planKey');
+      plan = resolveSubscriptionPlanForStoreProduct(plans, store, productId, existingClaim);
+    }
     if (!plan) throw new BadRequestError('Unknown subscription plan');
     const expectedAccount = accountToken(String(req.user!._id));
     // Play may omit the obfuscated account identifier for an older purchase.

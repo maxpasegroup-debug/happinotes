@@ -11,8 +11,6 @@ import { appleSubscriptionNotification, googleSubscriptionNotification } from '.
 import { applySubscriptionEntitlement } from '../services/subscriptionEntitlement';
 import { AppError, BadRequestError, UnauthorizedError } from '../utils/errors';
 import { isAccountWritable } from '../services/accountDeletion';
-import { ensureSubscriptionPlans } from '../services/subscriptionPlans';
-import { subscriptionPriceVersionForStoreProduct } from '../services/subscriptionProductMapping';
 
 const router = Router();
 const googleIdentity = new OAuth2Client();
@@ -43,11 +41,9 @@ async function updateSubscriptionAccess(
   state: { active: boolean; expiresAt?: Date; autoRenewing?: boolean; transactionKey: string;
     providerStateSignedAt?: Date },
 ) {
-  const plans = await ensureSubscriptionPlans();
-  const plan = plans.find((item) => item.key === claim.planKey);
-  const priceVersion = claim.priceVersion ?? (plan
-    ? subscriptionPriceVersionForStoreProduct(plan, claim.store, claim.productId)
-    : 1);
+  // Purchases verified before price versioning are the initial cohort.
+  // Keeping this lookup local avoids making store webhooks depend on catalog DB reads.
+  const priceVersion = claim.priceVersion ?? 1;
   const filter: Record<string, unknown> = { _id: claim._id };
   if (state.providerStateSignedAt) {
     filter.$or = [
