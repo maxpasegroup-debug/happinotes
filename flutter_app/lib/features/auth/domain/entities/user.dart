@@ -42,6 +42,7 @@ class User {
     subscriptionPlan: subscriptionPlan ?? this.subscriptionPlan,
     subscriptionProductId: subscriptionProductId ?? this.subscriptionProductId,
     subscriptionExpiresAt: subscriptionExpiresAt ?? this.subscriptionExpiresAt,
-    subscriptionAutoRenewing: subscriptionAutoRenewing ?? this.subscriptionAutoRenewing,
+    subscriptionAutoRenewing:
+        subscriptionAutoRenewing ?? this.subscriptionAutoRenewing,
   );
 }

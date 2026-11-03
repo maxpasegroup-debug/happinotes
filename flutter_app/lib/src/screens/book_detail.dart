@@ -37,7 +37,10 @@ class _BookDetailState extends ConsumerState<BookDetail> {
           !(session.user?.purchasedBookIds.contains(book.id) ?? false) &&
           !(session.user?.subscriptionActive ?? false)) {
         final subscriptions = ref.read(subscriptionPurchaseControllerProvider);
-        subscriptions.setUser(session.user?.id, activeProductId: session.user?.subscriptionProductId);
+        subscriptions.setUser(
+          session.user?.id,
+          activeProductId: session.user?.subscriptionProductId,
+        );
         await subscriptions.reload();
       }
     });
