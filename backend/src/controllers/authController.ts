@@ -82,6 +82,7 @@ const userResponse = (user: typeof User.prototype) => ({
     store: user.subscription.store,
     planKey: user.subscription.planKey,
     productId: user.subscription.productId,
+    priceVersion: user.subscription.priceVersion ?? 1,
     active: user.subscription.active === true && (!user.subscription.expiresAt || user.subscription.expiresAt > new Date()),
     expiresAt: user.subscription.expiresAt,
     autoRenewing: user.subscription.autoRenewing,
@@ -89,6 +90,7 @@ const userResponse = (user: typeof User.prototype) => ({
   subscriptionActive: user.subscription?.active === true && (!user.subscription.expiresAt || user.subscription.expiresAt > new Date()),
   subscriptionPlan: user.subscription?.planKey ?? null,
   subscriptionExpiresAt: user.subscription?.expiresAt ?? null,
+  subscriptionAutoRenewing: user.subscription?.autoRenewing ?? null,
   languagePreference: user.languagePreference ?? 'all',
 });
 

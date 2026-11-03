@@ -9,6 +9,7 @@ export interface ISubscriptionEntitlement {
   store: SubscriptionStore;
   planKey: SubscriptionPlanKey;
   productId: string;
+  priceVersion?: number;
   transactionKey: string;
   active: boolean;
   expiresAt?: Date;
@@ -68,6 +69,7 @@ const userSchema = new Schema<IUser>(
       store: { type: String, enum: ['android', 'ios'] },
       planKey: { type: String, enum: ['monthly', 'yearly'] },
       productId: String,
+      priceVersion: { type: Number, min: 1 },
       transactionKey: String,
       active: { type: Boolean, default: false },
       expiresAt: Date,

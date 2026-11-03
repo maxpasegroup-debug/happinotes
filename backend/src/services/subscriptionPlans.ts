@@ -31,9 +31,41 @@ export async function ensureSubscriptionPlans() {
   for (const plan of defaults) {
     await SubscriptionPlan.updateOne(
       { key: plan.key },
-      { $setOnInsert: { ...plan, priceInr: 0, active: true } },
+      { $setOnInsert: {
+        ...plan,
+        priceInr: plan.key === 'monthly' ? 699 : 0,
+        pricingDefaultsVersion: plan.key === 'monthly' ? 1 : 0,
+        regionalPricing: plan.key === 'monthly' ? [{
+          regionCode: 'IN',
+          currencyCode: 'INR',
+          regularPrice: 1999,
+          offerPrice: 699,
+          googlePlayAvailable: false,
+          appleAppStoreAvailable: false,
+        }] : [],
+        active: true,
+      } },
       { upsert: true },
     );
+  }
+  // One-time migration for monthly plans created before country pricing.
+  // Admin changes made after this seed remain untouched.
+  const monthly = await SubscriptionPlan.findOne({ key: 'monthly' });
+  if (monthly && (monthly.pricingDefaultsVersion ?? 0) < 1) {
+    const india = monthly.regionalPricing.find((row) => row.regionCode === 'IN');
+    if (india) {
+      india.currencyCode = 'INR';
+      india.regularPrice = 1999;
+      india.offerPrice = 699;
+    } else {
+      monthly.regionalPricing.push({
+        regionCode: 'IN', currencyCode: 'INR', regularPrice: 1999, offerPrice: 699,
+        googlePlayAvailable: false, appleAppStoreAvailable: false,
+      });
+    }
+    monthly.priceInr = 699;
+    monthly.pricingDefaultsVersion = 1;
+    await monthly.save();
   }
   const plans = await SubscriptionPlan.find({ key: { $in: defaults.map((plan) => plan.key) } })
     .sort({ key: 1 })

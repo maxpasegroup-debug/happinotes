@@ -69,7 +69,7 @@ class _MainShellState extends ConsumerState<MainShell> {
     if (!mounted) return;
 
     final subscriptions = ref.read(subscriptionPurchaseControllerProvider);
-    subscriptions.setUser(user.id);
+    subscriptions.setUser(user.id, activeProductId: user.subscriptionProductId);
     await subscriptions.reload();
     if (!mounted) return;
     await Navigator.of(context).push(

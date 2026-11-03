@@ -116,7 +116,9 @@ class SessionController extends ChangeNotifier {
   void updateSubscription({
     required bool active,
     String? plan,
+    String? productId,
     DateTime? expiresAt,
+    bool? autoRenewing,
   }) {
     if (user == null) return;
     final current = user!;
@@ -130,7 +132,9 @@ class SessionController extends ChangeNotifier {
       purchasedBookIds: current.purchasedBookIds,
       subscriptionActive: active,
       subscriptionPlan: active ? plan : null,
+      subscriptionProductId: active ? productId : null,
       subscriptionExpiresAt: active ? expiresAt : null,
+      subscriptionAutoRenewing: active ? autoRenewing : null,
     );
     notifyListeners();
   }

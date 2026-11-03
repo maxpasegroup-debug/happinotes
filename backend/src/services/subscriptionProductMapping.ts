@@ -5,6 +5,12 @@ export type SubscriptionProductPlan = {
   productId: string;
   active?: boolean;
   storeProductIds?: { android?: string; ios?: string };
+  priceVersion?: number;
+  priceVersionHistory?: Array<{
+    version: number;
+    storeProductIds?: { android?: string; ios?: string };
+  }>;
+  storePriceVersions?: { android?: number; ios?: number };
 };
 
 export type LegacySubscriptionClaim = {
@@ -67,4 +73,16 @@ export function resolveSubscriptionPlanForStoreProduct<T extends SubscriptionPro
     return undefined;
   }
   return plans.find((plan) => plan.key === legacyClaim.planKey);
+}
+
+/** Return the price cohort tied to a verified store product. */
+export function subscriptionPriceVersionForStoreProduct(
+  plan: SubscriptionProductPlan,
+  store: SubscriptionStore,
+  productId: string,
+): number {
+  if (subscriptionProductIdForStore(plan, store) === productId) return plan.storePriceVersions?.[store] ?? plan.priceVersion ?? 1;
+  const historical = (plan.priceVersionHistory ?? []).filter((version) =>
+    nonEmpty(version.storeProductIds?.[store]) === productId);
+  return historical.length === 1 ? historical[0].version : plan.priceVersion ?? 1;
 }

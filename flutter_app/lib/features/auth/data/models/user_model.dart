@@ -11,7 +11,9 @@ class UserModel extends User {
     super.languagePreference,
     super.subscriptionActive,
     super.subscriptionPlan,
+    super.subscriptionProductId,
     super.subscriptionExpiresAt,
+    super.subscriptionAutoRenewing,
   });
   factory UserModel.fromJson(Map<String, dynamic> json) {
     final rawExpiry =
@@ -39,9 +41,20 @@ class UserModel extends User {
                       ? (json['subscription'] as Map)['planKey']
                       : null))
               ?.toString(),
+      subscriptionProductId:
+          (json['subscriptionProductId'] ??
+                  (json['subscription'] is Map
+                      ? (json['subscription'] as Map)['productId']
+                      : null))
+              ?.toString(),
       subscriptionExpiresAt: rawExpiry == null
           ? null
           : DateTime.tryParse(rawExpiry.toString()),
+      subscriptionAutoRenewing:
+          json['subscriptionAutoRenewing'] as bool? ??
+          (json['subscription'] is Map
+              ? (json['subscription'] as Map)['autoRenewing'] as bool?
+              : null),
     );
   }
 }

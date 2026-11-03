@@ -11,6 +11,8 @@ import { appleSubscriptionNotification, googleSubscriptionNotification } from '.
 import { applySubscriptionEntitlement } from '../services/subscriptionEntitlement';
 import { AppError, BadRequestError, UnauthorizedError } from '../utils/errors';
 import { isAccountWritable } from '../services/accountDeletion';
+import { ensureSubscriptionPlans } from '../services/subscriptionPlans';
+import { subscriptionPriceVersionForStoreProduct } from '../services/subscriptionProductMapping';
 
 const router = Router();
 const googleIdentity = new OAuth2Client();
@@ -37,10 +39,15 @@ async function updateAccess(claim: { _id: Types.ObjectId; userId: Types.ObjectId
 }
 
 async function updateSubscriptionAccess(
-  claim: { _id: Types.ObjectId; userId: Types.ObjectId; planKey: 'monthly' | 'yearly'; productId: string; store: 'android' | 'ios' },
+  claim: { _id: Types.ObjectId; userId: Types.ObjectId; planKey: 'monthly' | 'yearly'; productId: string; store: 'android' | 'ios'; priceVersion?: number },
   state: { active: boolean; expiresAt?: Date; autoRenewing?: boolean; transactionKey: string;
     providerStateSignedAt?: Date },
 ) {
+  const plans = await ensureSubscriptionPlans();
+  const plan = plans.find((item) => item.key === claim.planKey);
+  const priceVersion = claim.priceVersion ?? (plan
+    ? subscriptionPriceVersionForStoreProduct(plan, claim.store, claim.productId)
+    : 1);
   const filter: Record<string, unknown> = { _id: claim._id };
   if (state.providerStateSignedAt) {
     filter.$or = [
@@ -50,6 +57,7 @@ async function updateSubscriptionAccess(
   }
   const update = await SubscriptionPurchase.updateOne(filter, { $set: {
     active: state.active, expiresAt: state.expiresAt, autoRenewing: state.autoRenewing,
+    priceVersion,
     transactionKey: state.transactionKey,
     ...(state.providerStateSignedAt ? { providerStateSignedAt: state.providerStateSignedAt } : {}),
   } });
@@ -57,6 +65,7 @@ async function updateSubscriptionAccess(
   if (state.providerStateSignedAt && result && (result.matchedCount ?? result.n ?? 0) === 0) return;
   await applySubscriptionEntitlement(claim.userId, {
     store: claim.store, planKey: claim.planKey, productId: claim.productId,
+    priceVersion,
     transactionKey: state.transactionKey, active: state.active, expiresAt: state.expiresAt,
     autoRenewing: state.autoRenewing, providerStateSignedAt: state.providerStateSignedAt,
     lastVerifiedAt: new Date(),

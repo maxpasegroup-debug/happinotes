@@ -9,7 +9,9 @@ class User {
     this.languagePreference = 'all',
     this.subscriptionActive = false,
     this.subscriptionPlan,
+    this.subscriptionProductId,
     this.subscriptionExpiresAt,
+    this.subscriptionAutoRenewing,
   });
   final String id, name, role, languagePreference;
   final String? email;
@@ -17,13 +19,17 @@ class User {
   final List<String> purchasedBookIds;
   final bool subscriptionActive;
   final String? subscriptionPlan;
+  final String? subscriptionProductId;
   final DateTime? subscriptionExpiresAt;
+  final bool? subscriptionAutoRenewing;
   User copyWith({
     String? languagePreference,
     List<String>? purchasedBookIds,
     bool? subscriptionActive,
     String? subscriptionPlan,
+    String? subscriptionProductId,
     DateTime? subscriptionExpiresAt,
+    bool? subscriptionAutoRenewing,
   }) => User(
     id: id,
     name: name,
@@ -34,6 +40,8 @@ class User {
     purchasedBookIds: purchasedBookIds ?? this.purchasedBookIds,
     subscriptionActive: subscriptionActive ?? this.subscriptionActive,
     subscriptionPlan: subscriptionPlan ?? this.subscriptionPlan,
+    subscriptionProductId: subscriptionProductId ?? this.subscriptionProductId,
     subscriptionExpiresAt: subscriptionExpiresAt ?? this.subscriptionExpiresAt,
+    subscriptionAutoRenewing: subscriptionAutoRenewing ?? this.subscriptionAutoRenewing,
   );
 }

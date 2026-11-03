@@ -8,12 +8,19 @@ class SubscriptionPlanDetails {
     required this.key,
     required this.productId,
     required this.billingPeriod,
-    required this.priceInr,
+    required this.regionalPricing,
   });
   final String key;
   final String productId;
   final String billingPeriod;
-  final double priceInr;
+  final List<SubscriptionMarketPrice> regionalPricing;
+}
+
+class SubscriptionMarketPrice {
+  const SubscriptionMarketPrice({required this.currencyCode, required this.regularPrice, required this.offerPrice});
+  final String currencyCode;
+  final double regularPrice;
+  final double offerPrice;
 }
 
 class SubscriptionPurchaseController extends ChangeNotifier {
@@ -31,8 +38,13 @@ class SubscriptionPurchaseController extends ChangeNotifier {
   }
 
   final ApiClient api;
-  final Future<void> Function(bool active, String? plan, DateTime? expiresAt)
-  onVerified;
+  final Future<void> Function(
+    bool active,
+    String? plan,
+    DateTime? expiresAt,
+    bool? autoRenewing,
+    String? productId,
+  ) onVerified;
   final InAppPurchase _store = InAppPurchase.instance;
   StreamSubscription<List<PurchaseDetails>>? _subscription;
   Future<void> _queue = Future<void>.value();
@@ -43,6 +55,7 @@ class SubscriptionPurchaseController extends ChangeNotifier {
   final Set<String> _pendingProducts = {};
   Future<void>? _reloadFuture;
   String? _userId;
+  String? _activeProductId;
   String? _accountToken;
   int _revision = 0;
   int _verifying = 0;
@@ -66,17 +79,35 @@ class SubscriptionPurchaseController extends ChangeNotifier {
     final plan = _plans[key];
     return plan == null ? null : _products[plan.productId];
   }
+  ProductDetails? productById(String? productId) =>
+      productId == null ? null : _products[productId];
+
+  SubscriptionMarketPrice? offerFor(String key) {
+    final plan = _plans[key];
+    final product = productFor(key);
+    if (plan == null || product == null) return null;
+    final matching = plan.regionalPricing.where((row) =>
+      row.currencyCode == product.currencyCode &&
+      (row.offerPrice - product.rawPrice).abs() < 0.01 &&
+      row.regularPrice > row.offerPrice).toList();
+    if (matching.isEmpty) return null;
+    final first = matching.first;
+    return matching.every((row) => row.regularPrice == first.regularPrice && row.offerPrice == first.offerPrice)
+        ? first : null;
+  }
 
   bool pendingFor(String key) =>
       _pendingProducts.contains(_plans[key]?.productId);
 
-  void setUser(String? userId) {
-    if (_userId == userId) return;
+  void setUser(String? userId, {String? activeProductId}) {
+    if (_userId == userId && _activeProductId == activeProductId) return;
+    final userChanged = _userId != userId;
     _userId = userId;
+    _activeProductId = activeProductId;
     _revision++;
     _reloadFuture = null;
     _accountToken = null;
-    _plans.clear();
+    if (userChanged) _plans.clear();
     _products.clear();
     _retryPurchases.clear();
     _completedTransactions.clear();
@@ -118,15 +149,17 @@ class SubscriptionPurchaseController extends ChangeNotifier {
             ? rawStoreIds[_platform]?.toString()
             : null;
         if (key != null && productId != null && productId.isNotEmpty) {
-          final rawPrice = raw['priceInr'];
-          final priceInr = rawPrice is num
-              ? rawPrice.toDouble()
-              : double.tryParse(rawPrice?.toString() ?? '') ?? 0;
           _plans[key] = SubscriptionPlanDetails(
             key: key,
             productId: productId,
             billingPeriod: raw['billingPeriod']?.toString() ?? '',
-            priceInr: priceInr,
+            regionalPricing: ((raw['regionalPricing'] as List?) ?? const [])
+                .whereType<Map>()
+                .map((row) => SubscriptionMarketPrice(
+                  currencyCode: row['currencyCode']?.toString() ?? '',
+                  regularPrice: (row['regularPrice'] as num?)?.toDouble() ?? 0,
+                  offerPrice: (row['offerPrice'] as num?)?.toDouble() ?? 0,
+                )).toList(growable: false),
           );
         }
       }
@@ -136,8 +169,10 @@ class SubscriptionPurchaseController extends ChangeNotifier {
         return;
       }
       if (_plans.isNotEmpty) {
+        final productIds = _plans.values.map((p) => p.productId).toSet();
+        if (_activeProductId != null && _activeProductId!.isNotEmpty) productIds.add(_activeProductId!);
         final details = await _store.queryProductDetails(
-          _plans.values.map((p) => p.productId).toSet(),
+          productIds,
         );
         if (revision != _revision || _disposed) return;
         if (details.error != null) throw StateError(details.error!.message);
@@ -165,6 +200,7 @@ class SubscriptionPurchaseController extends ChangeNotifier {
     if (_disposed || busy || loading || pendingFor(key)) return;
     final revision = _revision;
     await reload();
+    if (revision != _revision || _disposed) return;
     final product = productFor(key);
     if (_userId == null || !available || product == null) {
       message =
@@ -282,7 +318,9 @@ class SubscriptionPurchaseController extends ChangeNotifier {
             : DateTime.tryParse(
                 response.data['subscriptionExpiresAt'].toString(),
               );
-        await onVerified(active, plan, expires);
+        final autoRenewing = response.data['subscriptionAutoRenewing'] as bool?;
+        final subscriptionProductId = response.data['subscriptionProductId']?.toString() ?? purchase.productID;
+        await onVerified(active, plan, expires, autoRenewing, subscriptionProductId);
         if (purchase.pendingCompletePurchase) {
           await _store.completePurchase(purchase);
         }

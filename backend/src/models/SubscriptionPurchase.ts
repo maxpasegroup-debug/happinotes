@@ -7,6 +7,7 @@ export interface ISubscriptionPurchase extends mongoose.Document {
   userId: mongoose.Types.ObjectId;
   planKey: SubscriptionPlanKey;
   productId: string;
+  priceVersion?: number;
   active: boolean;
   expiresAt?: Date;
   autoRenewing?: boolean;
@@ -21,6 +22,7 @@ const schema = new Schema<ISubscriptionPurchase>({
   userId: { type: Schema.Types.ObjectId, ref: 'User', required: true },
   planKey: { type: String, enum: ['monthly', 'yearly'], required: true },
   productId: { type: String, required: true },
+  priceVersion: { type: Number, min: 1 },
   active: { type: Boolean, default: true },
   expiresAt: Date,
   autoRenewing: Boolean,

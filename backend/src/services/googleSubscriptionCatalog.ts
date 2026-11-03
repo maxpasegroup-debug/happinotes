@@ -6,6 +6,7 @@ type PlanInput = {
   basePlanId: string;
   billingPeriod: 'P1M' | 'P1Y';
   priceInr: number;
+  regionalPricing?: Array<{ regionCode: string; currencyCode: string; offerPrice: number }>;
 };
 
 function required(name: string): string {
@@ -19,13 +20,13 @@ function statusOf(error: unknown): number | undefined {
   return value?.status ?? value?.response?.status;
 }
 
-function money(priceInr: number) {
-  const nanos = Math.round(priceInr * 1000000000);
-  if (!Number.isFinite(priceInr) || priceInr <= 0 || !Number.isSafeInteger(nanos)) {
+function money(currencyCode: string, amount: number) {
+  const nanos = Math.round(amount * 1000000000);
+  if (!Number.isFinite(amount) || amount <= 0 || !Number.isSafeInteger(nanos)) {
     throw new BadRequestError('Subscription price must be a positive INR amount');
   }
   const units = Math.floor(nanos / 1000000000);
-  return { currencyCode: 'INR', units: String(units), nanos: nanos - units * 1000000000 };
+  return { currencyCode, units: String(units), nanos: nanos - units * 1000000000 };
 }
 
 function planBody(input: PlanInput, packageName: string) {
@@ -41,7 +42,10 @@ function planBody(input: PlanInput, packageName: string) {
     basePlans: [{
       basePlanId: input.basePlanId,
       autoRenewingBasePlanType: { billingPeriodDuration: input.billingPeriod },
-      regionalConfigs: [{ regionCode: 'IN', newSubscriberAvailability: true, price: money(input.priceInr) }],
+      regionalConfigs: input.regionalPricing?.length
+        ? input.regionalPricing.map((row) => ({ regionCode: row.regionCode, newSubscriberAvailability: true,
+          price: money(row.currencyCode, row.offerPrice) }))
+        : [{ regionCode: 'IN', newSubscriberAvailability: true, price: money('INR', input.priceInr) }],
     }],
   };
 }
@@ -110,11 +114,15 @@ export async function syncGoogleSubscriptionPlan(input: PlanInput): Promise<void
         throw new AppError('Google Play subscription base plan could not be created', 503);
       }
     } else {
-      const existingPrice = existing.regionalConfigs?.find((config: any) => config.regionCode === 'IN')?.price;
-      const currentPrice = existingPrice
-        ? Number(existingPrice.units ?? 0) + Number(existingPrice.nanos ?? 0) / 1000000000
-        : undefined;
-      if (currentPrice === undefined || Math.abs(currentPrice - input.priceInr) > 0.0000001) {
+      const desired = body.basePlans[0].regionalConfigs;
+      const currentConfigs = existing.regionalConfigs ?? [];
+      const matches = desired.length === currentConfigs.length && desired.every((want) => {
+        const actual = currentConfigs.find((row: any) => row.regionCode === want.regionCode);
+        return actual?.newSubscriberAvailability === true && actual?.price?.currencyCode === want.price.currencyCode &&
+          Number(actual?.price?.units ?? 0) + Number(actual?.price?.nanos ?? 0) / 1000000000 ===
+          Number(want.price.units) + want.price.nanos / 1000000000;
+      });
+      if (!matches) {
         try {
           product = (await client.request<any>({
             url: path,
@@ -147,4 +155,15 @@ export async function syncGoogleSubscriptionPlan(input: PlanInput): Promise<void
       throw new AppError('Google Play subscription base plan could not be activated', 503);
     }
   }
+  let verified: any;
+  try { verified = (await client.request<any>({ url: path, timeout: 15000 })).data; }
+  catch { throw new AppError('Google Play price publication could not be confirmed', 503); }
+  const live = verified.basePlans?.find((candidate: any) => candidate.basePlanId === input.basePlanId);
+  const targetConfigs = body.basePlans[0].regionalConfigs;
+  if (live?.state !== 'ACTIVE' || !targetConfigs.every((target) => {
+    const actual = live.regionalConfigs?.find((row: any) => row.regionCode === target.regionCode);
+    return actual?.newSubscriberAvailability === true && actual?.price?.currencyCode === target.price.currencyCode &&
+      Number(actual?.price?.units ?? 0) + Number(actual?.price?.nanos ?? 0) / 1000000000 ===
+      Number(target.price.units) + target.price.nanos / 1000000000;
+  })) throw new AppError('Google Play did not confirm every selected market price', 503);
 }

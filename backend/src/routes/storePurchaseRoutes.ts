@@ -12,7 +12,7 @@ import { SubscriptionPurchase } from '../models/SubscriptionPurchase';
 import { verifySubscriptionPurchase } from '../services/subscriptionPurchase';
 import { applySubscriptionEntitlement } from '../services/subscriptionEntitlement';
 import { assertAccountWritable } from '../services/accountDeletion';
-import { resolveSubscriptionPlanForStoreProduct } from '../services/subscriptionProductMapping';
+import { resolveSubscriptionPlanForStoreProduct, subscriptionPriceVersionForStoreProduct } from '../services/subscriptionProductMapping';
 
 const router = Router();
 router.use(authenticate);
@@ -24,7 +24,11 @@ router.get('/subscription-plans', async (req, res, next) => {
     // browser, proxy, or mobile HTTP cache keep returning an older plan.
     res.set('Cache-Control', 'no-store, no-cache, must-revalidate, proxy-revalidate');
     const plans = await ensureSubscriptionPlans();
-    res.json({ success: true, accountToken: accountToken(String(req.user!._id)), plans: plans.filter((plan) => plan.active) });
+    res.json({ success: true, accountToken: accountToken(String(req.user!._id)), plans: plans.filter((plan) => plan.active).map((plan) => ({
+      key: plan.key, productId: plan.productId, storeProductIds: plan.storeProductIds,
+      billingPeriod: plan.billingPeriod, active: plan.active, priceVersion: plan.priceVersion ?? 1,
+      regionalPricing: plan.regionalPricing,
+    })) });
   } catch (error) { next(error); }
 });
 
@@ -40,15 +44,12 @@ router.post('/subscription-verify', async (req, res, next) => {
       throw new BadRequestError('Subscription verification data is required');
     }
     const plans = await ensureSubscriptionPlans();
-    let plan = resolveSubscriptionPlanForStoreProduct(plans, store, productId);
-    if (!plan && restore === true) {
-      // Legacy shared IDs can only be resolved for this authenticated user when
-      // a persisted ledger claim already links that exact store/product/plan.
-      const legacyClaim = await SubscriptionPurchase.findOne({
-        store, userId: req.user!._id, productId,
-      }).select('store productId planKey');
-      plan = resolveSubscriptionPlanForStoreProduct(plans, store, productId, legacyClaim);
-    }
+    // An old store product is accepted only when this account already has a
+    // verified ledger claim for it. This lets active subscribers renew/restore
+    // their historical price cohort without making that product the new offer.
+    const existingClaim = await SubscriptionPurchase.findOne({ store, userId: req.user!._id, productId })
+      .select('store productId planKey');
+    const plan = resolveSubscriptionPlanForStoreProduct(plans, store, productId, existingClaim);
     if (!plan) throw new BadRequestError('Unknown subscription plan');
     const expectedAccount = accountToken(String(req.user!._id));
     // Play may omit the obfuscated account identifier for an older purchase.
@@ -66,13 +67,14 @@ router.post('/subscription-verify', async (req, res, next) => {
     const verified = await verifySubscriptionPurchase(
       store as Store, plan.key, productId, proof, expectedAccount, { allowUnboundAccount },
     );
+    const priceVersion = subscriptionPriceVersionForStoreProduct(plan, store, productId);
     await assertAccountWritable(req.user!._id);
     await SubscriptionPurchase.init();
     let claim;
     try {
       claim = await SubscriptionPurchase.findOneAndUpdate(
         { store, transactionKey: verified.transactionKey },
-        { $setOnInsert: { userId: req.user!._id, planKey: plan.key, productId, store } },
+        { $setOnInsert: { userId: req.user!._id, planKey: plan.key, productId, store, priceVersion } },
         { upsert: true, new: true },
       );
     } catch (error) {
@@ -90,6 +92,7 @@ router.post('/subscription-verify', async (req, res, next) => {
     ];
     const stateWrite = await SubscriptionPurchase.updateOne(stateFilter, { $set: {
       active: verified.active, expiresAt: verified.expiresAt, autoRenewing: verified.autoRenewing,
+      priceVersion,
       ...(verified.providerStateSignedAt ? { providerStateSignedAt: verified.providerStateSignedAt } : {}),
     } });
     const stateWriteResult = stateWrite as unknown as { matchedCount?: number; n?: number } | undefined;
@@ -101,11 +104,14 @@ router.post('/subscription-verify', async (req, res, next) => {
         Boolean(!current.expiresAt || current.expiresAt.getTime() > Date.now());
       res.json({ success: true, subscriptionActive: currentActive,
         subscriptionPlan: current?.planKey ?? plan.key,
-        subscriptionExpiresAt: current?.expiresAt ?? null });
+        subscriptionProductId: current?.productId ?? productId,
+        subscriptionExpiresAt: current?.expiresAt ?? null,
+        subscriptionAutoRenewing: current?.autoRenewing ?? null });
       return;
     }
     await applySubscriptionEntitlement(req.user!._id, {
         store, planKey: plan.key, productId, transactionKey: verified.transactionKey,
+        priceVersion: claim.priceVersion ?? priceVersion,
         active: verified.active, expiresAt: verified.expiresAt, autoRenewing: verified.autoRenewing,
         providerStateSignedAt: verified.providerStateSignedAt,
         lastVerifiedAt: new Date(),
@@ -118,7 +124,9 @@ router.post('/subscription-verify', async (req, res, next) => {
       Boolean(!current.expiresAt || current.expiresAt.getTime() > Date.now());
     res.json({ success: true, subscriptionActive: currentActive,
       subscriptionPlan: current?.planKey ?? plan.key,
-      subscriptionExpiresAt: current?.expiresAt ?? null });
+      subscriptionProductId: current?.productId ?? productId,
+      subscriptionExpiresAt: current?.expiresAt ?? null,
+      subscriptionAutoRenewing: current?.autoRenewing ?? null });
   } catch (error) {
     next(error instanceof AppError ? error : new AppError('Could not verify subscription. Please restore purchases to retry.', 503));
   }

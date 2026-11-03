@@ -42,6 +42,8 @@ final subscriptionPurchaseControllerProvider =
         active,
         plan,
         expiresAt,
+        autoRenewing,
+        productId,
       ) async {
         ref
             .read(sessionControllerProvider)
@@ -49,6 +51,8 @@ final subscriptionPurchaseControllerProvider =
               active: active,
               plan: plan,
               expiresAt: expiresAt,
+              autoRenewing: autoRenewing,
+              productId: productId,
             );
         try {
           await ref.read(booksControllerProvider).loadBooks(forceRefresh: true);
