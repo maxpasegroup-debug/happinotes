@@ -57,6 +57,7 @@ export async function assertAccountWritable(userId: Types.ObjectId | string): Pr
 export async function requestAccountDeletion(
   userId: Types.ObjectId | string,
   idempotencyKey: string,
+  source: 'in_app' | 'external_web' = 'in_app',
 ): Promise<IAccountDeletionRequest> {
   const idempotencyKeyHash = hashDeletionSecret(idempotencyKey);
   const byKey = await AccountDeletionRequest.findOne({ userId, idempotencyKeyHash });
@@ -72,6 +73,10 @@ export async function requestAccountDeletion(
       userId,
       idempotencyKeyHash,
       status: 'requested',
+      publicReference: `HN-DEL-${crypto.randomBytes(10).toString('hex').toUpperCase()}`,
+      source,
+      reviewStatus: 'received',
+      processingHistory: [{ status: 'REQUEST_RECEIVED', actor: source, at: requestedAt }],
       requestedAt,
       attempts: 0,
       checkpoints: {
@@ -141,6 +146,7 @@ export async function requestAccountDeletion(
         'checkpoints.accessBlocked': true,
         'checkpoints.accessBlockedAt': requestedAt,
       },
+      $push: { processingHistory: { status: 'ACCESS_BLOCKED', actor: source, at: requestedAt } },
     });
   } catch (error) {
     await AccountDeletionRequest.updateOne({ _id: request._id }, {
@@ -186,6 +192,7 @@ export async function claimDeletionRequest(
         leaseOwner: owner,
       },
       $inc: { attempts: 1 },
+      $push: { processingHistory: { status: 'UNDER_REVIEW', actor: 'system:worker', at: now } },
     },
     { new: true },
   );
@@ -217,6 +224,7 @@ export async function claimNextDeletionRequest(
         leaseOwner: owner,
       },
       $inc: { attempts: 1 },
+      $push: { processingHistory: { status: 'UNDER_REVIEW', actor: 'system:worker', at: now } },
     },
     { new: true, sort: { requestedAt: 1 } },
   );
@@ -230,7 +238,10 @@ export async function completeDeletionCheckpoint(
 ): Promise<boolean> {
   const result = await AccountDeletionRequest.updateOne(
     { _id: requestId, status: 'processing', leaseOwner: leaseOwner.trim().slice(0, 128) },
-    { $set: { [`checkpoints.${checkpoint}`]: 'complete' } },
+    {
+      $set: { [`checkpoints.${checkpoint}`]: 'complete' },
+      $push: { processingHistory: { status: `CHECKPOINT_DONE:${checkpoint}`, actor: 'system:worker', at: new Date() } },
+    },
   );
   const writeResult = result as unknown as { matchedCount?: number; n?: number };
   return (writeResult.matchedCount ?? writeResult.n ?? 0) > 0;
@@ -253,9 +264,11 @@ export async function blockDeletionForPolicy(
         status: 'blocked_policy',
         failureCode: safeCode,
         failureMessage: 'Deletion is paused pending an approved retention policy',
+        'checkpoints.personalDataCleanup': 'deferred_policy',
         'checkpoints.entitlementPolicy': 'deferred_policy',
       },
       $unset: { leaseUntil: 1, leaseOwner: 1, nextAttemptAt: 1 },
+      $push: { processingHistory: { status: 'RETENTION_POLICY_APPROVAL_REQUIRED', actor: 'system:retention-policy-gate', at: new Date() } },
     },
   );
   const writeResult = result as unknown as { matchedCount?: number; n?: number };
@@ -285,6 +298,7 @@ export async function recordDeletionFailure(
       failureMessage: safeMessage,
     },
     $unset: { leaseUntil: 1, leaseOwner: 1 },
+    $push: { processingHistory: { status: retryable ? 'PROCESSING_RETRYABLE_FAILURE' : 'PROCESSING_REQUIRES_MANUAL_REVIEW', actor: 'system:worker', at: new Date() } },
   };
   if (retryable && nextAttemptAt) (update.$set as Record<string, unknown>).nextAttemptAt = nextAttemptAt;
   const result = await AccountDeletionRequest.updateOne(

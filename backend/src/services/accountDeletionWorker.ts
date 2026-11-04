@@ -109,12 +109,6 @@ export async function processClaimedDeletionRequest(
       }
     }
 
-    if (request.checkpoints?.personalDataCleanup !== 'complete') {
-      if (!(await completeDeletionCheckpoint(request._id, leaseOwner, 'personalDataCleanup'))) {
-        throw Object.assign(new Error('Deletion worker lease expired'), { code: 'LEASE_EXPIRED' });
-      }
-    }
-
     // Account identity, StorePurchase, SubscriptionPurchase, subscription
     // entitlements, and financial/audit retention remain policy-dependent.
     // Stop explicitly instead of claiming completion or deleting them.

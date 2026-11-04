@@ -17,6 +17,11 @@ export type DeletionCheckpointState = 'pending' | 'complete' | 'deferred_policy'
 export interface IAccountDeletionRequest extends Document {
   userId: Types.ObjectId;
   idempotencyKeyHash: string;
+  publicReference?: string;
+  statusTokenHash?: string;
+  source?: 'in_app' | 'external_web';
+  reviewStatus?: 'received' | 'under_review';
+  processingHistory: Array<{ status: string; actor: string; at: Date }>;
   status: AccountDeletionStatus;
   requestedAt: Date;
   startedAt?: Date;
@@ -67,10 +72,24 @@ const checkpointSchema = new Schema(
   { _id: false }
 );
 
+const processingHistorySchema = new Schema(
+  {
+    status: { type: String, required: true, maxlength: 40 },
+    actor: { type: String, required: true, maxlength: 80 },
+    at: { type: Date, required: true, default: Date.now },
+  },
+  { _id: false }
+);
+
 const accountDeletionRequestSchema = new Schema<IAccountDeletionRequest>(
   {
     userId: { type: Schema.Types.ObjectId, ref: 'User', required: true },
     idempotencyKeyHash: { type: String, required: true },
+    publicReference: { type: String, trim: true, uppercase: true },
+    statusTokenHash: { type: String, select: false },
+    source: { type: String, enum: ['in_app', 'external_web'], default: 'in_app' },
+    reviewStatus: { type: String, enum: ['received', 'under_review'], default: 'received' },
+    processingHistory: { type: [processingHistorySchema], default: [] },
     status: {
       type: String,
       enum: [...ACCOUNT_DELETION_ACTIVE_STATUSES, 'failed_manual', 'completed'],
@@ -103,6 +122,7 @@ accountDeletionRequestSchema.index(
   }
 );
 accountDeletionRequestSchema.index({ userId: 1, idempotencyKeyHash: 1 }, { unique: true });
+accountDeletionRequestSchema.index({ publicReference: 1 }, { unique: true, sparse: true });
 
 export const AccountDeletionRequest = mongoose.model<IAccountDeletionRequest>(
   'AccountDeletionRequest',

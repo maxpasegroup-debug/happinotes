@@ -14,6 +14,7 @@ import {
   sendNotification,
 } from '../controllers/adminController';
 import { authenticate, requireAdmin } from '../middleware';
+import { getAdminDeletionRequests, markDeletionRequestUnderReview } from '../controllers/accountDeletionController';
 
 const router = Router();
 
@@ -78,6 +79,8 @@ const updateStatusValidation = [
 
 router.get('/users', getUsers);
 router.get('/stats', getAdminStats);
+router.get('/account-deletions', getAdminDeletionRequests);
+router.patch('/account-deletions/:id/review', markDeletionRequestUnderReview);
 router.post('/notify', sendNotification);
 router.patch('/users/:id/block', blockUser);
 router.patch('/users/:id/unblock', unblockUser);

@@ -8,6 +8,7 @@ const menu = [
   { label: "Dashboard", href: "/admin/dashboard" },
   { label: "Featured", href: "/admin/featured" },
   { label: "Settings", href: "/admin/settings" },
+  { label: "Deletion requests", href: "/admin/deletion-requests" },
 ];
 
 export default function AdminShell({ children }: { children: ReactNode }) {

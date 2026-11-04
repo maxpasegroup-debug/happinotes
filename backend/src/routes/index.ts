@@ -11,11 +11,13 @@ import storePurchaseRoutes from './storePurchaseRoutes';
 import storeNotificationRoutes from './storeNotificationRoutes';
 import adminStoreProductRoutes from './adminStoreProductRoutes';
 import adminSubscriptionPlanRoutes from './adminSubscriptionPlanRoutes';
+import accountDeletionRoutes from './accountDeletionRoutes';
 import { authenticate } from '../middleware';
 
 const router = Router();
 
 router.use('/auth', authRoutes);
+router.use('/account-deletion', accountDeletionRoutes);
 router.use('/contents', contentRoutes);
 router.use('/collection', collectionRoutes);
 router.use('/admin', adminRoutes);
