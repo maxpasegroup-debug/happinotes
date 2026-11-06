@@ -8,7 +8,7 @@ type PublicStatus = { reference: string; status: "REQUEST_RECEIVED" | "UNDER_REV
 
 const statusCopy: Record<string, { title: string; message: string }> = {
   REQUEST_RECEIVED: { title: "REQUEST RECEIVED", message: "Your email was verified and your request was recorded. The backend has not confirmed deletion." },
-  UNDER_REVIEW: { title: "UNDER REVIEW", message: "The request is being reviewed. This does not mean account deletion is complete." },
+  UNDER_REVIEW: { title: "UNDER REVIEW", message: "The request is still open. It may be processing, paused for policy review, or require support. This does not mean account deletion is complete." },
   COMPLETED: { title: "COMPLETED", message: "The backend has confirmed that the deletion workflow completed." },
 };
 
@@ -92,7 +92,7 @@ export default function AccountDeletionForm() {
       <p>Keep the status code private. It is required with your reference to view request progress from this page.</p>
       {status && <div className="deletion-status"><strong>{statusCopy[status.status]?.title ?? "UNDER REVIEW"}</strong><p>{statusCopy[status.status]?.message ?? "The request is not marked complete."}</p><small>Received: {new Date(status.requestedAt).toLocaleString()}</small>{status.completedAt && <small>Completed: {new Date(status.completedAt).toLocaleString()}</small>}</div>}
       <button className="deletion-contact" type="button" disabled={busy} onClick={() => void refreshStatus()}>{busy ? "Checking…" : "Refresh request status"}</button>
-      <button className="deletion-secondary" type="button" onClick={() => { window.sessionStorage.removeItem("happinotes-deletion-tracking"); setPhase("email"); setRequest(null); setStatus(null); setOtp(""); setMessage(""); }}>Verify email again / recover request details</button>
+      <button className="deletion-secondary" type="button" onClick={() => { window.sessionStorage.removeItem("happinotes-deletion-tracking"); setPhase("email"); setRequest(null); setStatus(null); setOtp(""); setMessage("Saved tracking details were cleared from this browser. You will need your private status code to check this request again."); }}>Clear saved details from this browser</button>
     </div>}
     {message && <p className="deletion-form-message" role="status">{message}</p>}
   </section>;

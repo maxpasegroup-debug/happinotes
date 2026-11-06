@@ -23,7 +23,7 @@ export interface IUser extends Document {
   name: string;
   email?: string;
   phoneNumber?: string;
-  password: string;
+  password?: string;
   role: UserRole;
   languagePreference: 'all' | 'english' | 'malayalam' | 'hindi';
   bookCollection: mongoose.Types.ObjectId[];
@@ -50,7 +50,15 @@ const userSchema = new Schema<IUser>(
     name: { type: String, required: true, trim: true },
     email: { type: String, unique: true, sparse: true, lowercase: true, trim: true },
     phoneNumber: { type: String, unique: true, sparse: true, trim: true },
-    password: { type: String, required: true, select: false },
+    // Deletion cleanup removes credentials and later minimizes the pending
+    // account tombstone at the policy gate. New/active accounts require one.
+    password: {
+      type: String,
+      required: function (this: IUser) {
+        return this.deletionState !== 'pending' && this.deletionState !== 'completed';
+      },
+      select: false,
+    },
     role: { type: String, enum: ['admin', 'user'], default: 'user' },
     languagePreference: { type: String, enum: ['all', 'english', 'malayalam', 'hindi'], default: 'all' },
     bookCollection: [{ type: Schema.Types.ObjectId, ref: 'Content', default: [] }],

@@ -1,4 +1,4 @@
-import { Types } from 'mongoose';
+import { ClientSession, Types } from 'mongoose';
 import { User, ISubscriptionEntitlement } from '../models';
 import { isAccountWritable } from './accountDeletion';
 
@@ -51,9 +51,12 @@ export function shouldReplaceSubscriptionEntitlement(
 export async function applySubscriptionEntitlement(
   userId: Types.ObjectId | string,
   incoming: IncomingSubscriptionEntitlement,
+  session?: ClientSession,
 ): Promise<boolean> {
-  if (!(await isAccountWritable(userId))) return false;
-  const user = await User.findById(userId).select('subscription');
+  if (!(await isAccountWritable(userId, session))) return false;
+  const userQuery = User.findById(userId).select('subscription');
+  if (session) userQuery.session(session);
+  const user = await userQuery;
   if (!user || !shouldReplaceSubscriptionEntitlement(user.subscription, incoming)) return false;
 
   const currentKey = user.subscription?.transactionKey;
@@ -70,7 +73,8 @@ export async function applySubscriptionEntitlement(
     ] }];
   }
 
-  const result = await User.updateOne(filter, { $set: { subscription: incoming } });
+  const result = await User.updateOne(filter, { $set: { subscription: incoming } },
+    session ? { session } : {});
   const writeResult = result as unknown as { matchedCount?: number; n?: number };
   return (writeResult.matchedCount ?? writeResult.n ?? 0) > 0;
 }

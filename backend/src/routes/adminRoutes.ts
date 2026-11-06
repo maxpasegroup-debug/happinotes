@@ -7,7 +7,6 @@ import {
   updateBook,
   deleteBook,
   updateBookStatus,
-  deleteUser,
   blockUser,
   unblockUser,
   getAdminStats,
@@ -84,7 +83,6 @@ router.patch('/account-deletions/:id/review', markDeletionRequestUnderReview);
 router.post('/notify', sendNotification);
 router.patch('/users/:id/block', blockUser);
 router.patch('/users/:id/unblock', unblockUser);
-router.delete('/users/:id', deleteUser);
 
 router.get('/books', getAllBooks);
 router.post('/books', createBookValidation, createBook);

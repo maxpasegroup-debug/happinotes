@@ -83,7 +83,7 @@ router.post('/subscription-verify', async (req, res, next) => {
       if ((error as { code?: number }).code !== 11000) throw error;
       claim = await SubscriptionPurchase.findOne({ store, transactionKey: verified.transactionKey });
     }
-    if (!claim || String(claim.userId) !== String(req.user!._id) || claim.productId !== productId) {
+    if (!claim || !claim.userId || String(claim.userId) !== String(req.user!._id) || claim.productId !== productId) {
       throw new ForbiddenError('This subscription is linked to another account');
     }
     await assertAccountWritable(req.user!._id);
@@ -175,7 +175,7 @@ router.post('/verify', async (req, res, next) => {
       if ((error as { code?: number }).code !== 11000) throw error;
       claim = await StorePurchase.findOne({ store, transactionKey: verified.transactionKey });
     }
-    if (!claim || String(claim.userId) !== String(req.user!._id) || String(claim.bookId) !== bookId) {
+    if (!claim || !claim.userId || String(claim.userId) !== String(req.user!._id) || String(claim.bookId) !== bookId) {
       throw new ForbiddenError('This purchase is linked to another account');
     }
     await assertAccountWritable(req.user!._id);

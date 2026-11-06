@@ -10,7 +10,8 @@ export type LegacyPurchaseRecord = {
   id: string;
   store: 'android' | 'ios';
   transactionKey: string;
-  userId: string;
+  /** Missing for transaction rows already detached from a deleted account. */
+  userId?: string;
   productId: string;
   /** Set only after the raw token has been verified against Google Play. */
   verifiedRawToken?: boolean;
@@ -48,7 +49,10 @@ export function planLegacyPurchaseTokenMigration(
   records: readonly LegacyPurchaseRecord[],
 ): LegacyMigrationPlan[] {
   const plans: LegacyMigrationPlan[] = [];
-  const targetOwners = new Map<string, { recordId: string; userId: string; productId: string }>();
+  const targetOwners = new Map<string, { recordId: string; userId?: string; productId: string }>();
+
+  const sameVerifiedOwner = (left: { userId?: string; productId: string }, right: { userId?: string; productId: string }): boolean =>
+    Boolean(left.userId && right.userId && left.userId === right.userId && left.productId === right.productId);
 
   for (const record of records) {
     // Snapshot data is treated as untrusted input even though the TypeScript
@@ -67,8 +71,10 @@ export function planLegacyPurchaseTokenMigration(
 
     if (SHA256_KEY.test(record.transactionKey)) {
       const existing = targetOwners.get(record.transactionKey);
-      if (existing && (existing.userId !== record.userId || existing.productId !== record.productId)) {
-        throw new Error(`Ownership conflict for transaction key ${record.transactionKey}`);
+      if (existing && !sameVerifiedOwner(existing, record)) {
+        plans.push({ recordId: record.id, action: 'manual-review', currentKey: record.transactionKey,
+          reason: 'Duplicate claim cannot be merged automatically because linked ownership is missing or differs.' });
+        continue;
       }
       if (existing) {
         plans.push({ recordId: record.id, action: 'merge-duplicate', currentKey: record.transactionKey,
@@ -91,8 +97,10 @@ export function planLegacyPurchaseTokenMigration(
     const targetKey = sha256PurchaseToken(record.transactionKey);
     const existing = targetOwners.get(targetKey);
     if (existing) {
-      if (existing.userId !== record.userId || existing.productId !== record.productId) {
-        throw new Error(`Ownership conflict for migrated token ${targetKey}`);
+      if (!sameVerifiedOwner(existing, record)) {
+        plans.push({ recordId: record.id, action: 'manual-review', currentKey: record.transactionKey,
+          targetKey, reason: 'Duplicate claim cannot be merged automatically because linked ownership is missing or differs.' });
+        continue;
       }
       plans.push({ recordId: record.id, action: 'merge-duplicate', currentKey: record.transactionKey,
         targetKey, canonicalRecordId: existing.recordId,

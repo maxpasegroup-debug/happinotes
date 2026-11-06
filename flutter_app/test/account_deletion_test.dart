@@ -135,7 +135,10 @@ void main() {
     await tester.pumpWidget(_app(repository));
     await tester.pumpAndSettle();
     expect(find.text('Start account deletion'), findsOneWidget);
-    expect(find.text('Open Premium subscription'), findsOneWidget);
+    expect(
+      find.textContaining('Google Play/App Store billing is separate'),
+      findsOneWidget,
+    );
   });
 
   testWidgets('confirmation and reauthentication submit one request', (
@@ -162,7 +165,10 @@ void main() {
 
     expect(repository.requestCount, 1);
     expect(find.text('Deletion request received'), findsOneWidget);
-    expect(find.textContaining('check again'), findsOneWidget);
+    expect(
+      find.textContaining('refresh status without creating another request'),
+      findsOneWidget,
+    );
   });
 
   testWidgets(

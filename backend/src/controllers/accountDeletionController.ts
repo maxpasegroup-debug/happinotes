@@ -4,7 +4,7 @@ import { Request, Response, NextFunction } from 'express';
 import { validationResult } from 'express-validator';
 import { AccountDeletionReauth } from '../models/AccountDeletionReauth';
 import { Otp, User } from '../models';
-import { findActiveDeletionRequest, hashDeletionSecret, isAccountWritable, requestAccountDeletion } from '../services/accountDeletion';
+import { deletionStatusTokenFor, findActiveDeletionRequest, hashDeletionSecret, isAccountWritable, requestAccountDeletion } from '../services/accountDeletion';
 import { AccountDeletionRequest } from '../models/AccountDeletionRequest';
 import { BadRequestError, UnauthorizedError } from '../utils/errors';
 import { sendOTPEmail } from '../services/emailService';
@@ -102,10 +102,9 @@ export async function verifyExternalDeletionOtp(req: Request, res: Response, nex
     }
     request = await AccountDeletionRequest.findById(request._id);
     if (!request?.publicReference) return next(new Error('Could not create a deletion request reference'));
-    // Derive a stable bearer token from the server secret and the verified
-    // account/reference. This keeps concurrent verified requests consistent
-    // without persisting or emailing the plaintext status credential.
-    statusToken = hashDeletionSecret(`external-status:${request.publicReference}:${user._id}`);
+    // Derive the same high-entropy status bearer credential as the signed-in
+    // flow. Only its hash is stored; the requester must save the plaintext.
+    statusToken = deletionStatusTokenFor(request.publicReference, user._id);
     const verificationRecordedAt = new Date();
     await AccountDeletionRequest.updateOne(
       { _id: request._id },
@@ -215,7 +214,7 @@ export async function requestDeletionReauth(
     if (!user || !(await isAccountWritable(req.user._id))) {
       return next(new UnauthorizedError('Account deletion is not available'));
     }
-    if (!(await bcrypt.compare(credential, user.password))) {
+    if (!user.password || !(await bcrypt.compare(credential, user.password))) {
       return next(new UnauthorizedError('Credential verification failed'));
     }
 
@@ -251,6 +250,9 @@ export async function requestDeletion(
     // again. The deletion-only middleware permits this route for that purpose.
     const active = await findActiveDeletionRequest(req.user._id);
     if (active) {
+      const statusToken = active.publicReference
+        ? deletionStatusTokenFor(active.publicReference, req.user._id)
+        : undefined;
       res.status(202).json({
         success: true,
         requestId: String(active._id),
@@ -258,6 +260,7 @@ export async function requestDeletion(
         status: active.status,
         publicStatus: publicDeletionStatus(active),
         requestedAt: active.requestedAt,
+        statusToken,
       });
       return;
     }
@@ -282,6 +285,9 @@ export async function requestDeletion(
       status: request.status,
       publicStatus: publicDeletionStatus(request),
       requestedAt: request.requestedAt,
+      statusToken: request.publicReference
+        ? deletionStatusTokenFor(request.publicReference, req.user._id)
+        : undefined,
     });
   } catch (error) {
     next(error);
@@ -306,6 +312,9 @@ export async function getDeletionStatus(
       requestedAt: request.requestedAt,
       startedAt: request.startedAt ?? null,
       completedAt: request.completedAt ?? null,
+      statusToken: request.publicReference
+        ? deletionStatusTokenFor(request.publicReference, req.user!._id)
+        : undefined,
       failureCode: request.failureCode ?? null,
       processingHistory: (request.processingHistory ?? []).map((entry) => ({ status: entry.status, at: entry.at })),
     });

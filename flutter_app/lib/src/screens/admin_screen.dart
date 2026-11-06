@@ -341,51 +341,7 @@ class _Users extends ConsumerWidget {
           subtitle: Text(contact),
           trailing: u['role'] == 'admin'
               ? const Chip(label: Text('admin'))
-              : PopupMenuButton<String>(
-                  tooltip: 'Manage user',
-                  onSelected: (action) async {
-                    if (action == 'delete') {
-                      final confirmed =
-                          await showDialog<bool>(
-                            context: context,
-                            builder: (dialogContext) => AlertDialog(
-                              title: const Text('Delete this user?'),
-                              content: Text(
-                                'The account for $contact will be permanently removed.',
-                              ),
-                              actions: [
-                                TextButton(
-                                  onPressed: () =>
-                                      Navigator.pop(dialogContext, false),
-                                  child: const Text('Cancel'),
-                                ),
-                                FilledButton(
-                                  onPressed: () =>
-                                      Navigator.pop(dialogContext, true),
-                                  child: const Text('Delete'),
-                                ),
-                              ],
-                            ),
-                          ) ??
-                          false;
-                      if (!confirmed) return;
-                      final ok = await state.removeUser(u['_id'].toString());
-                      if (context.mounted) {
-                        AdminSnack.show(
-                          context,
-                          ok
-                              ? state.success ?? 'Updated'
-                              : state.error ?? 'Delete failed',
-                          success: ok,
-                        );
-                      }
-                    }
-                  },
-                  itemBuilder: (_) => const [
-                    PopupMenuItem(value: 'delete', child: Text('Delete user')),
-                  ],
-                  child: const Icon(Icons.more_vert),
-                ),
+              : null,
         );
       },
     );

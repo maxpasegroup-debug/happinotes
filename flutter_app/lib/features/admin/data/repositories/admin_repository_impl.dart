@@ -26,10 +26,6 @@ class AdminRepositoryImpl implements AdminRepository {
           .toList();
 
   @override
-  Future<void> deleteUser(String id) async =>
-      client.dio.delete('/admin/users/$id');
-
-  @override
   Future<Map<String, dynamic>> upload(String path, String kind) async {
     final fileName = path.split(RegExp(r'[/\\]')).last;
     final extension = fileName.split('.').last.toLowerCase();

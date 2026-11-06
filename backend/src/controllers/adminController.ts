@@ -407,21 +407,6 @@ export const updateBookStatus = async (
   }
 };
 
-/** DELETE /admin/users/:id — remove user from DB */
-export const deleteUser = async (
-  req: Request,
-  res: Response,
-  next: NextFunction
-): Promise<void> => {
-  try {
-    const user = await User.findByIdAndDelete(req.params.id);
-    if (!user) return next(new NotFoundError('User not found'));
-    res.json({ success: true, message: 'User deleted' });
-  } catch (err) {
-    next(err);
-  }
-};
-
 /** PATCH /admin/users/:id/block */
 export const blockUser = async (
   req: Request,

@@ -38,10 +38,12 @@ class AccountDeletionRequestStatus {
   const AccountDeletionRequestStatus({
     required this.requestId,
     required this.status,
+    this.reference,
     this.requestedAt,
     this.startedAt,
     this.completedAt,
     this.failureCode,
+    this.statusToken,
   });
 
   factory AccountDeletionRequestStatus.fromJson(Map<String, dynamic> json) {
@@ -50,19 +52,23 @@ class AccountDeletionRequestStatus {
     return AccountDeletionRequestStatus(
       requestId: (json['requestId'] ?? '').toString(),
       status: accountDeletionStatusFromJson(json['status']),
+      reference: json['reference']?.toString(),
       requestedAt: date(json['requestedAt']),
       startedAt: date(json['startedAt']),
       completedAt: date(json['completedAt']),
       failureCode: json['failureCode']?.toString(),
+      statusToken: json['statusToken']?.toString(),
     );
   }
 
   final String requestId;
   final AccountDeletionStatus status;
+  final String? reference;
   final DateTime? requestedAt;
   final DateTime? startedAt;
   final DateTime? completedAt;
   final String? failureCode;
+  final String? statusToken;
 
   bool get isPending => switch (status) {
     AccountDeletionStatus.requested ||

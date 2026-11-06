@@ -9,7 +9,6 @@ import '../../app/providers.dart';
 import '../../features/auth/domain/entities/account_deletion.dart';
 import '../theme.dart';
 import '../widgets/app_message.dart';
-import 'subscription_screen.dart';
 
 class AccountDeletionScreen extends ConsumerStatefulWidget {
   const AccountDeletionScreen({super.key});
@@ -148,9 +147,26 @@ class _AccountDeletionScreenState extends ConsumerState<AccountDeletionScreen> {
 
   Future<void> _handleCompleted(AccountDeletionRequestStatus status) async {
     if (status.status != AccountDeletionStatus.completed || !mounted) return;
+    await showDialog<void>(
+      context: context,
+      barrierDismissible: false,
+      builder: (dialogContext) => AlertDialog(
+        title: const Text('Account deletion completed'),
+        content: Text(
+          'The backend confirmed that the deletion workflow completed. Save this reference for support: ${status.reference ?? 'not available'}. The app will sign you out, so you will no longer be able to check status here.',
+        ),
+        actions: [
+          FilledButton(
+            onPressed: () => Navigator.of(dialogContext).pop(),
+            child: const Text('Continue'),
+          ),
+        ],
+      ),
+    );
+    if (!mounted) return;
     await ref.read(sessionControllerProvider).logout();
     if (!mounted) return;
-    AppMessage.showGlobal('Your HappiNotes account has been deleted.');
+    AppMessage.showGlobal('Your HappiNotes account deletion is complete.');
     Navigator.of(context).popUntil((route) => route.isFirst);
   }
 
@@ -168,7 +184,7 @@ class _AccountDeletionScreenState extends ConsumerState<AccountDeletionScreen> {
           title: const Text('Delete your account?'),
           content: const SingleChildScrollView(
             child: Text(
-              'This starts an account-deletion request. Your HappiNotes profile, saved books, favourites, device notifications, and authentication recovery data will be removed as the request is processed. You will lose access to this account.\n\n'
+              'This request blocks access to your account. Current processing removes authentication data, anonymises ordinary profile fields, removes email and phone, clears saved preferences and device tokens, and revokes HappiNotes Premium and purchased-book access. Purchase and subscription evidence, provider records, support records, logs, backups and minimal deletion history still require approved handling, so deletion may pause before completion.\n\n'
               'Deleting your HappiNotes account does not cancel a Google Play or App Store subscription. Manage or cancel that subscription in the store before continuing if needed.',
             ),
           ),
@@ -259,14 +275,16 @@ class _AccountDeletionScreenState extends ConsumerState<AccountDeletionScreen> {
   };
 
   String _statusBody(AccountDeletionStatus status) => switch (status) {
-    AccountDeletionStatus.requested || AccountDeletionStatus.processing =>
-      'Your account is protected while the request is processed. You can check again without creating another request.',
+    AccountDeletionStatus.requested =>
+      'Your request was received and account access is blocked. This does not mean deletion is complete. You can refresh status without creating another request.',
+    AccountDeletionStatus.processing =>
+      'Processing removes your password, OTPs, reset and reauthentication tokens; replaces your profile name with a generic label; removes your email and phone; resets profile settings; and clears favourites, collections, push-token references, purchased-book access and HappiNotes Premium access. Your store purchase and subscription transaction records, support records, provider data, logs, backups and deletion audit handling are still awaiting policy decisions. The request will pause at the policy gate and is not complete. Google Play and Apple subscriptions are not cancelled automatically; manage or cancel them in the relevant store.',
     AccountDeletionStatus.failedRetryable =>
       'A temporary problem interrupted processing. The backend can retry safely. Check the status again shortly.',
     AccountDeletionStatus.failedManual =>
       'The request needs support review. Your account remains protected and has not been reported as deleted.',
     AccountDeletionStatus.blockedPolicy =>
-      'Processing is paused until the required retention and payment policy is approved. Your account remains protected; this is not a completed deletion.',
+      'Processing is paused until the required retention and purchase/entitlement decisions are approved and implemented. Your account remains protected; this is not a completed deletion.',
     AccountDeletionStatus.completed =>
       'The backend reports that account deletion is complete.',
     AccountDeletionStatus.unknown =>
@@ -295,41 +313,15 @@ class _AccountDeletionScreenState extends ConsumerState<AccountDeletionScreen> {
               textAlign: TextAlign.center,
               style: Theme.of(context).textTheme.headlineSmall,
             ),
-            const SizedBox(height: 10),
-            const Text(
-              'You will be asked to confirm your password or PIN before a deletion request is sent.',
-              textAlign: TextAlign.center,
-            ),
-            const SizedBox(height: 18),
-            Card(
-              child: Padding(
-                padding: const EdgeInsets.all(16),
-                child: Column(
-                  crossAxisAlignment: CrossAxisAlignment.start,
-                  children: [
-                    Text(
-                      'Before you continue',
-                      style: Theme.of(context).textTheme.titleMedium,
-                    ),
-                    const SizedBox(height: 10),
-                    const Text(
-                      '• Account access and saved app data will be removed as processing completes.\n• Google Play/App Store billing is separate; this action does not cancel it.\n• Use the Premium screen or your store account to manage that subscription.',
-                    ),
-                    const SizedBox(height: 14),
-                    OutlinedButton.icon(
-                      onPressed: () => Navigator.of(context).push(
-                        MaterialPageRoute(
-                          builder: (_) => const SubscriptionScreen(),
-                        ),
-                      ),
-                      icon: const Icon(Icons.workspace_premium_outlined),
-                      label: const Text('Open Premium subscription'),
-                    ),
-                  ],
-                ),
+            if (_error != null) ...[
+              const SizedBox(height: 12),
+              Text(
+                _error!,
+                style: TextStyle(color: Colors.red.shade700),
+                textAlign: TextAlign.center,
               ),
-            ),
-            const SizedBox(height: 20),
+            ],
+            const SizedBox(height: 10),
             if (_checkingStatus)
               const Center(child: CircularProgressIndicator())
             else if (status != null)
@@ -337,6 +329,7 @@ class _AccountDeletionScreenState extends ConsumerState<AccountDeletionScreen> {
                 title: _statusTitle(status.status),
                 body: _statusBody(status.status),
                 status: status.status,
+                reference: status.reference,
                 onRefresh: _loading ? null : _loadStatus,
               )
             else
@@ -366,6 +359,33 @@ class _AccountDeletionScreenState extends ConsumerState<AccountDeletionScreen> {
                   backgroundColor: Colors.red.shade700,
                 ),
               ),
+            if (status?.reference != null && status?.statusToken != null) ...[
+              const SizedBox(height: 12),
+              Card(
+                child: Padding(
+                  padding: const EdgeInsets.all(16),
+                  child: Column(
+                    crossAxisAlignment: CrossAxisAlignment.start,
+                    children: [
+                      Text(
+                        'Save your status details',
+                        style: Theme.of(context).textTheme.titleMedium,
+                      ),
+                      const SizedBox(height: 8),
+                      const Text(
+                        'Use these details on the public account-deletion page if this app session ends. Keep the status code private. It cannot be reissued after your contact details are erased.',
+                      ),
+                      const SizedBox(height: 8),
+                      const Text('Request reference'),
+                      SelectableText(status!.reference!),
+                      const SizedBox(height: 8),
+                      const Text('Private status code'),
+                      SelectableText(status.statusToken!),
+                    ],
+                  ),
+                ),
+              ),
+            ],
             if (hasPending &&
                 status?.status == AccountDeletionStatus.failedRetryable &&
                 _proof != null)
@@ -376,14 +396,30 @@ class _AccountDeletionScreenState extends ConsumerState<AccountDeletionScreen> {
                   child: const Text('Retry request'),
                 ),
               ),
-            if (_error != null) ...[
-              const SizedBox(height: 14),
-              Text(
-                _error!,
-                style: TextStyle(color: Colors.red.shade700),
-                textAlign: TextAlign.center,
+            const SizedBox(height: 20),
+            const Text(
+              'You will confirm your password or PIN before a request is sent. Save the reference and private status code shown after submission. Email-based recovery may stop once contact details are erased; phone-only external verification is not available.',
+              textAlign: TextAlign.center,
+            ),
+            const SizedBox(height: 18),
+            Card(
+              child: Padding(
+                padding: const EdgeInsets.all(16),
+                child: Column(
+                  crossAxisAlignment: CrossAxisAlignment.start,
+                  children: [
+                    Text(
+                      'Before you continue',
+                      style: Theme.of(context).textTheme.titleMedium,
+                    ),
+                    const SizedBox(height: 10),
+                    const Text(
+                      'Account access, purchased-book access and HappiNotes Premium access are revoked during processing. Purchase and subscription records remain behind the policy gate, so the request may pause before completion.\nGoogle Play/App Store billing is separate; this action does not cancel it.\nCancel or manage billing in the relevant store.',
+                    ),
+                  ],
+                ),
               ),
-            ],
+            ),
             const SizedBox(height: 14),
             TextButton.icon(
               onPressed: _loading ? null : _loadStatus,
@@ -464,12 +500,14 @@ class _StatusCard extends StatelessWidget {
     required this.title,
     required this.body,
     required this.status,
+    required this.reference,
     required this.onRefresh,
   });
 
   final String title;
   final String body;
   final AccountDeletionStatus status;
+  final String? reference;
   final VoidCallback? onRefresh;
 
   @override
@@ -504,6 +542,10 @@ class _StatusCard extends StatelessWidget {
             ),
             const SizedBox(height: 10),
             Text(body),
+            if (reference != null && reference!.isNotEmpty) ...[
+              const SizedBox(height: 10),
+              SelectableText('Request reference: $reference'),
+            ],
             const SizedBox(height: 10),
             Align(
               alignment: Alignment.centerRight,

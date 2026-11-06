@@ -40,7 +40,10 @@ if (uploadSigningFile.exists()) {
 
 android {
     namespace = "com.happinotes.happinotes_flutter"
-    compileSdk = 37
+    // API 36 is the current Google Play minimum for new apps. Keep compile
+    // tooling aligned with the pinned Android Gradle Plugin 9.0.1 instead of
+    // requiring the newer toolchain needed for API 37.
+    compileSdk = 36
     ndkVersion = flutter.ndkVersion
 
     compileOptions {
@@ -51,7 +54,7 @@ android {
     defaultConfig {
         applicationId = "com.happinotes.happinotes_flutter"
         minSdk = flutter.minSdkVersion
-        targetSdk = flutter.targetSdkVersion
+        targetSdk = 36
         versionCode = flutter.versionCode
         versionName = flutter.versionName
     }

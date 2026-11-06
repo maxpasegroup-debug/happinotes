@@ -303,7 +303,7 @@ export const login = async (
         return next(new UnauthorizedError('OTP verification expired. Request a new OTP'));
       }
       const phoneUser = await User.findOne({ phoneNumber }).select('+password');
-      if (!phoneUser || !(await bcrypt.compare(pin, phoneUser.password))) {
+      if (!phoneUser || !phoneUser.password || !(await bcrypt.compare(pin, phoneUser.password))) {
         return next(new UnauthorizedError('Invalid WhatsApp number or PIN'));
       }
       if (phoneUser.blocked) return next(new UnauthorizedError('Account is blocked'));
@@ -326,7 +326,7 @@ export const login = async (
       return next(new UnauthorizedError('Account is blocked'));
     }
 
-    const match = await bcrypt.compare(password, user.password);
+    const match = user.password ? await bcrypt.compare(password, user.password) : false;
     if (!match) {
       return next(new UnauthorizedError('Invalid email or password'));
     }

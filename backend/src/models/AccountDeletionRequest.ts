@@ -39,6 +39,14 @@ export interface IAccountDeletionRequest extends Document {
     preferencesAndDevices: DeletionCheckpointState;
     personalDataCleanup: DeletionCheckpointState;
     entitlementPolicy: DeletionCheckpointState;
+    profileAnonymization: DeletionCheckpointState;
+    contactCleanup: DeletionCheckpointState;
+    purchaseEvidence: DeletionCheckpointState;
+    premiumEntitlement: DeletionCheckpointState;
+    supportRecords: DeletionCheckpointState;
+    providerData: DeletionCheckpointState;
+    logsAndBackups: DeletionCheckpointState;
+    auditTrailMinimization: DeletionCheckpointState;
   };
   createdAt: Date;
   updatedAt: Date;
@@ -61,13 +69,24 @@ const checkpointSchema = new Schema(
     personalDataCleanup: {
       type: String,
       enum: ['pending', 'complete', 'deferred_policy'],
-      default: 'pending',
+      default: 'deferred_policy',
     },
     entitlementPolicy: {
       type: String,
       enum: ['pending', 'complete', 'deferred_policy'],
-      default: 'pending',
+      default: 'deferred_policy',
     },
+    // Profile/contact/access cleanup has a safe worker path. Purchase evidence,
+    // entitlement policy decisions, support/provider/log/backup/audit handling
+    // remain deferred until their required decisions are recorded.
+    profileAnonymization: { type: String, enum: ['pending', 'complete', 'deferred_policy'], default: 'pending' },
+    contactCleanup: { type: String, enum: ['pending', 'complete', 'deferred_policy'], default: 'pending' },
+    purchaseEvidence: { type: String, enum: ['pending', 'complete', 'deferred_policy'], default: 'deferred_policy' },
+    premiumEntitlement: { type: String, enum: ['pending', 'complete', 'deferred_policy'], default: 'pending' },
+    supportRecords: { type: String, enum: ['pending', 'complete', 'deferred_policy'], default: 'deferred_policy' },
+    providerData: { type: String, enum: ['pending', 'complete', 'deferred_policy'], default: 'deferred_policy' },
+    logsAndBackups: { type: String, enum: ['pending', 'complete', 'deferred_policy'], default: 'deferred_policy' },
+    auditTrailMinimization: { type: String, enum: ['pending', 'complete', 'deferred_policy'], default: 'deferred_policy' },
   },
   { _id: false }
 );

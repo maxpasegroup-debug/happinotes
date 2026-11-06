@@ -15,7 +15,7 @@ declare global {
   }
 }
 
-const userFromToken = async (req: Request): Promise<IUser> => {
+const userFromToken = async (req: Request, allowRevokedSession = false): Promise<IUser> => {
   const authHeader = req.headers.authorization;
   const token = authHeader?.startsWith('Bearer ') ? authHeader.slice(7) : null;
   if (!token) throw new UnauthorizedError('Access token required');
@@ -30,7 +30,7 @@ const userFromToken = async (req: Request): Promise<IUser> => {
   const tokenVersionMatches = decoded.sessionVersion === undefined
     ? currentVersion === 0
     : Number.isSafeInteger(decoded.sessionVersion) && decoded.sessionVersion === currentVersion;
-  if (!hasValidVersion || !tokenVersionMatches) {
+  if (!hasValidVersion || (!tokenVersionMatches && !allowRevokedSession)) {
     throw new UnauthorizedError('Access token has been revoked');
   }
   return user;
@@ -68,10 +68,11 @@ export const authenticateDeletionFlow = async (
   next: NextFunction,
 ): Promise<void> => {
   try {
-    const user = await userFromToken(req);
+    // Authentication artifacts are removed during deletion, so a revoked
+    // sessionVersion may still read only the deletion status endpoints.
+    const user = await userFromToken(req, true);
     if (user.blocked) return next(new UnauthorizedError('Account is blocked'));
-    if (!isDeletionStateActive(user.deletionState) &&
-        !(await AccountDeletionRequest.exists({ userId: user._id }))) {
+    if (!(await AccountDeletionRequest.exists({ userId: user._id }))) {
       return next(new UnauthorizedError('Account deletion is no longer available'));
     }
     req.user = user;

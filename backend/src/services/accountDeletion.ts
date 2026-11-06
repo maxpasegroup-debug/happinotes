@@ -1,5 +1,5 @@
 import crypto from 'crypto';
-import { Types } from 'mongoose';
+import mongoose, { ClientSession, Types } from 'mongoose';
 import { env } from '../config/env';
 import { User } from '../models';
 import {
@@ -17,14 +17,25 @@ const isDuplicateKey = (error: unknown): boolean =>
 export const hashDeletionSecret = (value: string): string =>
   crypto.createHmac('sha256', env.JWT_SECRET).update(value).digest('hex');
 
+/** Derive the private status bearer credential without retaining plaintext. */
+export const deletionStatusTokenFor = (
+  publicReference: string,
+  userId: Types.ObjectId | string,
+): string => hashDeletionSecret(`external-status:${publicReference}:${String(userId)}`);
+
 export const isDeletionStateActive = (state: unknown): boolean =>
   state === undefined || state === null || state === 'active';
 
-export async function hasActiveDeletionRequest(userId: Types.ObjectId | string): Promise<boolean> {
-  return Boolean(await AccountDeletionRequest.exists({
+export async function hasActiveDeletionRequest(
+  userId: Types.ObjectId | string,
+  session?: ClientSession,
+): Promise<boolean> {
+  const query = AccountDeletionRequest.exists({
     userId,
     status: { $in: [...ACCOUNT_DELETION_ACTIVE_STATUSES] },
-  }));
+  });
+  if (session) query.session(session);
+  return Boolean(await query);
 }
 
 export async function findActiveDeletionRequest(userId: Types.ObjectId | string) {
@@ -39,11 +50,15 @@ export async function findActiveDeletionRequest(userId: Types.ObjectId | string)
  * closes the small crash window between creating the request and setting the
  * user marker, and is intentionally used immediately before sensitive writes.
  */
-export async function isAccountWritable(userId: Types.ObjectId | string): Promise<boolean> {
+export async function isAccountWritable(
+  userId: Types.ObjectId | string,
+  session?: ClientSession,
+): Promise<boolean> {
   const query = User.findById(userId).select('blocked deletionState');
+  if (session) query.session(session);
   const user = await query;
   if (!user || user.blocked || !isDeletionStateActive(user.deletionState)) return false;
-  return !(await hasActiveDeletionRequest(userId));
+  return !(await hasActiveDeletionRequest(userId, session));
 }
 
 export async function assertAccountWritable(userId: Types.ObjectId | string): Promise<void> {
@@ -67,25 +82,75 @@ export async function requestAccountDeletion(
   if (active) return active;
 
   const requestedAt = new Date();
-  let request: IAccountDeletionRequest;
+  const publicReference = `HN-DEL-${crypto.randomBytes(10).toString('hex').toUpperCase()}`;
+  const statusToken = deletionStatusTokenFor(publicReference, userId);
+  let request: IAccountDeletionRequest | undefined;
+  let createdRequest = false;
+  const session = await mongoose.startSession();
   try {
-    request = await AccountDeletionRequest.create({
-      userId,
-      idempotencyKeyHash,
-      status: 'requested',
-      publicReference: `HN-DEL-${crypto.randomBytes(10).toString('hex').toUpperCase()}`,
-      source,
-      reviewStatus: 'received',
-      processingHistory: [{ status: 'REQUEST_RECEIVED', actor: source, at: requestedAt }],
-      requestedAt,
-      attempts: 0,
-      checkpoints: {
-        accessBlocked: false,
-        authArtifacts: 'pending',
-        preferencesAndDevices: 'pending',
-        personalDataCleanup: 'pending',
-        entitlementPolicy: 'pending',
-      },
+    await session.withTransaction(async () => {
+      // The request record and User pending marker commit together. Google
+      // entitlement transactions also write this User document, making the
+      // two flows serialize through MongoDB's document write-conflict rules.
+      createdRequest = false;
+      const existingByKey = await AccountDeletionRequest.findOne({ userId, idempotencyKeyHash })
+        .session(session);
+      if (existingByKey) {
+        request = existingByKey;
+        return;
+      }
+      const existingActive = await AccountDeletionRequest.findOne({
+        userId, status: { $in: [...ACCOUNT_DELETION_ACTIVE_STATUSES] },
+      }).session(session);
+      if (existingActive) {
+        request = existingActive;
+        return;
+      }
+
+      const newRequest = new AccountDeletionRequest({
+        userId,
+        idempotencyKeyHash,
+        status: 'requested',
+        publicReference,
+        statusTokenHash: hashDeletionSecret(statusToken),
+        source,
+        reviewStatus: 'received',
+        processingHistory: [{ status: 'REQUEST_RECEIVED', actor: source, at: requestedAt }],
+        requestedAt,
+        attempts: 0,
+        checkpoints: {
+          accessBlocked: false,
+          authArtifacts: 'pending',
+          preferencesAndDevices: 'pending',
+          personalDataCleanup: 'deferred_policy',
+          entitlementPolicy: 'deferred_policy',
+          profileAnonymization: 'pending',
+          contactCleanup: 'pending',
+          purchaseEvidence: 'deferred_policy',
+          premiumEntitlement: 'pending',
+          supportRecords: 'deferred_policy',
+          providerData: 'deferred_policy',
+          logsAndBackups: 'deferred_policy',
+          auditTrailMinimization: 'deferred_policy',
+        },
+      });
+      await newRequest.save({ session });
+
+      const marker = await User.updateOne(
+        {
+          _id: userId,
+          blocked: { $ne: true },
+          $or: [{ deletionState: 'active' }, { deletionState: { $exists: false } }],
+        },
+        { $set: { deletionState: 'pending', deletionRequestedAt: requestedAt } },
+        { session },
+      );
+      const matched = (marker as unknown as { matchedCount?: number; n?: number }).matchedCount ??
+        (marker as unknown as { n?: number }).n ?? 0;
+      if (!matched) throw new ForbiddenError('Account cannot accept a deletion request');
+
+      request = newRequest;
+      createdRequest = true;
     });
   } catch (error) {
     // A concurrent request may have won either the idempotency or active-user
@@ -100,45 +165,14 @@ export async function requestAccountDeletion(
     const sameKey = await AccountDeletionRequest.findOne({ userId, idempotencyKeyHash });
     if (sameKey) return sameKey;
     throw error;
+  } finally {
+    await session.endSession();
   }
 
-  let marker;
-  try {
-    marker = await User.updateOne(
-      {
-        _id: userId,
-        blocked: { $ne: true },
-        $or: [{ deletionState: 'active' }, { deletionState: { $exists: false } }],
-      },
-      { $set: { deletionState: 'pending', deletionRequestedAt: requestedAt } },
-    );
-  } catch (error) {
-    await AccountDeletionRequest.updateOne({ _id: request._id }, {
-      $set: {
-        status: 'failed_retryable',
-        failureCode: 'ACCOUNT_MARKER_WRITE_FAILED',
-        failureMessage: 'Deletion workflow failed at a checkpoint',
-        nextAttemptAt: new Date(Date.now() + 60_000),
-      },
-    });
-    throw error;
-  }
-  const matched = (marker as unknown as { matchedCount?: number; n?: number }).matchedCount ??
-    (marker as unknown as { n?: number }).n ?? 0;
-
-  if (matched === 0) {
-    const current = await User.findById(userId).select('deletionState blocked');
-    if (!current || current.blocked || !isDeletionStateActive(current.deletionState)) {
-      await AccountDeletionRequest.updateOne({ _id: request._id }, {
-        $set: {
-          status: 'failed_manual',
-          failureCode: 'ACCOUNT_NOT_ELIGIBLE',
-          failureMessage: 'Account is not eligible for a new deletion request',
-        },
-      });
-      throw new ForbiddenError('Account cannot accept a deletion request');
-    }
-  }
+  if (!request) throw new ForbiddenError('Account cannot accept a deletion request');
+  // Another transaction may have created the idempotent/active request after
+  // the non-transactional fast-path lookups above.
+  if (!createdRequest) return request;
 
   try {
     await AccountDeletionRequest.updateOne({ _id: request._id }, {
@@ -149,14 +183,17 @@ export async function requestAccountDeletion(
       $push: { processingHistory: { status: 'ACCESS_BLOCKED', actor: source, at: requestedAt } },
     });
   } catch (error) {
-    await AccountDeletionRequest.updateOne({ _id: request._id }, {
-      $set: {
+    await AccountDeletionRequest.updateOne(
+      { _id: request._id },
+      [{ $set: {
         status: 'failed_retryable',
         failureCode: 'CHECKPOINT_WRITE_FAILED',
         failureMessage: 'Deletion workflow failed at a checkpoint',
-        nextAttemptAt: new Date(Date.now() + 60_000),
-      },
-    });
+        nextAttemptAt: { $add: ['$$NOW', 60_000] },
+        updatedAt: '$$NOW',
+      } }],
+      { timestamps: false },
+    );
     throw error;
   }
   request.status = 'requested';
@@ -174,27 +211,31 @@ export async function claimDeletionRequest(
 ): Promise<IAccountDeletionRequest | null> {
   const owner = leaseOwner.trim().slice(0, 128);
   if (!owner || !Number.isFinite(leaseMs) || leaseMs <= 0 || leaseMs > 60 * 60 * 1000) return null;
-  const now = new Date();
   return AccountDeletionRequest.findOneAndUpdate(
     {
       _id: requestId,
-      status: { $in: ['requested', 'failed_retryable'] },
-      $and: [
-        { $or: [{ leaseUntil: { $exists: false } }, { leaseUntil: { $lte: now } }] },
-        { $or: [{ nextAttemptAt: { $exists: false } }, { nextAttemptAt: { $lte: now } }] },
-      ],
+      status: { $in: ['requested', 'processing', 'failed_retryable'] },
+      // Compare lease and retry deadlines against MongoDB's clock. Application
+      // instance clocks may differ, so client-generated Date predicates are
+      // not a safe cross-instance ownership boundary.
+      $expr: { $and: [
+        { $or: [{ $eq: [{ $type: '$leaseUntil' }, 'missing'] }, { $lte: ['$leaseUntil', '$$NOW'] }] },
+        { $or: [{ $eq: [{ $type: '$nextAttemptAt' }, 'missing'] }, { $lte: ['$nextAttemptAt', '$$NOW'] }] },
+      ] },
     },
-    {
-      $set: {
+    [{ $set: {
         status: 'processing',
-        startedAt: now,
-        leaseUntil: new Date(now.getTime() + leaseMs),
+        startedAt: '$$NOW',
+        leaseUntil: { $add: ['$$NOW', leaseMs] },
         leaseOwner: owner,
-      },
-      $inc: { attempts: 1 },
-      $push: { processingHistory: { status: 'UNDER_REVIEW', actor: 'system:worker', at: now } },
-    },
-    { new: true },
+        attempts: { $add: [{ $ifNull: ['$attempts', 0] }, 1] },
+        processingHistory: { $concatArrays: [
+          { $ifNull: ['$processingHistory', []] },
+          [{ status: 'UNDER_REVIEW', actor: 'system:worker', at: '$$NOW' }],
+        ] },
+        updatedAt: '$$NOW',
+      } }],
+    { new: true, timestamps: false },
   );
 }
 
@@ -207,26 +248,27 @@ export async function claimNextDeletionRequest(
 ): Promise<IAccountDeletionRequest | null> {
   const owner = leaseOwner.trim().slice(0, 128);
   if (!owner || !Number.isFinite(leaseMs) || leaseMs <= 0 || leaseMs > 60 * 60 * 1000) return null;
-  const now = new Date();
   return AccountDeletionRequest.findOneAndUpdate(
     {
-      status: { $in: ['requested', 'failed_retryable'] },
-      $and: [
-        { $or: [{ leaseUntil: { $exists: false } }, { leaseUntil: { $lte: now } }] },
-        { $or: [{ nextAttemptAt: { $exists: false } }, { nextAttemptAt: { $lte: now } }] },
-      ],
+      status: { $in: ['requested', 'processing', 'failed_retryable'] },
+      $expr: { $and: [
+        { $or: [{ $eq: [{ $type: '$leaseUntil' }, 'missing'] }, { $lte: ['$leaseUntil', '$$NOW'] }] },
+        { $or: [{ $eq: [{ $type: '$nextAttemptAt' }, 'missing'] }, { $lte: ['$nextAttemptAt', '$$NOW'] }] },
+      ] },
     },
-    {
-      $set: {
+    [{ $set: {
         status: 'processing',
-        startedAt: now,
-        leaseUntil: new Date(now.getTime() + leaseMs),
+        startedAt: '$$NOW',
+        leaseUntil: { $add: ['$$NOW', leaseMs] },
         leaseOwner: owner,
-      },
-      $inc: { attempts: 1 },
-      $push: { processingHistory: { status: 'UNDER_REVIEW', actor: 'system:worker', at: now } },
-    },
-    { new: true, sort: { requestedAt: 1 } },
+        attempts: { $add: [{ $ifNull: ['$attempts', 0] }, 1] },
+        processingHistory: { $concatArrays: [
+          { $ifNull: ['$processingHistory', []] },
+          [{ status: 'UNDER_REVIEW', actor: 'system:worker', at: '$$NOW' }],
+        ] },
+        updatedAt: '$$NOW',
+      } }],
+    { new: true, sort: { requestedAt: 1 }, timestamps: false },
   );
 }
 
@@ -234,14 +276,51 @@ export async function claimNextDeletionRequest(
 export async function completeDeletionCheckpoint(
   requestId: Types.ObjectId | string,
   leaseOwner: string,
-  checkpoint: 'authArtifacts' | 'preferencesAndDevices' | 'personalDataCleanup',
+  checkpoint:
+    | 'authArtifacts'
+    | 'preferencesAndDevices'
+    | 'profileAnonymization'
+    | 'contactCleanup'
+    | 'premiumEntitlement',
 ): Promise<boolean> {
   const result = await AccountDeletionRequest.updateOne(
-    { _id: requestId, status: 'processing', leaseOwner: leaseOwner.trim().slice(0, 128) },
     {
-      $set: { [`checkpoints.${checkpoint}`]: 'complete' },
-      $push: { processingHistory: { status: `CHECKPOINT_DONE:${checkpoint}`, actor: 'system:worker', at: new Date() } },
+      _id: requestId,
+      status: 'processing',
+      leaseOwner: leaseOwner.trim().slice(0, 128),
+      $expr: { $gt: ['$leaseUntil', '$$NOW'] },
     },
+    [{ $set: {
+      [`checkpoints.${checkpoint}`]: 'complete',
+      processingHistory: { $concatArrays: [
+        { $ifNull: ['$processingHistory', []] },
+        [{ status: `CHECKPOINT_DONE:${checkpoint}`, actor: 'system:worker', at: '$$NOW' }],
+      ] },
+      updatedAt: '$$NOW',
+    } }],
+    { timestamps: false },
+  );
+  const writeResult = result as unknown as { matchedCount?: number; n?: number };
+  return (writeResult.matchedCount ?? writeResult.n ?? 0) > 0;
+}
+
+/** Extend only an unexpired lease still owned by this worker. */
+export async function renewDeletionLease(
+  requestId: Types.ObjectId | string,
+  leaseOwner: string,
+  leaseMs = 5 * 60 * 1000,
+): Promise<boolean> {
+  const owner = leaseOwner.trim().slice(0, 128);
+  if (!owner || !Number.isFinite(leaseMs) || leaseMs <= 0 || leaseMs > 60 * 60 * 1000) return false;
+  const result = await AccountDeletionRequest.updateOne(
+    {
+      _id: requestId,
+      status: 'processing',
+      leaseOwner: owner,
+      $expr: { $gt: ['$leaseUntil', '$$NOW'] },
+    },
+    [{ $set: { leaseUntil: { $add: ['$$NOW', leaseMs] }, updatedAt: '$$NOW' } }],
+    { timestamps: false },
   );
   const writeResult = result as unknown as { matchedCount?: number; n?: number };
   return (writeResult.matchedCount ?? writeResult.n ?? 0) > 0;
@@ -258,18 +337,31 @@ export async function blockDeletionForPolicy(
   const safeCode = failureCode.replace(/[^A-Za-z0-9_.-]/g, '').slice(0, 64);
   if (!safeCode || !leaseOwner.trim()) return false;
   const result = await AccountDeletionRequest.updateOne(
-    { _id: requestId, status: 'processing', leaseOwner: leaseOwner.trim().slice(0, 128) },
     {
-      $set: {
+      _id: requestId,
+      status: 'processing',
+      leaseOwner: leaseOwner.trim().slice(0, 128),
+      $expr: { $gt: ['$leaseUntil', '$$NOW'] },
+    },
+    [{ $set: {
         status: 'blocked_policy',
         failureCode: safeCode,
         failureMessage: 'Deletion is paused pending an approved retention policy',
         'checkpoints.personalDataCleanup': 'deferred_policy',
         'checkpoints.entitlementPolicy': 'deferred_policy',
-      },
-      $unset: { leaseUntil: 1, leaseOwner: 1, nextAttemptAt: 1 },
-      $push: { processingHistory: { status: 'RETENTION_POLICY_APPROVAL_REQUIRED', actor: 'system:retention-policy-gate', at: new Date() } },
-    },
+        'checkpoints.purchaseEvidence': 'deferred_policy',
+        'checkpoints.supportRecords': 'deferred_policy',
+        'checkpoints.providerData': 'deferred_policy',
+        'checkpoints.logsAndBackups': 'deferred_policy',
+        'checkpoints.auditTrailMinimization': 'deferred_policy',
+        processingHistory: { $concatArrays: [
+          { $ifNull: ['$processingHistory', []] },
+          [{ status: 'RETENTION_POLICY_APPROVAL_REQUIRED', actor: 'system:retention-policy-gate', at: '$$NOW' }],
+        ] },
+        updatedAt: '$$NOW',
+      } },
+      { $unset: ['leaseUntil', 'leaseOwner', 'nextAttemptAt'] }],
+    { timestamps: false },
   );
   const writeResult = result as unknown as { matchedCount?: number; n?: number };
   return (writeResult.matchedCount ?? writeResult.n ?? 0) > 0;
@@ -282,7 +374,7 @@ export async function recordDeletionFailure(
   failureCode: string,
   failureMessage: string,
   retryable: boolean,
-  nextAttemptAt?: Date,
+  retryDelayMs?: number,
 ): Promise<boolean> {
   const safeCode = failureCode.replace(/[^A-Za-z0-9_.-]/g, '').slice(0, 64);
   // Never persist provider exception text: it may contain tokens, addresses,
@@ -291,19 +383,32 @@ export async function recordDeletionFailure(
   void failureMessage;
   const safeMessage = 'Deletion workflow failed at a checkpoint';
   if (!safeCode || !leaseOwner.trim()) return false;
-  const update: Record<string, unknown> = {
-    $set: {
+  const safeRetryDelayMs = typeof retryDelayMs === 'number' && Number.isFinite(retryDelayMs) &&
+      retryDelayMs > 0 && retryDelayMs <= 24 * 60 * 60 * 1000
+    ? retryDelayMs
+    : undefined;
+  const setFields: Record<string, unknown> = {
       status: retryable ? 'failed_retryable' : 'failed_manual',
       failureCode: safeCode,
       failureMessage: safeMessage,
-    },
-    $unset: { leaseUntil: 1, leaseOwner: 1 },
-    $push: { processingHistory: { status: retryable ? 'PROCESSING_RETRYABLE_FAILURE' : 'PROCESSING_REQUIRES_MANUAL_REVIEW', actor: 'system:worker', at: new Date() } },
+      ...(retryable && safeRetryDelayMs ? { nextAttemptAt: { $add: ['$$NOW', safeRetryDelayMs] } } : {}),
   };
-  if (retryable && nextAttemptAt) (update.$set as Record<string, unknown>).nextAttemptAt = nextAttemptAt;
   const result = await AccountDeletionRequest.updateOne(
-    { _id: requestId, status: 'processing', leaseOwner: leaseOwner.trim().slice(0, 128) },
-    update,
+    {
+      _id: requestId,
+      status: 'processing',
+      leaseOwner: leaseOwner.trim().slice(0, 128),
+      $expr: { $gt: ['$leaseUntil', '$$NOW'] },
+    },
+    [{ $set: {
+      ...setFields,
+      processingHistory: { $concatArrays: [
+        { $ifNull: ['$processingHistory', []] },
+        [{ status: retryable ? 'PROCESSING_RETRYABLE_FAILURE' : 'PROCESSING_REQUIRES_MANUAL_REVIEW', actor: 'system:worker', at: '$$NOW' }],
+      ] },
+      updatedAt: '$$NOW',
+    } }, { $unset: ['leaseUntil', 'leaseOwner'] }],
+    { timestamps: false },
   );
   const writeResult = result as unknown as { matchedCount?: number; n?: number };
   return (writeResult.matchedCount ?? writeResult.n ?? 0) > 0;

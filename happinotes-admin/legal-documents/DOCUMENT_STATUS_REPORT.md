@@ -20,6 +20,8 @@
 | `CANCELLATION_POLICY.md` | Requires legal/store verification | Confirm market-specific rights and store UX. |
 | `REFUND_POLICY.md` | Requires legal/finance approval | Approve market-specific rights and store process. |
 | `ACCOUNT_DELETION_POLICY.md` | Blocked by technical implementation and legal approval | Worker currently stops at retention gate; do not claim completion. |
+| `ACCOUNT_DELETION_DATA_DISPOSITION_MATRIX.md` | Ready as an engineering/legal decision draft | Counsel/finance must approve field dispositions, exception evidence, triggers, access and disposal. |
+| `GOOGLE_PLAY_ACCOUNT_DELETION_CHECKLIST.md` | Ready as an engineering worksheet; Play answers not submitted | Close all unchecked implementation and production verification items before declaring compliance. |
 | `DATA_RETENTION_AND_DISPOSAL_POLICY.md` | Requires legal/finance approval | No retention periods/grounds approved. |
 | `COOKIE_POLICY.md` | Ready as a draft; production audit required | Verify deployed cookies, SDKs, telemetry and consent obligations. |
 | `ACCEPTABLE_USE_POLICY.md` | Requires owner/legal approval | Approve suspension and appeal process. |
@@ -37,7 +39,7 @@
 
 ## Public pages updated in source
 
-`/privacy-policy`, `/terms`, `/subscription-policy`, `/account-deletion`, `/refund-policy`, `/cookie-policy`, `/acceptable-use`, `/content-policy`, and `/grievance-redressal`. The first three read the new draft documents. Account deletion page describes the existing external request workflow and its current limits. Deployment, public accessibility, TLS and content rendering have not been verified.
+`/privacy-policy`, `/terms`, `/subscription-policy`, `/account-deletion`, `/refund-policy`, `/cookie-policy`, `/acceptable-use`, `/content-policy`, and `/grievance-redressal`. The first three read the draft documents. Account deletion page describes the actual request workflow and current limits. Deployment, public accessibility, TLS and content rendering have not been verified.
 
 Flutter Legal links to the public legal pages. No application build or test was run. Legal screens and web legal shell visibly label the content as draft pending review.
 

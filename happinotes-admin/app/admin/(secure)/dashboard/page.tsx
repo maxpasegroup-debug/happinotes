@@ -492,23 +492,14 @@ export default function AdminDashboardPage() {
     }
   }
 
-  async function userAction(id: string, action: "block" | "unblock" | "delete") {
-    const prompt =
-      action === "delete"
-        ? "Delete this user account permanently?"
-        : action === "block"
-          ? "Block this user from access?"
-          : "Unblock this user?";
+  async function userAction(id: string, action: "block" | "unblock") {
+    const prompt = action === "block" ? "Block this user from access?" : "Unblock this user?";
     if (!window.confirm(prompt)) return;
     const token = window.localStorage.getItem("admin_token") || "";
     setBusyId(id);
     try {
-      if (action === "delete") {
-        await apiRequest(`/admin/users/${id}`, "DELETE", undefined, token);
-      } else {
-        await apiRequest(`/admin/users/${id}/${action}`, "PATCH", undefined, token);
-      }
-      setMessage(action === "delete" ? "User deleted successfully" : action === "block" ? "User blocked" : "User unblocked");
+      await apiRequest(`/admin/users/${id}/${action}`, "PATCH", undefined, token);
+      setMessage(action === "block" ? "User blocked" : "User unblocked");
       await load();
     } catch (err) {
       setMessage(err instanceof Error ? err.message : "User action failed");

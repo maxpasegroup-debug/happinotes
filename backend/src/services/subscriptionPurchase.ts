@@ -66,7 +66,7 @@ export function subscriptionTransactionKey(proof: string): string {
 async function appleCurrentSubscription(
   originalTransactionId: string,
   productId: string,
-  expectedAccount: string,
+  expectedAccount?: string,
 ): Promise<VerifiedSubscription> {
   const { client, verifier, environment } = applePurchaseClient();
   let response;
@@ -93,8 +93,9 @@ async function appleCurrentSubscription(
   const current = candidates[0];
   if (!current || current.transaction.productId !== productId ||
       current.transaction.type !== Type.AUTO_RENEWABLE_SUBSCRIPTION ||
-      current.transaction.appAccountToken !== expectedAccount ||
-      (current.renewal?.appAccountToken != null && current.renewal.appAccountToken !== expectedAccount) ||
+      (expectedAccount !== undefined && current.transaction.appAccountToken !== expectedAccount) ||
+      (expectedAccount !== undefined && current.renewal?.appAccountToken != null &&
+        current.renewal.appAccountToken !== expectedAccount) ||
       (current.renewal?.originalTransactionId != null && current.renewal.originalTransactionId !== originalTransactionId)) {
     throw new BadRequestError('Subscription is invalid or belongs to another account');
   }
@@ -127,6 +128,16 @@ export async function appleSubscriptionNotification(
   expectedAccount: string,
 ): Promise<VerifiedSubscription> {
   return appleCurrentSubscription(originalTransactionId, productId, expectedAccount);
+}
+
+/** Reconcile an already-verified detached ledger claim without retaining or
+ * reconstructing an account token. The route must match the signed event and
+ * provider state to the existing environment/original-transaction claim. */
+export async function appleDetachedSubscriptionNotification(
+  originalTransactionId: string,
+  productId: string,
+): Promise<VerifiedSubscription> {
+  return appleCurrentSubscription(originalTransactionId, productId);
 }
 
 async function fetchGoogleSubscription(productId: string, proof: string, fromNotification = false) {

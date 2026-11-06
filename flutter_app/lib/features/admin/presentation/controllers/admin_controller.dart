@@ -345,21 +345,4 @@ class AdminController extends ChangeNotifier {
     }
   }
 
-  Future<bool> removeUser(String id) async {
-    busy = true;
-    error = null;
-    notifyListeners();
-    try {
-      await repository.deleteUser(id);
-      success = 'User deleted';
-      await loadAll();
-      return true;
-    } catch (e) {
-      error = client.errorMessage(e);
-      return false;
-    } finally {
-      busy = false;
-      notifyListeners();
-    }
-  }
 }

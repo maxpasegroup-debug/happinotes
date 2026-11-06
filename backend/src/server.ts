@@ -7,6 +7,12 @@ import { Server } from 'socket.io';
 import { registerRealtimeServer } from './services/realtime';
 import { startProductProvisioningWorker } from './services/storeProductProvisioning';
 import { startAccountDeletionWorker } from './services/accountDeletionWorker';
+import { startStoreNotificationInboxWorker } from './services/storeNotificationInboxWorker';
+import { StoreNotificationInbox } from './models/StoreNotificationInbox';
+import { StoreNotificationReconciliationLease } from './models/StoreNotificationReconciliationLease';
+import { StoreNotificationOpsAudit } from './models/StoreNotificationOpsAudit';
+import { StorePurchase } from './models/StorePurchase';
+import { SubscriptionPurchase } from './models/SubscriptionPurchase';
 import { configureCloudinary, isCloudinaryConfigured } from './config/cloudinary';
 import { corsConfiguration } from './config/cors';
 
@@ -35,8 +41,18 @@ const start = async (): Promise<void> => {
 
   await connectDB();
   await ensureAdminUser();
+  // Do not accept provider events until the inbox collection and required
+  // indexes are ready. Mongoose autoIndex remains enabled in this app.
+  await StoreNotificationInbox.init();
+  await StoreNotificationReconciliationLease.init();
+  await StoreNotificationOpsAudit.init();
+  // Transaction claim uniqueness must be ready before any purchase or
+  // notification route can accept requests.
+  await StorePurchase.init();
+  await SubscriptionPurchase.init();
   startProductProvisioningWorker();
   startAccountDeletionWorker();
+  startStoreNotificationInboxWorker();
   const httpServer = createServer(app);
   const io = new Server(httpServer, {
     cors: corsConfiguration.socketIoOptions,

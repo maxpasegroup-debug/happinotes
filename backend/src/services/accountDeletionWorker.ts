@@ -1,5 +1,5 @@
 import { randomUUID } from 'crypto';
-import { Otp, User } from '../models';
+import { AccountDeletionReauth, Otp, User } from '../models';
 import { IAccountDeletionRequest } from '../models/AccountDeletionRequest';
 import { PasswordResetToken } from '../models/passwordResetToken';
 import {
@@ -7,6 +7,7 @@ import {
   claimNextDeletionRequest,
   completeDeletionCheckpoint,
   recordDeletionFailure,
+  renewDeletionLease,
 } from './accountDeletion';
 
 const DEFAULT_LEASE_MS = 5 * 60 * 1000;
@@ -52,12 +53,27 @@ async function ensurePendingAccount(request: IAccountDeletionRequest): Promise<v
 
 async function cleanupAuthArtifacts(request: IAccountDeletionRequest): Promise<void> {
   await PasswordResetToken.deleteMany({ userId: request.userId });
+  await AccountDeletionReauth.deleteMany({ userId: request.userId });
 
   // Otp predates userId and is keyed by the normalized email/phone identifier.
   // The User document remains present and pending throughout this stage, so a
   // unique identifier cannot be reassigned to a new account concurrently.
   const user = await User.findById(request.userId).select('email phoneNumber deletionState');
   if (!user || user.deletionState !== 'pending') {
+    throw Object.assign(new Error('Account deletion marker is no longer pending'), {
+      code: 'ACCOUNT_NOT_PENDING',
+      retryable: false,
+    });
+  }
+  const credentialCleanup = await User.updateOne(
+    { _id: request.userId, deletionState: 'pending', password: { $exists: true } },
+    { $unset: { password: 1 }, $inc: { sessionVersion: 1 } },
+  );
+  if (!matchedCount(credentialCleanup) && !(await User.exists({
+    _id: request.userId,
+    deletionState: 'pending',
+    password: { $exists: false },
+  }))) {
     throw Object.assign(new Error('Account deletion marker is no longer pending'), {
       code: 'ACCOUNT_NOT_PENDING',
       retryable: false,
@@ -86,32 +102,124 @@ async function cleanupPreferencesAndDevices(request: IAccountDeletionRequest): P
   }
 }
 
+async function anonymizeProfile(request: IAccountDeletionRequest): Promise<void> {
+  const result = await User.updateOne(
+    { _id: request.userId, deletionState: 'pending' },
+    { $set: { name: 'Deleted account', role: 'user', languagePreference: 'all' } },
+  );
+  if (!matchedCount(result)) {
+    throw Object.assign(new Error('Account deletion marker is no longer pending'), {
+      code: 'ACCOUNT_NOT_PENDING', retryable: false,
+    });
+  }
+}
+
+async function eraseContactFields(request: IAccountDeletionRequest): Promise<void> {
+  const result = await User.updateOne(
+    { _id: request.userId, deletionState: 'pending' },
+    { $unset: { email: 1, phoneNumber: 1 } },
+  );
+  if (!matchedCount(result)) {
+    throw Object.assign(new Error('Account deletion marker is no longer pending'), {
+      code: 'ACCOUNT_NOT_PENDING', retryable: false,
+    });
+  }
+}
+
+async function revokeHappiNotesEntitlements(request: IAccountDeletionRequest): Promise<void> {
+  const result = await User.updateOne(
+    { _id: request.userId, deletionState: 'pending' },
+    { $set: { purchasedBooks: [] }, $unset: { subscription: 1 } },
+  );
+  if (!matchedCount(result)) {
+    throw Object.assign(new Error('Account deletion marker is no longer pending'), {
+      code: 'ACCOUNT_NOT_PENDING', retryable: false,
+    });
+  }
+}
+
 /** Execute one claimed request. Each step is idempotent and recorded only
  * while the current worker still owns the lease. */
 export async function processClaimedDeletionRequest(
   request: IAccountDeletionRequest,
   leaseOwner: string,
 ): Promise<DeletionWorkerResult> {
+  let leaseLost = false;
+  let heartbeatInFlight: Promise<void> | null = null;
+  const renewLease = async (): Promise<void> => {
+    try {
+      if (!(await renewDeletionLease(request._id, leaseOwner, DEFAULT_LEASE_MS))) leaseLost = true;
+    } catch {
+      leaseLost = true;
+    }
+  };
+  const heartbeatInterval = setInterval(() => {
+    if (leaseLost || heartbeatInFlight) return;
+    heartbeatInFlight = renewLease().finally(() => { heartbeatInFlight = null; });
+  }, Math.max(1000, Math.floor(DEFAULT_LEASE_MS / 3)));
+  heartbeatInterval.unref();
+
+  const assertLeaseOwned = async (): Promise<void> => {
+    if (heartbeatInFlight) await heartbeatInFlight;
+    if (leaseLost || !(await renewDeletionLease(request._id, leaseOwner, DEFAULT_LEASE_MS))) {
+      leaseLost = true;
+      throw Object.assign(new Error('Deletion worker lease expired'), { code: 'LEASE_EXPIRED' });
+    }
+  };
+
   try {
+    await assertLeaseOwned();
     await ensurePendingAccount(request);
 
     if (request.checkpoints?.authArtifacts !== 'complete') {
+      await assertLeaseOwned();
       await cleanupAuthArtifacts(request);
+      await assertLeaseOwned();
       if (!(await completeDeletionCheckpoint(request._id, leaseOwner, 'authArtifacts'))) {
         throw Object.assign(new Error('Deletion worker lease expired'), { code: 'LEASE_EXPIRED' });
       }
     }
 
     if (request.checkpoints?.preferencesAndDevices !== 'complete') {
+      await assertLeaseOwned();
       await cleanupPreferencesAndDevices(request);
+      await assertLeaseOwned();
       if (!(await completeDeletionCheckpoint(request._id, leaseOwner, 'preferencesAndDevices'))) {
         throw Object.assign(new Error('Deletion worker lease expired'), { code: 'LEASE_EXPIRED' });
       }
     }
 
-    // Account identity, StorePurchase, SubscriptionPurchase, subscription
-    // entitlements, and financial/audit retention remain policy-dependent.
-    // Stop explicitly instead of claiming completion or deleting them.
+    if (request.checkpoints?.profileAnonymization !== 'complete') {
+      await assertLeaseOwned();
+      await anonymizeProfile(request);
+      await assertLeaseOwned();
+      if (!(await completeDeletionCheckpoint(request._id, leaseOwner, 'profileAnonymization'))) {
+        throw Object.assign(new Error('Deletion worker lease expired'), { code: 'LEASE_EXPIRED' });
+      }
+    }
+
+    if (request.checkpoints?.contactCleanup !== 'complete') {
+      await assertLeaseOwned();
+      await eraseContactFields(request);
+      await assertLeaseOwned();
+      if (!(await completeDeletionCheckpoint(request._id, leaseOwner, 'contactCleanup'))) {
+        throw Object.assign(new Error('Deletion worker lease expired'), { code: 'LEASE_EXPIRED' });
+      }
+    }
+
+    if (request.checkpoints?.premiumEntitlement !== 'complete') {
+      await assertLeaseOwned();
+      await revokeHappiNotesEntitlements(request);
+      await assertLeaseOwned();
+      if (!(await completeDeletionCheckpoint(request._id, leaseOwner, 'premiumEntitlement'))) {
+        throw Object.assign(new Error('Deletion worker lease expired'), { code: 'LEASE_EXPIRED' });
+      }
+    }
+
+    // Purchase/subscription ledgers, residual identity linkage, support,
+    // provider, logs, backups and the minimal audit disposition remain policy-
+    // dependent. Stop explicitly instead of claiming completion.
+    await assertLeaseOwned();
     if (!(await blockDeletionForPolicy(request._id, leaseOwner))) {
       throw Object.assign(new Error('Deletion worker lease expired'), { code: 'LEASE_EXPIRED' });
     }
@@ -124,9 +232,12 @@ export async function processClaimedDeletionRequest(
       deletionErrorCode(error),
       error instanceof Error ? error.message : 'Deletion worker failed',
       retryable,
-      retryable ? new Date(Date.now() + 60 * 1000) : undefined,
+      retryable ? 60 * 1000 : undefined,
     );
     return 'failed';
+  } finally {
+    clearInterval(heartbeatInterval);
+    if (heartbeatInFlight) await heartbeatInFlight;
   }
 }
 
