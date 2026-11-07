@@ -61,8 +61,8 @@ class _BookDetailState extends ConsumerState<BookDetail> {
         break;
       }
     }
-    // Historical one-time purchases remain playable; new premium access uses
-    // the shared monthly/yearly subscription plans.
+    // Historical verified one-time purchases remain playable; new Premium
+    // access is provided through the monthly subscription.
     final isPurchased = (user?.purchasedBookIds.contains(book.id)) ?? false;
     final hasSubscription = user?.subscriptionActive == true;
     final requiresSubscription =
@@ -357,7 +357,7 @@ class _BookDetailState extends ConsumerState<BookDetail> {
                               const SizedBox(width: 10),
                               Expanded(
                                 child: Text(
-                                  'Premium story \u2022 A monthly or yearly subscription unlocks all premium stories.',
+                                  'Premium story · A monthly subscription unlocks all premium stories while active.',
                                   style: const TextStyle(
                                     fontWeight: FontWeight.w700,
                                   ),

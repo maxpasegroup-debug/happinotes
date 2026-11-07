@@ -5,7 +5,8 @@ export interface IStorePurchase extends mongoose.Document {
   transactionKey: string;
   /** Absent only after an approved account-deletion detachment. */
   userId?: mongoose.Types.ObjectId;
-  bookId: mongoose.Types.ObjectId;
+  /** Removed from detached claims to avoid retaining a linked content preference. */
+  bookId?: mongoose.Types.ObjectId;
   productId: string;
   active: boolean;
   /** Legacy ordering field retained for compatibility; new updates use providerStateVersion. */
@@ -22,7 +23,7 @@ const schema = new Schema<IStorePurchase>({
   // Linked active claims have an owner. A later approved deletion step may
   // remove this direct identity link while preserving the unique claim key.
   userId: { type: Schema.Types.ObjectId, ref: 'User', required: false },
-  bookId: { type: Schema.Types.ObjectId, ref: 'Content', required: true },
+  bookId: { type: Schema.Types.ObjectId, ref: 'Content', required: false },
   productId: { type: String, required: true },
   active: { type: Boolean, default: true },
   providerEventOrder: { type: String },

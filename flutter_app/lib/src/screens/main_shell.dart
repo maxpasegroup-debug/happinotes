@@ -761,7 +761,7 @@ class ProfileTab extends ConsumerWidget {
             subtitle: Text(
               s.user?.subscriptionActive == true
                   ? '${s.user?.subscriptionPlan == 'yearly' ? 'Yearly' : 'Monthly'} subscription active'
-                  : 'Choose a monthly or yearly plan',
+                  : 'Choose the monthly Premium plan',
             ),
             trailing: const Icon(Icons.chevron_right),
             onTap: () => Navigator.of(context).push(

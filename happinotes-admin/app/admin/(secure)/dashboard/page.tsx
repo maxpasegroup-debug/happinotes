@@ -955,7 +955,7 @@ export default function AdminDashboardPage() {
                   </div>
                   {form.type === "premium" ? (
                     <p className="rounded-lg border border-amber-400/20 bg-amber-400/5 px-3 py-2 text-sm text-amber-200">
-                      Premium access is provided through the monthly or yearly subscription plan. This story has no individual price.
+                      Premium access is provided through the monthly subscription plan. This story has no individual price.
                     </p>
                   ) : null}
                   <label className="grid gap-1 text-sm text-[#d4d4d8]">

@@ -6,7 +6,8 @@ export interface ISubscriptionPurchase extends mongoose.Document {
   transactionKey: string;
   /** Absent only after an approved account-deletion detachment. */
   userId?: mongoose.Types.ObjectId;
-  planKey: SubscriptionPlanKey;
+  /** Removed from detached claims; existing linked claims keep their plan key. */
+  planKey?: SubscriptionPlanKey;
   productId: string;
   priceVersion?: number;
   active: boolean;
@@ -27,7 +28,7 @@ const schema = new Schema<ISubscriptionPurchase>({
   // Linked active claims have an owner. A later approved deletion step may
   // remove this direct identity link while preserving the unique claim key.
   userId: { type: Schema.Types.ObjectId, ref: 'User', required: false },
-  planKey: { type: String, enum: ['monthly', 'yearly'], required: true },
+  planKey: { type: String, enum: ['monthly', 'yearly'], required: false },
   productId: { type: String, required: true },
   priceVersion: { type: Number, min: 1 },
   active: { type: Boolean, default: true },

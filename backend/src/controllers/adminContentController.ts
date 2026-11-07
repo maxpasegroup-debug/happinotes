@@ -275,9 +275,11 @@ export const createContent = async (
     if (!language) return next(new BadRequestError('language is required'));
     if (!type) return next(new BadRequestError('type must be free or premium'));
     if (!Number.isFinite(priceInr) || priceInr < 0) return next(new BadRequestError('priceInr must be a non-negative number'));
-    // Premium books use the shared subscription plans. priceInr is legacy-only.
     if (!contentType) {
       return next(new BadRequestError('contentType must be lifebook, note, or silence'));
+    }
+    if (contentType === 'lifebook' && type === 'premium' && priceInr > 0) {
+      return next(new BadRequestError('Premium books use the monthly subscription and cannot have an individual purchase price'));
     }
 
     const thumbnailFile = files?.thumbnail?.[0];
@@ -723,6 +725,10 @@ export const updateContent = async (
     }
 
     validatePremiumPrice({ contentType: String(payload.contentType ?? existing.contentType), type: String(payload.type ?? existing.type), priceInr: Number(payload.priceInr ?? existing.priceInr) });
+    if (String(payload.contentType ?? existing.contentType) === 'lifebook' &&
+        String(payload.type ?? existing.type) === 'premium' && Number(payload.priceInr ?? 0) > 0) {
+      return next(new BadRequestError('Premium books use the monthly subscription and cannot have an individual purchase price'));
+    }
     const content = await Content.findByIdAndUpdate(req.params.id, payload, {
       new: true,
       runValidators: true,

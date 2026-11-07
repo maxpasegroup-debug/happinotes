@@ -60,21 +60,9 @@ export async function migrateLegacyMappings(): Promise<number> {
 }
 
 export async function ensureBookProducts(book: { id?: string; contentType: string; type: string; priceInr: number }) {
-  if (!isPremiumBook(book)) return null;
-  validatePremiumPrice(book);
-  await migrateLegacyMappings();
-  const sku = stableProductId(String(book.id));
-  await insertMapping(String(book.id), {
-    bookId: book.id, initialPriceInr: book.priceInr, pricingPolicy: 'initial_exact_inr_india_only_v1',
-    android: state(sku), ios: state(sku),
-  });
-  // A legacy map may contain only one platform. Preserve it and provision the missing platform.
-  await StoreProduct.updateOne({ bookId: book.id, initialPriceInr: { $exists: false } }, {
-    $set: { initialPriceInr: book.priceInr },
-  }, { overwriteImmutable: true });
-  for (const store of ['android', 'ios'] as const) {
-    await StoreProduct.updateOne({ bookId: book.id, [store]: { $exists: false } }, { $set: { [store]: state(sku) } });
-  }
+  // Keep existing mappings intact for historical verification and restoration,
+  // but never create new per-book one-time store products.
+  if (!book.id) return null;
   return StoreProduct.findOne({ bookId: book.id });
 }
 
@@ -152,28 +140,7 @@ export async function processStoreProduct(store: Store, bookId?: string,
 
 // MongoDB is the durable queue. Each replica uses atomic, per-store leases.
 export function startProductProvisioningWorker(): () => void {
-  let running = false;
-  const tick = async () => {
-    if (running) return;
-    running = true;
-    try {
-      await migrateLegacyMappings();
-      // Repair a crash between saving a book and creating its provisioning record.
-      const existing = await StoreProduct.find().select('bookId android ios').lean();
-      const complete = existing.filter((r) => r.android && r.ios).map((r) => r.bookId);
-      const books = await Content.find({ _id: { $nin: complete }, contentType: 'lifebook',
-        priceInr: { $gt: 0 } }).limit(50);
-      for (const book of books) {
-        try { await ensureBookProducts(book); } catch { console.error('Could not enqueue book store products'); }
-      }
-      await Promise.all(['android', 'ios'].map(async (store) => {
-        for (let n = 0; n < 10 && await processStoreProduct(store as Store); n++) { /* bounded batch */ }
-      }));
-    } catch { console.error('Store product provisioning worker failed; will retry'); }
-    finally { running = false; }
-  };
-  void tick();
-  const timer = setInterval(() => { void tick(); }, 30000);
-  timer.unref();
-  return () => clearInterval(timer);
+  // Per-book purchases are no longer offered. Existing product records remain
+  // available to the verification path for historical transaction restores.
+  return () => undefined;
 }

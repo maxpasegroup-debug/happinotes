@@ -24,7 +24,7 @@ router.get('/subscription-plans', async (req, res, next) => {
     // browser, proxy, or mobile HTTP cache keep returning an older plan.
     res.set('Cache-Control', 'no-store, no-cache, must-revalidate, proxy-revalidate');
     const plans = await ensureSubscriptionPlans();
-    res.json({ success: true, accountToken: accountToken(String(req.user!._id)), plans: plans.filter((plan) => plan.active).map((plan) => ({
+    res.json({ success: true, accountToken: accountToken(String(req.user!._id)), plans: plans.filter((plan) => plan.active && plan.key === 'monthly').map((plan) => ({
       key: plan.key, productId: plan.productId, storeProductIds: plan.storeProductIds,
       billingPeriod: plan.billingPeriod, active: plan.active, priceVersion: plan.priceVersion ?? 1,
       regionalPricing: plan.regionalPricing,
@@ -50,7 +50,18 @@ router.post('/subscription-verify', async (req, res, next) => {
       // owned by this account. New purchases always use the current product.
       const existingClaim = await SubscriptionPurchase.findOne({ store, userId: req.user!._id, productId })
         .select('store productId planKey');
-      plan = resolveSubscriptionPlanForStoreProduct(plans, store, productId, existingClaim);
+      plan = resolveSubscriptionPlanForStoreProduct(
+        plans,
+        store,
+        productId,
+        existingClaim?.planKey
+          ? {
+              store: existingClaim.store,
+              productId: existingClaim.productId,
+              planKey: existingClaim.planKey,
+            }
+          : undefined,
+      );
     }
     if (!plan) throw new BadRequestError('Unknown subscription plan');
     const expectedAccount = accountToken(String(req.user!._id));
@@ -136,11 +147,9 @@ router.post('/subscription-verify', async (req, res, next) => {
 
 router.get('/products', async (req, res, next) => {
   try {
-    const mapping = await databaseProductMapping(true);
-    const books = await Content.find({ _id: { $in: Object.keys(mapping) }, contentType: 'lifebook', status: 'live',
-      $or: [{ type: 'premium' }, { priceInr: { $gt: 0 } }] }).select('_id');
-    res.json({ accountToken: accountToken(String(req.user!._id)),
-      products: books.map((book) => ({ bookId: book.id, ...mapping[book.id] })) });
+    // New one-time book purchases are retired. Keep /verify and the historical
+    // ledger mapping for idempotent restoration of prior verified purchases.
+    res.json({ accountToken: accountToken(String(req.user!._id)), products: [] });
   } catch (error) { next(error); }
 });
 

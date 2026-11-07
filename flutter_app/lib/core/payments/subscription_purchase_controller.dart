@@ -163,9 +163,11 @@ class SubscriptionPurchaseController extends ChangeNotifier {
         final productId = rawStoreIds is Map
             ? rawStoreIds[_platform]?.toString()
             : null;
-        if (key != null && productId != null && productId.isNotEmpty) {
-          _plans[key] = SubscriptionPlanDetails(
-            key: key,
+        // Monthly is the only plan offered to new customers. Historical yearly
+        // subscriptions remain verifiable and restorable by the backend.
+        if (key == 'monthly' && productId != null && productId.isNotEmpty) {
+          _plans['monthly'] = SubscriptionPlanDetails(
+            key: 'monthly',
             productId: productId,
             billingPeriod: raw['billingPeriod']?.toString() ?? '',
             regionalPricing: ((raw['regionalPricing'] as List?) ?? const [])

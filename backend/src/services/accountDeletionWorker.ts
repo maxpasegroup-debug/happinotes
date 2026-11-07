@@ -2,6 +2,8 @@ import { randomUUID } from 'crypto';
 import { AccountDeletionReauth, Otp, User } from '../models';
 import { IAccountDeletionRequest } from '../models/AccountDeletionRequest';
 import { PasswordResetToken } from '../models/passwordResetToken';
+import { StorePurchase } from '../models/StorePurchase';
+import { SubscriptionPurchase } from '../models/SubscriptionPurchase';
 import {
   blockDeletionForPolicy,
   claimNextDeletionRequest,
@@ -89,8 +91,8 @@ async function cleanupPreferencesAndDevices(request: IAccountDeletionRequest): P
   const result = await User.updateOne(
     { _id: request.userId, deletionState: 'pending' },
     {
-      // These are user-owned, non-financial records. Deliberately retain
-      // purchasedBooks and subscription until the approved policy is supplied.
+      // These are user-owned, non-financial records. Entitlement removal runs
+      // in its own ordered checkpoint after profile/contact cleanup.
       $set: { bookCollection: [], favourites: [], fcmTokens: [] },
     },
   );
@@ -136,6 +138,19 @@ async function revokeHappiNotesEntitlements(request: IAccountDeletionRequest): P
       code: 'ACCOUNT_NOT_PENDING', retryable: false,
     });
   }
+}
+
+/** Remove direct account and content/offer links while retaining only
+ * provisional transaction evidence. Legal/finance disposition remains gated. */
+async function detachPurchaseLedgers(request: IAccountDeletionRequest): Promise<void> {
+  await StorePurchase.updateMany(
+    { userId: request.userId },
+    { $unset: { userId: 1, bookId: 1, __v: 1 } },
+  );
+  await SubscriptionPurchase.updateMany(
+    { userId: request.userId },
+    { $unset: { userId: 1, planKey: 1, priceVersion: 1, __v: 1 } },
+  );
 }
 
 /** Execute one claimed request. Each step is idempotent and recorded only
@@ -216,9 +231,18 @@ export async function processClaimedDeletionRequest(
       }
     }
 
-    // Purchase/subscription ledgers, residual identity linkage, support,
-    // provider, logs, backups and the minimal audit disposition remain policy-
-    // dependent. Stop explicitly instead of claiming completion.
+    if (request.checkpoints?.purchaseLedgerDetachment !== 'complete') {
+      await assertLeaseOwned();
+      await detachPurchaseLedgers(request);
+      await assertLeaseOwned();
+      if (!(await completeDeletionCheckpoint(request._id, leaseOwner, 'purchaseLedgerDetachment'))) {
+        throw Object.assign(new Error('Deletion worker lease expired'), { code: 'LEASE_EXPIRED' });
+      }
+    }
+
+    // Detached transaction evidence (including provider identifiers/state),
+    // support, provider, logs, backups and the minimal audit disposition remain
+    // policy-dependent. Stop explicitly instead of claiming completion.
     await assertLeaseOwned();
     if (!(await blockDeletionForPolicy(request._id, leaseOwner))) {
       throw Object.assign(new Error('Deletion worker lease expired'), { code: 'LEASE_EXPIRED' });

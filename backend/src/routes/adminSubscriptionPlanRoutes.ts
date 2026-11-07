@@ -13,7 +13,7 @@ router.use(authenticate, requireAdmin);
 
 router.get('/', async (_req, res, next) => {
   try {
-    res.json({ success: true, plans: await ensureSubscriptionPlans() });
+    res.json({ success: true, plans: (await ensureSubscriptionPlans()).filter((plan) => plan.key === 'monthly') });
   } catch (error) { next(error); }
 });
 
@@ -23,7 +23,7 @@ router.post('/:key/publish/:store', async (req, res, next) => {
   try {
     const key = req.params.key as SubscriptionPlanKey;
     const store = req.params.store;
-    if (key !== 'monthly' && key !== 'yearly') throw new BadRequestError('Plan must be monthly or yearly');
+    if (key !== 'monthly') throw new BadRequestError('Only the monthly Premium plan is available for publication');
     if (store !== 'android' && store !== 'ios') throw new BadRequestError('Store must be android or ios');
     const rows = req.body?.regionalPricing;
     const productId = typeof req.body?.productId === 'string' ? req.body.productId.trim() : '';

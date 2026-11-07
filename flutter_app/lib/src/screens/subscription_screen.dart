@@ -78,18 +78,8 @@ class SubscriptionScreen extends ConsumerWidget {
                 textAlign: TextAlign.center,
               )
             else
-              ...controller.plans.map((plan) {
+              ...controller.plans.where((plan) => plan.key == 'monthly').map((plan) {
                 final product = controller.productFor(plan.key);
-                final offer = controller.offerFor(plan.key);
-                final frequency = plan.billingPeriod == 'P1Y'
-                    ? 'year'
-                    : 'month';
-                final discount = offer == null
-                    ? null
-                    : ((offer.regularPrice - offer.offerPrice) /
-                              offer.regularPrice *
-                              100)
-                          .toStringAsFixed(2);
                 return Card(
                   margin: const EdgeInsets.only(bottom: 14),
                   child: Padding(
@@ -98,7 +88,7 @@ class SubscriptionScreen extends ConsumerWidget {
                       crossAxisAlignment: CrossAxisAlignment.start,
                       children: [
                         Text(
-                          plan.key == 'monthly' ? 'Monthly' : 'Yearly',
+                          'Monthly',
                           style: Theme.of(context).textTheme.titleLarge,
                         ),
                         const SizedBox(height: 4),
@@ -112,24 +102,14 @@ class SubscriptionScreen extends ConsumerWidget {
                               ),
                         ),
                         Text(
-                          'per $frequency · billed by $storeName',
+                          'per month · billed by $storeName',
                           style: Theme.of(context).textTheme.bodySmall
                               ?.copyWith(color: AppColors.muted),
                         ),
-                        if (product != null && offer != null) ...[
+                        if (product != null) ...[
                           const SizedBox(height: 8),
                           Text(
-                            'Offer price. Regular price: ${offer.currencyCode} ${_formatAmount(offer.regularPrice)} ($discount% off).',
-                            style: Theme.of(context).textTheme.bodyMedium,
-                          ),
-                          Text(
-                            'Renews at ${product.price} every $frequency. This offer rate continues for each renewal while your subscription stays active; it does not automatically change to the regular price.',
-                            style: Theme.of(context).textTheme.bodySmall,
-                          ),
-                        ] else if (product != null) ...[
-                          const SizedBox(height: 8),
-                          Text(
-                            'Renews at ${product.price} every $frequency until you cancel.',
+                            'Renews automatically at ${product.price} every month until you cancel.',
                             style: Theme.of(context).textTheme.bodyMedium,
                           ),
                         ],
@@ -225,10 +205,6 @@ class _ActiveSubscription extends StatelessWidget {
     ),
   );
 }
-
-String _formatAmount(double amount) => amount == amount.roundToDouble()
-    ? amount.toStringAsFixed(0)
-    : amount.toStringAsFixed(2);
 
 Future<void> _openStoreSubscriptions(
   BuildContext context,

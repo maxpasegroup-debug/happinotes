@@ -245,12 +245,12 @@ function appleEventTime(value: unknown): Date {
   return date;
 }
 
-async function updateAccess(claim: { _id: Types.ObjectId; userId?: Types.ObjectId; bookId: Types.ObjectId },
+async function updateAccess(claim: { _id: Types.ObjectId; userId?: Types.ObjectId; bookId?: Types.ObjectId },
   active: boolean, googleLease?: GoogleLeaseContext) {
-  // Phase 1 intentionally does not reconcile detached rows. In particular,
-  // notifications must never restore their account-level book entitlement.
+  // The direct route updates linked claims only. Detached evidence is handled
+  // by the durable inbox worker and must never restore account-level access.
   const userId = claim.userId;
-  if (!userId) return;
+  if (!userId || !claim.bookId) return;
   const ledgerFilter: Record<string, unknown> = { _id: claim._id, userId };
   if (googleLease) {
     ledgerFilter.$or = [
@@ -304,14 +304,15 @@ async function updateAccess(claim: { _id: Types.ObjectId; userId?: Types.ObjectI
 }
 
 async function updateSubscriptionAccess(
-  claim: { _id: Types.ObjectId; userId?: Types.ObjectId; planKey: 'monthly' | 'yearly'; productId: string; store: 'android' | 'ios'; priceVersion?: number },
+  claim: { _id: Types.ObjectId; userId?: Types.ObjectId; planKey?: 'monthly' | 'yearly'; productId: string; store: 'android' | 'ios'; priceVersion?: number },
   state: { active: boolean; expiresAt?: Date; autoRenewing?: boolean; transactionKey: string;
     providerStateSignedAt?: Date }, googleLease?: GoogleLeaseContext,
 ) {
-  // Detached notification reconciliation is deferred to a later approved
-  // phase; never update entitlements or account-linked state here.
+  // The direct route updates linked claims only. Detached evidence is handled
+  // by the durable inbox worker and must never restore account-level access.
   const userId = claim.userId;
-  if (!userId) return;
+  const planKey = claim.planKey;
+  if (!userId || !planKey) return;
   // Purchases verified before price versioning are the initial cohort.
   // Keeping this lookup local avoids making store webhooks depend on catalog DB reads.
   const priceVersion = claim.priceVersion ?? 1;
@@ -342,7 +343,7 @@ async function updateSubscriptionAccess(
     } }, session ? { session } : {});
     if (!update.matchedCount) return false;
     await applySubscriptionEntitlement(userId, {
-    store: claim.store, planKey: claim.planKey, productId: claim.productId,
+    store: claim.store, planKey, productId: claim.productId,
     priceVersion,
     transactionKey: state.transactionKey, active: state.active, expiresAt: state.expiresAt,
     autoRenewing: state.autoRenewing, providerStateSignedAt: state.providerStateSignedAt,

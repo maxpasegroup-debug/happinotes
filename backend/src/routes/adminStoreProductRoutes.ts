@@ -1,9 +1,8 @@
 import { Router } from 'express';
 import rateLimit from 'express-rate-limit';
 import { authenticate, requireAdmin } from '../middleware';
-import { Content } from '../models';
 import { StoreProduct } from '../models/StoreProduct';
-import { ensureBookProducts, migrateLegacyMappings, retryBookProvisioning, stableProductId } from '../services/storeProductProvisioning';
+import { migrateLegacyMappings, stableProductId } from '../services/storeProductProvisioning';
 import { BadRequestError, NotFoundError } from '../utils/errors';
 
 const router = Router();
@@ -21,17 +20,9 @@ router.get('/:bookId', async (req, res, next) => {
     res.json({ success: true, product });
   } catch (error) { next(error); }
 });
-router.post('/:bookId/retry', async (req, res, next) => {
+router.post('/:bookId/retry', async (_req, _res, next) => {
   try {
-    stableProductId(req.params.bookId);
-    const store = req.body?.store;
-    if (store !== undefined && store !== 'android' && store !== 'ios') throw new BadRequestError('store must be android or ios');
-    const book = await Content.findById(req.params.bookId);
-    if (!book) throw new NotFoundError('Book not found');
-    const existing = await StoreProduct.findOne({ bookId: book.id });
-    if (!existing && !await ensureBookProducts(book)) throw new BadRequestError('Book is not premium');
-    await retryBookProvisioning(book.id, store);
-    res.status(202).json({ success: true, message: 'Provisioning queued; ready and legacy products are preserved' });
+    throw new BadRequestError('Individual book purchase provisioning is retired; Premium access uses monthly subscriptions');
   } catch (error) { next(error); }
 });
 export default router;

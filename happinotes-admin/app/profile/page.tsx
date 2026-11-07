@@ -176,7 +176,7 @@ export default function ProfilePage() {
         <div className="rounded-xl border border-white/10 bg-[#141a2a] px-4 py-3">
           <p className="text-sm font-medium text-white">Premium access</p>
           <p className="mt-1 text-xs text-[#b7c0d8]">
-            Monthly and yearly subscriptions unlock all premium stories in the app.
+            A monthly subscription unlocks all premium stories in the app.
           </p>
         </div>
         <div className="rounded-xl border border-white/10 bg-[#141a2a] px-4 py-3">

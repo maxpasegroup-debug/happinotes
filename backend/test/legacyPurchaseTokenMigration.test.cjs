@@ -28,7 +28,7 @@ test('unverified legacy keys are held for manual review', () => {
   assert.equal(entry.action, 'manual-review');
 });
 
-test('same-owner duplicate tokens can be merged, but cross-owner collisions fail closed', () => {
+test('same-owner duplicate tokens can be merged, while cross-owner collisions require manual review', () => {
   const records = [
     { id: 'first', store: 'android', transactionKey: 'same-token', userId: 'user-a', productId: 'monthly', verifiedRawToken: true },
     { id: 'second', store: 'android', transactionKey: 'same-token', userId: 'user-a', productId: 'monthly', verifiedRawToken: true },
@@ -37,10 +37,12 @@ test('same-owner duplicate tokens can be merged, but cross-owner collisions fail
   assert.equal(plan[1].action, 'merge-duplicate');
   assert.equal(plan[1].canonicalRecordId, 'first');
 
-  assert.throws(() => planLegacyPurchaseTokenMigration([
+  const ownershipConflict = planLegacyPurchaseTokenMigration([
     records[0],
     { ...records[1], userId: 'user-b' },
-  ]), /Ownership conflict/);
+  ]);
+  assert.equal(ownershipConflict[1].action, 'manual-review');
+  assert.match(ownershipConflict[1].reason, /ownership is missing or differs/);
 
   const canonical = sha256PurchaseToken('raw-first');
   const reverseOrder = planLegacyPurchaseTokenMigration([
@@ -58,11 +60,13 @@ test('ambiguous 64-hex keys are not rewritten automatically', () => {
   assert.match(entry.reason, /canonical SHA-256/);
 });
 
-test('product mismatches fail closed even when the user is the same', () => {
-  assert.throws(() => planLegacyPurchaseTokenMigration([
+test('product mismatches fail closed for manual review even when the user is the same', () => {
+  const plan = planLegacyPurchaseTokenMigration([
     { id: 'monthly', store: 'android', transactionKey: 'same-token', userId: 'user-a', productId: 'monthly', verifiedRawToken: true },
     { id: 'yearly', store: 'android', transactionKey: 'same-token', userId: 'user-a', productId: 'yearly', verifiedRawToken: true },
-  ]), /Ownership conflict/);
+  ]);
+  assert.equal(plan[1].action, 'manual-review');
+  assert.match(plan[1].reason, /ownership is missing or differs/);
 });
 
 test('malformed candidate keys remain manual-review items', () => {
@@ -75,7 +79,7 @@ test('malformed candidate keys remain manual-review items', () => {
   assert.match(plan[1].reason, /malformed/);
 });
 
-test('canonical duplicate conflicts are detected before a unique-index write', () => {
+test('canonical duplicate conflicts are held for review before a unique-index write', () => {
   const canonical = sha256PurchaseToken('raw-token');
   const sameOwner = planLegacyPurchaseTokenMigration([
     { id: 'canonical-a', store: 'android', transactionKey: canonical, userId: 'user-a', productId: 'monthly' },
@@ -84,10 +88,12 @@ test('canonical duplicate conflicts are detected before a unique-index write', (
   assert.equal(sameOwner[1].action, 'merge-duplicate');
   assert.equal(sameOwner[1].canonicalRecordId, 'canonical-a');
 
-  assert.throws(() => planLegacyPurchaseTokenMigration([
+  const ownershipConflict = planLegacyPurchaseTokenMigration([
     { id: 'canonical-a', store: 'android', transactionKey: canonical, userId: 'user-a', productId: 'monthly' },
     { id: 'canonical-b', store: 'android', transactionKey: canonical, userId: 'user-b', productId: 'monthly' },
-  ]), /Ownership conflict/);
+  ]);
+  assert.equal(ownershipConflict[1].action, 'manual-review');
+  assert.match(ownershipConflict[1].reason, /ownership is missing or differs/);
 });
 
 test('repeating the same mixed input produces the same plan', () => {

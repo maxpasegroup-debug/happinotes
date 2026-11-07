@@ -13,6 +13,23 @@ function handler() {
   return router.stack.find((layer) => layer.route?.path === '/subscription-verify').route.stack[0].handle;
 }
 
+function plansHandler() {
+  return router.stack.find((layer) => layer.route?.path === '/subscription-plans').route.stack[0].handle;
+}
+
+test('customer plan listing exposes monthly only while yearly records remain internal for existing subscriptions', async () => {
+  mock.method(planService, 'ensureSubscriptionPlans', async () => [
+    { key: 'monthly', productId: 'premium.monthly', storeProductIds: { android: 'premium.monthly' }, billingPeriod: 'P1M', active: true },
+    { key: 'yearly', productId: 'premium.yearly', storeProductIds: { android: 'premium.yearly' }, billingPeriod: 'P1Y', active: true },
+  ]);
+  let result;
+  let error;
+  const response = { set() { return this; }, json: (body) => { result = body; } };
+  await plansHandler()({ user: { _id: 'user' } }, response, (value) => { error = value; });
+  assert.equal(error, undefined);
+  assert.deepEqual(result.plans.map((plan) => plan.key), ['monthly']);
+});
+
 function request(restore, userId = 'user', store = 'android', productId = 'premium.monthly') {
   return {
     user: { _id: userId },

@@ -66,7 +66,17 @@ function database(seed = []) {
   mock.method(Content, 'findById', async () => book);
   return rows;
 }
-async function queued() { const rows = database(); await service.ensureBookProducts(book); return rows; }
+async function queued() {
+  // Represents an already existing legacy provisioning row. The application
+  // no longer creates rows for new Premium books.
+  const rows = database([{
+    _id: 'legacy-row', bookId, initialPriceInr: 99, pricingPolicy: 'legacy_preserve',
+    android: { productId: sku, status: 'pending', attempts: 0, nextAttemptAt: new Date(0) },
+    ios: { productId: sku, status: 'pending', attempts: 0, nextAttemptAt: new Date(0) },
+  }]);
+  await service.ensureBookProducts(book);
+  return rows;
+}
 const success = async () => ({ status: 'ready', storeState: 'ACTIVE' });
 const fail = async () => { throw Object.assign(new Error('secret credential'), { status: 403 }); };
 
@@ -131,7 +141,7 @@ test('legacy migration is idempotent, keeps historical IDs and fills only missin
   await service.ensureBookProducts(book);
   assert.equal(rows[0].android.productId, 'historical.book');
   assert.equal(rows[0].android.status, 'legacy');
-  assert.equal(rows[0].ios.productId, sku);
+  assert.equal(rows[0].ios, undefined);
   assert.equal(await service.processStoreProduct('android', bookId, fail), false);
   assert.equal((await service.databaseProductMapping(true))[bookId].android, 'historical.book');
 });
@@ -140,14 +150,19 @@ test('conflicting legacy mapping is rejected instead of silently replacing a SKU
   await assert.rejects(service.migrateLegacyMappings(), /conflicts/);
   assert.equal(rows[0].android.productId, sku);
 });
-test('free-to-premium conversion queues products; later price edits never change the snapshot', async () => {
+test('new Premium books do not create per-book products; historical mappings remain unchanged', async () => {
   const rows = database(); assert.equal(await service.ensureBookProducts({ ...book, type: 'free', priceInr: 0 }), null);
   assert.equal(rows.length, 0);
-  await service.ensureBookProducts(book); await service.ensureBookProducts({ ...book, priceInr: 199 });
-  assert.equal(rows.length, 1); assert.equal(rows[0].initialPriceInr, 99);
-  // Individual book pricing is no longer required by the subscription-only
-  // flow; zero is valid for a premium catalog item backed by shared plans.
+  assert.equal(await service.ensureBookProducts(book), null);
+  assert.equal(rows.length, 0);
   assert.doesNotThrow(() => service.validatePremiumPrice({ ...book, priceInr: 0 }));
+});
+test('product provisioning worker stays disabled for new one-time offers', async () => {
+  const rows = database();
+  const stop = service.startProductProvisioningWorker();
+  stop();
+  await new Promise((resolve) => setTimeout(resolve, 10));
+  assert.equal(rows.length, 0);
 });
 test('only ready/legacy products are offered; all mappings remain available for restoration', async () => {
   const rows = await queued(); await service.processStoreProduct('android', bookId, success);
@@ -280,19 +295,17 @@ async function dispatch(router, path, req) {
   await handler(req, { json: (value) => { body = value; } }, (value) => { error = value; });
   return { body, error };
 }
-test('existing product endpoint retains the Flutter contract using ready database mappings', async () => {
-  await queued(); await service.processStoreProduct('android', bookId, success);
-  mock.method(Content, 'find', (filter) => {
-    assert.equal(filter.status, 'live');
-    return { select: async () => [{ id: bookId }] };
-  });
+test('customer product endpoint offers no one-time products', async () => {
   const result = await dispatch(purchaseRouter, '/products', { user: { _id: 'user' } });
   assert.equal(result.error, undefined);
-  assert.deepEqual(result.body.products, [{ bookId, android: sku }]);
+  assert.deepEqual(result.body.products, []);
   assert.equal(result.body.accountToken, purchaseService.accountToken('user'));
 });
-test('verification still grants only verified ownership and restores an unpublished mapped book', async () => {
-  await queued();
+test('verification still restores a historical mapped book after one-time offers are retired', async () => {
+  const rows = database([{
+    _id: 'legacy-row', bookId, initialPriceInr: 99, pricingPolicy: 'legacy_preserve',
+    android: { productId: sku, status: 'legacy', attempts: 0, nextAttemptAt: new Date(0) },
+  }]);
   mock.method(AccountDeletionRequest, 'exists', async () => false);
   mock.method(Content, 'findOne', async (filter) => {
     assert.equal(filter.status, undefined); return { ...book, status: 'draft' };
@@ -316,20 +329,20 @@ test('verification still grants only verified ownership and restores an unpublis
   assert.equal(unlocked, false);
 });
 for (const [name, method] of [['adminController', 'updateBook'], ['adminContentController', 'updateContent']]) {
-  test(`${name} free-to-premium update queues the same database product mapping`, async () => {
+  test(`${name} allows Premium catalogue updates without creating one-time products`, async () => {
     const rows = database();
     mock.method(Content, 'findById', async () => ({ ...book, type: 'free', priceInr: 0, lessons: [] }));
     mock.method(Content, 'findByIdAndUpdate', async (_, payload) => ({ ...book, ...payload, status: 'draft' }));
     const controller = require(`../dist/controllers/${name}`);
     let error, result;
-    await controller[method]({ params: { id: bookId }, body: { type: 'premium', priceInr: 99 }, files: {} },
+    await controller[method]({ params: { id: bookId }, body: { type: 'premium', priceInr: 0 }, files: {} },
       { json: (value) => { result = value; } }, (e) => { error = e; });
     assert.equal(error, undefined); assert.equal(result.success, true);
-    assert.equal(rows.length, 1); assert.equal(rows[0].android.productId, sku); assert.equal(rows[0].ios.productId, sku);
+    assert.equal(rows.length, 0);
   });
 }
 for (const [name, method] of [['adminController', 'createBook'], ['adminContentController', 'createContent']]) {
-  test(`${name} new premium creation persists products without calling either store`, async () => {
+  test(`${name} rejects an individual price for new Premium content`, async () => {
     const rows = database();
     const fs = require('node:fs/promises');
     mock.method(fs, 'mkdir', async () => {}); mock.method(fs, 'writeFile', async () => {});
@@ -358,7 +371,8 @@ for (const [name, method] of [['adminController', 'createBook'], ['adminContentC
       ) }] } };
     const res = { status: (value) => { code = value; return res; }, json: (value) => { result = value; } };
     await controller[method](req, res, (e) => { error = e; });
-    assert.equal(error, undefined); assert.equal(code, 201); assert.equal(result.success, true);
-    assert.equal(rows.length, 1); assert.equal(rows[0].android.status, 'pending'); assert.equal(rows[0].ios.status, 'pending');
+    assert.equal(error.statusCode, 400);
+    assert.equal(code, undefined);
+    assert.equal(rows.length, 0);
   });
 }

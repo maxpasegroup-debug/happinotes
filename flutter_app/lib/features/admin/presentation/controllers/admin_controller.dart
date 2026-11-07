@@ -58,7 +58,7 @@ class BookDraft {
     'status': status,
     'accessType': accessType,
     'type': accessType,
-    'priceInr': double.tryParse(priceInr) ?? 0,
+    'priceInr': 0,
     'coverImageUrl': coverImageUrl,
     'thumbnailUrl': coverImageUrl,
     'coverPublicId': coverPublicId,

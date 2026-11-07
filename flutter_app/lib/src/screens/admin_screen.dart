@@ -255,8 +255,7 @@ class _Books extends ConsumerWidget {
               ),
               subtitle: Text(
                 '${book['language']}  •  ${book['status']}  •  '
-                '${book['accessType'] ?? book['type'] ?? 'free'}  •  '
-                'INR ${book['priceInr'] ?? 0}  •  '
+                '${(book['accessType'] ?? book['type']) == 'premium' ? 'Premium subscription' : 'Free'}  •  '
                 '${((book['lessons'] as List?) ?? const []).length} episodes',
               ),
               trailing: PopupMenuButton<String>(
@@ -519,12 +518,7 @@ class AdminBookEditor extends ConsumerWidget {
             if (v == 'free') d.priceInr = '0';
           }),
           if (d.accessType == 'premium')
-            input(
-              'Price in INR',
-              d.priceInr,
-              (v) => d.priceInr = v,
-              type: TextInputType.number,
-            ),
+            const Text('Premium stories are unlocked through the monthly subscription.'),
           const Text(
             'Cover image',
             style: TextStyle(fontWeight: FontWeight.w800),

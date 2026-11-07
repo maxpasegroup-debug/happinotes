@@ -41,6 +41,7 @@ export interface IAccountDeletionRequest extends Document {
     entitlementPolicy: DeletionCheckpointState;
     profileAnonymization: DeletionCheckpointState;
     contactCleanup: DeletionCheckpointState;
+    purchaseLedgerDetachment: DeletionCheckpointState;
     purchaseEvidence: DeletionCheckpointState;
     premiumEntitlement: DeletionCheckpointState;
     supportRecords: DeletionCheckpointState;
@@ -81,6 +82,7 @@ const checkpointSchema = new Schema(
     // remain deferred until their required decisions are recorded.
     profileAnonymization: { type: String, enum: ['pending', 'complete', 'deferred_policy'], default: 'pending' },
     contactCleanup: { type: String, enum: ['pending', 'complete', 'deferred_policy'], default: 'pending' },
+    purchaseLedgerDetachment: { type: String, enum: ['pending', 'complete', 'deferred_policy'], default: 'pending' },
     purchaseEvidence: { type: String, enum: ['pending', 'complete', 'deferred_policy'], default: 'deferred_policy' },
     premiumEntitlement: { type: String, enum: ['pending', 'complete', 'deferred_policy'], default: 'pending' },
     supportRecords: { type: String, enum: ['pending', 'complete', 'deferred_policy'], default: 'deferred_policy' },

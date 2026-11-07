@@ -1,5 +1,6 @@
 const { test, afterEach, mock } = require('node:test');
 const assert = require('node:assert/strict');
+const mongoose = require('mongoose');
 const { OAuth2Client } = require('google-auth-library');
 const { Type } = require('@apple/app-store-server-library');
 const service = require('../dist/services/storePurchase');
@@ -8,11 +9,37 @@ const { StorePurchase } = require('../dist/models/StorePurchase');
 const { SubscriptionPurchase } = require('../dist/models/SubscriptionPurchase');
 const { User } = require('../dist/models');
 const { AccountDeletionRequest } = require('../dist/models/AccountDeletionRequest');
+const { StoreNotificationReconciliationLease } = require('../dist/models/StoreNotificationReconciliationLease');
 const notificationRoutes = require('../dist/routes/storeNotificationRoutes');
 const router = notificationRoutes.default;
 
 afterEach(() => mock.restoreAll());
 const claim = { _id: 'claim', userId: 'user', bookId: 'book', productId: 'book.product' };
+
+function queryResult(value) {
+  const query = {
+    select() { return query; },
+    session() { return query; },
+    lean() { return query; },
+    then(resolve, reject) { return Promise.resolve(value).then(resolve, reject); },
+  };
+  return query;
+}
+
+function mockGoogleLeaseInfrastructure() {
+  let generation = 0;
+  mock.method(StoreNotificationReconciliationLease, 'findOneAndUpdate', async (_, update) => ({
+    _id: new mongoose.Types.ObjectId(),
+    generation: ++generation,
+    leaseOwner: update.$set.leaseOwner,
+  }));
+  mock.method(StoreNotificationReconciliationLease, 'exists', async () => true);
+  mock.method(StoreNotificationReconciliationLease, 'updateOne', async () => ({ matchedCount: 1 }));
+  mock.method(mongoose, 'startSession', async () => ({
+    withTransaction: async (operation) => operation(),
+    endSession: async () => {},
+  }));
+}
 
 async function dispatch(path, req) {
   const handler = router.stack.find((layer) => layer.route?.path === path).route.stack[0].handle;
@@ -23,19 +50,22 @@ async function dispatch(path, req) {
 
 function ledger(otherPurchase = false) {
   const changes = [], users = [];
-  mock.method(StorePurchase, 'findOne', async () => claim);
+  mock.method(StorePurchase, 'findOne', (filter) => filter.userId && filter.bookId
+    ? queryResult(otherPurchase ? { _id: 'another-purchase' } : null)
+    : Promise.resolve(claim));
   // Apple non-consumable fixtures do not include a subscription claim. Keep
   // the unrelated lifecycle lookup deterministic instead of waiting on Mongo.
   mock.method(SubscriptionPurchase, 'findOne', async () => null);
-  mock.method(StorePurchase, 'updateOne', async (_, update) => { changes.push(update); });
+  mock.method(StorePurchase, 'updateOne', async (_, update) => { changes.push(update); return { matchedCount: 1 }; });
   mock.method(StorePurchase, 'exists', async () => otherPurchase);
-  mock.method(User, 'updateOne', async (_, update) => { users.push(update); });
-  mock.method(User, 'findById', () => ({ select: async () => ({ blocked: false, deletionState: 'active' }) }));
-  mock.method(AccountDeletionRequest, 'exists', async () => false);
+  mock.method(User, 'updateOne', async (_, update) => { users.push(update); return { matchedCount: 1 }; });
+  mock.method(User, 'findById', () => queryResult({ blocked: false, deletionState: 'active' }));
+  mock.method(AccountDeletionRequest, 'exists', () => queryResult(false));
   return { changes, users };
 }
 
 function googleIdentity(email = 'push@example.com') {
+  mockGoogleLeaseInfrastructure();
   process.env.IAP_GOOGLE_NOTIFICATION_AUDIENCE = 'https://api.example.com/payments/notifications/google';
   process.env.IAP_GOOGLE_NOTIFICATION_EMAIL = 'push@example.com';
   process.env.GOOGLE_PLAY_PACKAGE_NAME = 'com.happinotes.test';
@@ -43,6 +73,7 @@ function googleIdentity(email = 'push@example.com') {
     getPayload: () => ({ email, email_verified: true }),
   }));
   return { headers: { authorization: 'Bearer signed-token' }, body: { message: {
+    messageId: 'google-event-1',
     data: Buffer.from(JSON.stringify({ packageName: 'com.happinotes.test',
       voidedPurchaseNotification: { purchaseToken: 'token' } })).toString('base64'),
   } } };
@@ -71,11 +102,11 @@ test('Google RTDN updates only an existing same-owner subscription claim', async
   })).toString('base64');
   const changes = [];
   const updates = [];
-  mock.method(AccountDeletionRequest, 'exists', async () => false);
+  mock.method(AccountDeletionRequest, 'exists', () => queryResult(false));
   const claim = { _id: 'subclaim', userId: 'user', planKey: 'monthly', productId: 'premium.monthly', store: 'android' };
   mock.method(SubscriptionPurchase, 'findOne', async () => claim);
-  mock.method(SubscriptionPurchase, 'updateOne', async (_, update) => { changes.push(update); });
-  mock.method(User, 'findById', () => ({ select: async () => ({ subscription: undefined }) }));
+  mock.method(SubscriptionPurchase, 'updateOne', async (_, update) => { changes.push(update); return { matchedCount: 1 }; });
+  mock.method(User, 'findById', () => queryResult({ subscription: undefined, blocked: false, deletionState: 'active' }));
   mock.method(User, 'updateOne', async (_, update) => { updates.push(update); return { matchedCount: 1 }; });
   mock.method(subscriptionService, 'googleSubscriptionNotification', async () => ({
     transactionKey: 'stable-key', active: true, expiresAt: new Date(Date.now() + 60_000),
@@ -112,13 +143,13 @@ test('duplicate RTDN delivery is idempotent for the existing owner claim', async
   const claim = { _id: 'subclaim', userId: 'user', planKey: 'monthly', productId: 'premium.monthly', store: 'android' };
   let ledgerWrites = 0;
   let entitlementWrites = 0;
-  mock.method(AccountDeletionRequest, 'exists', async () => false);
+  mock.method(AccountDeletionRequest, 'exists', () => queryResult(false));
   mock.method(SubscriptionPurchase, 'findOne', async () => claim);
-  mock.method(SubscriptionPurchase, 'updateOne', async () => { ledgerWrites += 1; });
-  mock.method(User, 'findById', () => ({ select: async () => ({ subscription: {
+  mock.method(SubscriptionPurchase, 'updateOne', async () => { ledgerWrites += 1; return { matchedCount: 1 }; });
+  mock.method(User, 'findById', () => queryResult({ subscription: {
     store: 'android', planKey: 'monthly', productId: 'premium.monthly', transactionKey: 'stable-key',
     active: true, expiresAt: new Date(Date.now() + 60_000), autoRenewing: true,
-  } }) }));
+  }, blocked: false, deletionState: 'active' }));
   mock.method(User, 'updateOne', async () => { entitlementWrites += 1; return { matchedCount: 1 }; });
   mock.method(subscriptionService, 'googleSubscriptionNotification', async () => ({
     transactionKey: 'stable-key', active: true, expiresAt: new Date(Date.now() + 60_000),
@@ -140,9 +171,9 @@ test('RTDN records provider state but cannot grant entitlement after deletion be
   let entitlementWrites = 0;
   mock.method(SubscriptionPurchase, 'findOne', async () => claim);
   mock.method(SubscriptionPurchase, 'updateOne', async () => {});
-  mock.method(AccountDeletionRequest, 'exists', async () => true);
-  mock.method(User, 'findById', () => ({ select: async () => ({ blocked: false, deletionState: 'active', subscription: undefined }) }));
-  mock.method(User, 'updateOne', async () => { entitlementWrites += 1; });
+  mock.method(AccountDeletionRequest, 'exists', () => queryResult(true));
+  mock.method(User, 'findById', () => queryResult({ blocked: false, deletionState: 'active', subscription: undefined }));
+  mock.method(User, 'updateOne', async () => { entitlementWrites += 1; return { matchedCount: 1 }; });
   mock.method(subscriptionService, 'googleSubscriptionNotification', async () => ({
     transactionKey: 'stable-key', active: true, expiresAt: new Date(Date.now() + 60_000),
     autoRenewing: true, externalAccountId: service.accountToken('user'),
@@ -160,7 +191,9 @@ test('Google refund removes access when no other purchase is active', async () =
   } }));
   const result = await dispatch('/google', req);
   assert.equal(result.status, 204);
-  assert.deepEqual(state.changes[0], { $set: { active: false } });
+  assert.equal(state.changes[0].$set.active, false);
+  assert.equal(state.changes[0].$set.providerStateVersion, 1);
+  assert.ok(state.changes[0].$set.providerStateVersionAt instanceof Date);
   assert.deepEqual(state.users[0], { $pull: { purchasedBooks: 'book' } });
 });
 
@@ -181,7 +214,9 @@ test('a delayed Google cancellation uses current purchased state and preserves a
     purchaseState: 0, consumptionState: 0, obfuscatedExternalAccountId: service.accountToken('user'),
   } }));
   await dispatch('/google', req);
-  assert.deepEqual(state.changes[0], { $set: { active: true } });
+  assert.equal(state.changes[0].$set.active, true);
+  assert.equal(state.changes[0].$set.providerStateVersion, 1);
+  assert.ok(state.changes[0].$set.providerStateVersionAt instanceof Date);
   assert.deepEqual(state.users[0], { $addToSet: { purchasedBooks: 'book' } });
 });
 
@@ -212,10 +247,11 @@ test('Apple refund uses current signed transaction state before removing access'
     environment: 'Sandbox',
     client: { getTransactionInfo: async () => ({ signedTransactionInfo: 'current' }) },
     verifier: {
-      verifyAndDecodeNotification: async () => ({ data: { signedTransactionInfo: 'old' } }),
+      verifyAndDecodeNotification: async () => ({ notificationUUID: 'apple-event-1', signedDate: Date.now(), data: { signedTransactionInfo: 'old' } }),
       verifyAndDecodeTransaction: async (value) => ({
         transactionId: 'transaction', originalTransactionId: 'original', type: Type.NON_CONSUMABLE,
         productId: claim.productId, appAccountToken: service.accountToken('user'),
+        signedDate: Date.now(),
         ...(value === 'current' ? { revocationDate: 1 } : {}),
       }),
     },
@@ -244,7 +280,7 @@ test('Apple subscription notifications refresh canonical status, preserving owne
   mock.method(service, 'applePurchaseClient', () => ({
     environment: 'Sandbox',
     verifier: {
-      verifyAndDecodeNotification: async () => ({ data: { signedTransactionInfo: 'notification-jws' } }),
+      verifyAndDecodeNotification: async () => ({ notificationUUID: 'apple-event-2', signedDate: Date.now(), data: { signedTransactionInfo: 'notification-jws' } }),
       verifyAndDecodeTransaction: async () => ({ originalTransactionId: 'original', transactionId: 'old-tx' }),
     },
   }));
@@ -276,7 +312,8 @@ test('Apple subscription notifications refresh canonical status, preserving owne
   assert.equal(writes.length, 2);
   assert.equal(userWrites.length, 2);
   assert.equal(writes[0].update.$set.active, true);
-  assert.equal(writes[0].filter.$or[0].providerStateSignedAt.$lte.toISOString(), '2026-10-24T10:00:00.000Z');
+  const signedTimestampGuard = writes[0].filter.$and.find((guard) => guard.$or?.[0]?.['providerStateSignedAt']?.$lte);
+  assert.equal(signedTimestampGuard.$or[0].providerStateSignedAt.$lte.toISOString(), '2026-10-24T10:00:00.000Z');
 });
 
 test('an Apple lifecycle response older than the persisted signed state cannot alter user entitlement', async () => {
@@ -286,7 +323,7 @@ test('an Apple lifecycle response older than the persisted signed state cannot a
   mock.method(service, 'applePurchaseClient', () => ({
     environment: 'Sandbox',
     verifier: {
-      verifyAndDecodeNotification: async () => ({ data: { signedTransactionInfo: 'notification-jws' } }),
+      verifyAndDecodeNotification: async () => ({ notificationUUID: 'apple-event-3', signedDate: Date.now(), data: { signedTransactionInfo: 'notification-jws' } }),
       verifyAndDecodeTransaction: async () => ({ originalTransactionId: 'original', transactionId: 'old-tx' }),
     },
   }));
@@ -312,7 +349,7 @@ test('Apple renewal-only notifications are signature-checked and refresh the exi
   mock.method(service, 'applePurchaseClient', () => ({
     environment: 'Sandbox',
     verifier: {
-      verifyAndDecodeNotification: async () => ({ data: { signedRenewalInfo: 'renewal-jws' } }),
+      verifyAndDecodeNotification: async () => ({ notificationUUID: 'apple-event-4', signedDate: Date.now(), data: { signedRenewalInfo: 'renewal-jws' } }),
       verifyAndDecodeRenewalInfo: async (signed) => {
         assert.equal(signed, 'renewal-jws');
         return { originalTransactionId: 'original' };

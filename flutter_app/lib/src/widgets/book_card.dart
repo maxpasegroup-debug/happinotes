@@ -83,7 +83,7 @@ class BookCard extends StatelessWidget {
           ),
           const SizedBox(height: 3),
           Text(
-            '${book.language}  •  ${book.priceInr > 0 ? 'INR ${book.priceInr.toStringAsFixed(0)}' : 'Free'}',
+            '${book.language}  •  ${book.accessType == 'premium' ? 'Premium subscription' : 'Free'}',
             maxLines: 1,
             overflow: TextOverflow.ellipsis,
             style: Theme.of(

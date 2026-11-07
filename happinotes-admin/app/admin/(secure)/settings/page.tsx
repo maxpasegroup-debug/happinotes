@@ -13,7 +13,7 @@ type RegionPrice = {
   appleAppStoreAvailable: boolean;
 };
 type Plan = {
-  key: "monthly" | "yearly";
+  key: "monthly";
   productId: string;
   storeProductIds?: { android?: string; ios?: string };
   priceInr: number;
@@ -154,7 +154,7 @@ export default function AdminSettingsPage() {
           const planRows = rows[plan.key] ?? [];
           const publishIds = nextProductIds[plan.key] ?? { android: "", ios: "" };
           return <section key={plan.key} style={{ border: "1px solid #232329", borderRadius: 12, padding: 18 }}>
-            <h2 style={{ marginTop: 0 }}>{plan.key === "monthly" ? "Monthly plan" : "Yearly plan"}</h2>
+            <h2 style={{ marginTop: 0 }}>Monthly plan</h2>
             {plan.key === "monthly" && <p style={{ color: "#d4d4d8", fontSize: 13, marginTop: -6 }}>India launch pricing: <strong>₹1,999/month reference</strong> and <strong>₹699/month offer</strong> ({(((1999 - 699) / 1999) * 100).toFixed(2)}% off). ₹699 is the recurring renewal price for subscribers who join at this offer; it does not switch to ₹1,999 after a trial period. The price cohort remains at its rate while subscribed. After cancellation and expiry, a returning subscriber gets the then-current price.</p>}
             <p style={{ color: "#a1a1aa", fontSize: 13 }}>Current price version: <strong>{plan.priceVersion ?? 1}</strong><br />Google Play product: {plan.storeProductIds?.android ?? plan.productId} — {storeStatusLabel(plan, "android")}<br />Apple product: {plan.storeProductIds?.ios ?? "Not configured"} — {storeStatusLabel(plan, "ios")}</p>
             {(plan.priceVersionHistory ?? []).length > 0 && <details style={{ color: "#a1a1aa", fontSize: 13, marginBottom: 14 }}><summary>Archived price versions ({plan.priceVersionHistory!.length})</summary><ul>{[...(plan.priceVersionHistory ?? [])].reverse().map((version) => <li key={version.version}>Version {version.version} · {version.regionalPricing?.map((row) => `${row.regionCode}: ${row.currencyCode} ${row.offerPrice}/mo`).join(", ") || `INR ${version.priceInr}`} · Google: {version.storeProductIds?.android ?? "not set"} · Apple: {version.storeProductIds?.ios ?? "not set"} · saved {new Date(version.publishedAt).toLocaleDateString()}</li>)}</ul><p>Keep archived store products available for current subscribers to renew at their existing rate.</p></details>}

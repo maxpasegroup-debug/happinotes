@@ -243,8 +243,7 @@ export const createBook = async (
     if (!language) return next(new BadRequestError('language is required'));
     if (!type) return next(new BadRequestError('type must be free or premium'));
     if (!Number.isFinite(priceInr) || priceInr < 0) return next(new BadRequestError('priceInr must be a non-negative number'));
-    // Premium books are unlocked by the shared monthly/yearly subscriptions;
-    // priceInr is retained only for legacy one-time products.
+    if (type === 'premium' && priceInr > 0) return next(new BadRequestError('Premium books use the monthly subscription and cannot have an individual purchase price'));
     if (!intro && lessons.length === 0) {
       return next(new BadRequestError('Add at least one episode MP3 or an intro audio file'));
     }
@@ -323,6 +322,9 @@ export const updateBook = async (
       payload.lessons = normalizeLessons(payload.lessons);
     }
     validatePremiumPrice({ contentType: String(payload.contentType ?? existing.contentType), type: String(payload.type ?? existing.type), priceInr: Number(payload.priceInr ?? existing.priceInr) });
+    if (String(payload.type ?? existing.type) === 'premium' && Number(payload.priceInr ?? 0) > 0) {
+      return next(new BadRequestError('Premium books use the monthly subscription and cannot have an individual purchase price'));
+    }
     const book = await Content.findByIdAndUpdate(
       req.params.id,
       payload,

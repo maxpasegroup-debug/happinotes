@@ -126,6 +126,7 @@ export async function requestAccountDeletion(
           entitlementPolicy: 'deferred_policy',
           profileAnonymization: 'pending',
           contactCleanup: 'pending',
+          purchaseLedgerDetachment: 'pending',
           purchaseEvidence: 'deferred_policy',
           premiumEntitlement: 'pending',
           supportRecords: 'deferred_policy',
@@ -281,6 +282,7 @@ export async function completeDeletionCheckpoint(
     | 'preferencesAndDevices'
     | 'profileAnonymization'
     | 'contactCleanup'
+    | 'purchaseLedgerDetachment'
     | 'premiumEntitlement',
 ): Promise<boolean> {
   const result = await AccountDeletionRequest.updateOne(
