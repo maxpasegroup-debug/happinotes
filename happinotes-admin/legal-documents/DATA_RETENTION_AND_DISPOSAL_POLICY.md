@@ -1,6 +1,6 @@
 # Data Retention and Disposal Policy
 
-**Internal review draft — no retention schedule is approved.**
+**Internal review draft — no retention schedule is approved. Source state reviewed 6 November 2026.**
 
 ## Rule
 
@@ -8,7 +8,7 @@ Keep personal information only under a documented purpose, approved lawful basis
 
 ## Current state
 
-MongoDB models include user identity/profile, authentication OTP/reset artifacts, preferences/device tokens, individual purchase references, subscription purchase/entitlement state and deletion requests. OTP and password-reset records have expiry/TTL behavior. The deletion worker removes reset/OTP artifacts and preferences/device tokens but stops before identity, purchases, entitlements and request completion. Server logs are emitted to stdout; hosting retention was not verified. No repository backup schedule or archive model was found. Provider-side deletion and backups were not inspected.
+The deletion worker removes password-reset and reauthentication proofs and matching OTPs, invalidates sessions, clears preferences/favourites/collections/push-token references, replaces the profile name, resets selected settings, removes email and phone, and clears purchased-book access and embedded Premium entitlement. It does not delete the User record/internal identifier or detach StorePurchase and SubscriptionPurchase ledgers; the request stops at `blocked_policy`. Support/provider records, logs, backups and deletion-request history are not fully handled by the worker. OTP/reset expiry mechanisms exist in source; exact production retention and provider-side behavior are unverified. Server logs are emitted to stdout; host retention was not verified. No repository backup schedule or archive model was found.
 
 ## Future approved schedule
 

@@ -1,7 +1,7 @@
 # Privacy Policy Final Owner Decision Pack
 
 **Internal decision draft — not a privacy policy, legal opinion, or publication approval.**  
-Repository review: 6 November 2026. Existing draft labels and `blocked_policy` remain in force.
+Repository review: 6 November 2026. Other legal pages and internal decision documents retain their draft labels; the owner has authorized publication of the Privacy Policy. The account-deletion `blocked_policy` remains in force.
 
 Use this pack to collect decisions. “Recommendation” is engineering guidance only; it is not an approved company decision. No legal ground, retention period, provider location, or approval is assumed.
 
@@ -9,7 +9,7 @@ Use this pack to collect decisions. “Recommendation” is engineering guidance
 
 | Decision required | Why it matters | Responsible | Recommendation (not approved) |
 |---|---|---|---|
-| Exact launch countries/territories and intended audience, including minimum age and whether children may use the service. | Privacy rights, children safeguards, transfer wording, Play audience declarations and consumer disclosures depend on markets and audience. | Owner, with counsel | No market or age can be selected from repository evidence. Supply the actual launch list and intended audience. |
+| Confirm that the owner-provided intent remains worldwide availability and 18+ minimum age; identify any launch-country or platform exclusions. | The owner supplied worldwide and 18+ as product intent. Specific rights, child safeguards and store declarations still depend on each market, actual availability and implemented age controls. | Owner, with counsel | Record worldwide/18+ as owner intent, not as legal approval or proof that the app enforces age. Counsel must determine country applicability and the owner must confirm actual launch availability. |
 | Complete production vendor/subprocessor list and legal names, including database/hosting, email, push, media, website/CDN, support, analytics, crash reporting and monitoring providers. Identify which company account owns each service. | The policy must accurately identify who receives or processes data and for what function. Source package names and `.env.example` placeholders do not prove production use. | Owner / operations | Reconcile each provider against production accounts and signed agreements; do not state “none” based only on missing direct SDKs. |
 | For each provider: data categories, purpose, role, processing region, subprocessors, retention, backup/log behavior and applicable contract/DPA. | Needed to disclose recipients, international transfers, retention and deletion limits. | Owner / operations, with counsel | Publish only verified details. Where a provider's role or location is unknown, resolve it before publication. |
 | Actual collection and use across the consumer app, website and admin portal, including device/browser storage, playback markers, IP/request logs, diagnostics and any cookies or telemetry. | The policy and Play Data Safety answers must match all shipped and deployed surfaces. | Owner / product / engineering | Use the final release binary and production settings as evidence; distinguish consumer data from staff/admin data if separate notices are appropriate. |
@@ -40,8 +40,8 @@ Use this pack to collect decisions. “Recommendation” is engineering guidance
 - Verify actual provider setup, regions, logging/backup destinations, deletion controls and restore procedures with the account owners. Do not use `.env.example` values as production evidence.
 - Complete the approved account-deletion operations. Current behavior removes several account fields and entitlements but retains the User identifier/deletion state and purchase/subscription evidence; requests can remain at `blocked_policy`. Do not claim complete deletion until approved checkpoints and exceptions are implemented and verified.
 - Make the privacy policy, account-deletion page, in-app legal screen and Play Data Safety/Data deletion answers match the implemented behavior and approved disclosures.
-- After approval only, replace the website privacy route’s draft metadata/banner and publish the approved text. Verify the public URL is HTTPS, accessible without login, and renders the approved policy before entering it in Play Console.
-- Set the effective date only after the approving parties authorize publication; refresh the source review date at that time.
+- The owner has authorized publication of the privacy notice dated 6 November 2026. The privacy route is configured to show the final text without the shared draft notice; other legal pages retain their draft notice. Verify the deployed public URL over HTTPS without login and confirm it renders the exact authorized text before entering it in Play Console.
+- Owner authorization to publish does not constitute legal, finance or operational approval. Record those reviews separately; do not characterize this policy as legally approved or globally compliant.
 
 ## 5. Existing facts verified from repository source
 
@@ -55,11 +55,11 @@ Use this pack to collect decisions. “Recommendation” is engineering guidance
 ## 6. Items that cannot currently be verified
 
 - Production vendor accounts, provider legal entities, regions, subprocessors, contracts, actual retention, telemetry, database encryption, backup/log configuration and deletion guarantees.
-- Whether all listed payment integrations/products are live, which transaction details each store returns, and the final Play/Firebase configuration and SDK behavior.
-- Actual launch countries, target age, applicable legal grounds, statutory contacts, user-rights deadlines, cross-border safeguards, tax/accounting retention requirements and counsel/finance approval.
+- Whether Google Play products/configuration are live and exactly which transaction details are exchanged. Apple billing source integration exists, but its production configuration and operational status are unverified; owner intent is Android first and iOS later.
+- Actual Play availability by country, app-enforced age controls, applicable legal grounds, statutory contacts, user-rights deadlines, cross-border safeguards, tax/accounting retention requirements and counsel/finance approval. Worldwide market and 18+ minimum age are owner-provided intent only.
 - Whether the public privacy route is currently deployed and accessible worldwide over valid HTTPS. The repository contains the route but source alone does not prove live availability.
 - Completion of account deletion and deletion of support/provider/log/backup data; source documents explicitly leave these decisions or operations unresolved.
 
 ## Decision record
 
-Owner, finance and counsel decisions must be recorded against the items above before this pack can be closed. Until then, `FINAL_PRIVACY_POLICY.md` remains a draft, the website draft banner stays in place, and this document is not publication approval or Google Play approval.
+Owner, finance and counsel decisions must be recorded against the items above before this pack can be closed. The privacy policy text is no longer presented as a draft on its dedicated website route, as authorized by the owner; deployment and live URL verification remain to be confirmed. This document is not legal approval or Google Play approval.

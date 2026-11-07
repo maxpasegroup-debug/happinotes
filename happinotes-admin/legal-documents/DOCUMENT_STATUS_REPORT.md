@@ -1,6 +1,6 @@
 # HappiNotes Legal and Release Document Status
 
-**Updated:** 2026-11-04. This is an engineering status report, not legal approval.
+**Updated:** 2026-11-06. This is an engineering status report, not legal approval.
 
 ## Status meanings
 
@@ -13,7 +13,7 @@
 |---|---|---|
 | `MASTER_LEGAL_COMPLIANCE_REPORT.md` | Ready as a draft | Counsel and owner review; production verification. |
 | `INTERNATIONAL_COMPLIANCE_MATRIX.md` | Ready as a draft | Owner supplies countries; local counsel determines applicability. |
-| `FINAL_PRIVACY_POLICY.md` | Requires legal/owner approval | Confirm vendors, purposes, locations, rights, ages, retention and actual deletion before publication. |
+| `FINAL_PRIVACY_POLICY.md` | Final public-facing text; owner authorized publication effective 2026-11-06. This is not counsel/finance approval. | Confirm deployment and public URL. Legal/finance/operations must still verify applicable rights, legal grounds, provider configuration, country availability, age controls, locations, retention and deletion behavior. |
 | `FINAL_TERMS_AND_CONDITIONS.md` | Requires legal approval | Approve consumer rights, content/license, jurisdiction, liability and termination terms. |
 | `SUBSCRIPTION_TERMS.md` | Requires finance/legal and store verification | Confirm live products, price cohort behavior, taxes, refunds and local notices. |
 | `SUBSCRIPTION_CANCELLATION_REFUND_POLICY.md` | Requires finance/legal and store verification | This is the combined public policy route; confirm live products, tax, refunds, cancellation flow and local notices. |
@@ -29,7 +29,7 @@
 | `COPYRIGHT_COMPLAINT_PROCEDURE.md` | Requires legal/operational approval | Name responsible role, required steps and deadlines. |
 | `GRIEVANCE_AND_PRIVACY_COMPLAINT_POLICY.md` | Requires legal/owner approval | Confirm statutory applicability, officer, designation and response route. |
 | `CHILDREN_AND_AGE_ELIGIBILITY_POLICY.md` | Blocked by owner/legal decision | Confirm audience, age rule, safeguards and Play target audience. |
-| `DATA_PROCESSING_AND_THIRD_PARTY_DISCLOSURE.md` | Ready as a draft; production evidence required | Verify provider list, locations, contracts and terms. |
+| `DATA_PROCESSING_AND_THIRD_PARTY_DISCLOSURE.md` | Ready as a draft; production evidence required | Verify provider accounts, locations, contracts, terms and whether the Apple integration is configured for a later iOS release. |
 | `SECURITY_INCIDENT_RESPONSE_SOP.md` | Requires operational/legal approval | Name incident roles and provider/regulator escalation contacts. |
 | `ACCOUNT_DELETION_SOP.md` | Blocked by technical implementation | Gate prevents completing deletion; approved schedule and end-to-end handling required. |
 | `DATA_SAFETY_INVENTORY.md` | Ready as an engineering draft | Reconcile with final SDK, services and actual Play declaration. |
@@ -39,18 +39,18 @@
 
 ## Public pages updated in source
 
-`/privacy-policy`, `/terms`, `/subscription-policy`, `/account-deletion`, `/refund-policy`, `/cookie-policy`, `/acceptable-use`, `/content-policy`, and `/grievance-redressal`. The first three read the draft documents. Account deletion page describes the actual request workflow and current limits. Deployment, public accessibility, TLS and content rendering have not been verified.
+`/privacy-policy`, `/terms`, `/subscription-policy`, `/account-deletion`, `/refund-policy`, `/cookie-policy`, `/acceptable-use`, `/content-policy`, and `/grievance-redressal`. The privacy route renders the final dated policy text and is configured without the shared draft notice; other legal pages retain their own draft notices. Account deletion page describes the actual request workflow and current limits. The local production build passed, but deployment, public accessibility, TLS and live content rendering have not been verified. The repository GitHub workflow is validation-only; Railway CLI authentication timed out and no website deploy job is configured in the repository.
 
-Flutter Legal links to the public legal pages. No application build or test was run. Legal screens and web legal shell visibly label the content as draft pending review.
+Flutter Legal links to the public legal pages. The Flutter legal screen and other web legal routes retain their draft notices; the privacy route alone hides that notice under the owner authorization. The privacy website production build has been validated locally; Flutter/backend builds and tests were not run for this policy task.
 
 ## Complete release blockers
 
 1. Approved retention schedule and completion implementation for deletion, including personal identity, purchase/entitlement, logs, backups and provider-side effects.
 2. Counsel/finance approval for applicable-market privacy, consumer, tax, refund and retention disclosures.
-3. Owner confirmation of launch countries, age audience and named responsible complaint/security contacts.
+3. Confirm actual available countries, app age controls, and named responsible complaint/security contacts. The owner has provided worldwide/18+ intent; this is not proof of availability or compliance.
 4. Verified production processors, sub-processors, regions, transfers, contracts and telemetry.
 5. Accurate final Play Data safety and deletion declarations, filled from production behavior.
 6. Live store catalog/price/market verification, reviewer access and final AAB/release configuration review.
-7. Public deployment of approved notice text and independent verification of URLs and app behavior.
+7. Publish the privacy website changes through the authorized web deployment and independently verify the URL and rendered text. The live privacy URL could not be verified during this review.
 
 No document is represented as legally approved, and no deployment, push, build, AAB or test was performed.

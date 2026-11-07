@@ -1,11 +1,11 @@
 # Final Owner Approval Checklist
 
-**Status: unresolved items block legal publication and public release.**
+**Status: owner authorized publication of the Privacy Policy; separate legal, finance, operational and Google Play release decisions remain open.**
 
 ## Owner decisions
 
-- [ ] Confirm intended countries/territories at launch and actual Play availability.
-- [ ] Confirm target age/audience and whether children can create accounts; align Play target audience and product safeguards.
+- [x] Owner intent recorded: worldwide market and 18+ minimum age; Android through Google Play first, iOS later. This does not establish actual country availability, app age enforcement, child-law compliance, or legal approval.
+- [ ] Confirm actual Play availability by country and whether any countries/platforms are excluded; ensure the shipped app and Play audience settings consistently enforce or communicate the 18+ intent.
 - [ ] Confirm the complete production provider/subprocessor list, account owners, data regions, contracts and retention settings.
 - [ ] Approve purposes and operational owner for each data category.
 - [ ] Appoint accountable privacy, security, support and statutory grievance contacts; only publish names/designations after confirmation.
@@ -21,7 +21,8 @@
 - [ ] Approve backup/log expiry, vendor deletion instructions and minimal deletion-request history period.
 - [ ] Approve cancellation/refund and digital-content consumer rights per market.
 - [ ] Review incident notification rules and approve incident contacts/escalation.
-- [ ] Set effective dates and authorize publication of each legal notice.
+- [x] Privacy Policy effective date set to 6 November 2026; owner has authorized publication of that notice. This is not legal, finance or operational approval.
+- [ ] Set effective dates and authorize publication of the remaining legal notices after their separate review.
 
 ## Engineering / Play blockers
 

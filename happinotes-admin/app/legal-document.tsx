@@ -2,7 +2,7 @@
 import path from "node:path";
 import Link from "next/link";
 
-type Props = { fileName: string; title: string; description: string };
+type Props = { fileName: string; title: string; description: string; showDraftNotice?: boolean };
 
 function inline(text: string, keyPrefix: string) {
   const pieces = text.split(/(\*\*.*?\*\*|\[[^\]]+\]\([^)]+\))/g);
@@ -15,7 +15,7 @@ function inline(text: string, keyPrefix: string) {
   });
 }
 
-export function LegalDocument({ fileName, title, description }: Props) {
+export function LegalDocument({ fileName, title, description, showDraftNotice = true }: Props) {
   const markdown = readFileSync(path.join(process.cwd(), "legal-documents", fileName), "utf8");
   const lines = markdown.split(/\r?\n/);
   const content = [];
@@ -44,7 +44,7 @@ export function LegalDocument({ fileName, title, description }: Props) {
     <article className="legal-card">
       <p className="legal-operator">HappiNotes is owned and operated by <strong>AIRASKILL CITY PRIVATE LIMITED</strong>.</p>
       <address className="legal-contact">Registered office: 2619, T2, 6th Floor, HiLITE Business Park, HiLITE City, near Guruvayurappan College, Kozhikode – 673014, Kerala, India.<br />Customer support and privacy: <a href="mailto:hello@happinotes.online">hello@happinotes.online</a> · <a href="tel:+918089239823">+91 8089239823</a></address>
-      <p className="legal-draft">Draft — owner and legal review required before publication</p>
+      {showDraftNotice && <p className="legal-draft">Draft — owner and legal review required before publication</p>}
       <h1 className="legal-page-title">{title}</h1>
       <p className="legal-description">{description}</p>
       <div className="legal-content">{content}</div>
