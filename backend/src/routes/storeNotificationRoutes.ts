@@ -500,6 +500,9 @@ router.post('/apple', async (req, res, next) => {
       if (!latest.signedTransactionInfo) throw new AppError('Transaction lookup failed', 503);
       const current = await verifier.verifyAndDecodeTransaction(latest.signedTransactionInfo);
       const expectedProduct = claim?.productId ?? transaction.productId;
+      if (typeof expectedProduct !== 'string' || expectedProduct.length === 0) {
+        throw new AppError('Apple notification has no verifiable product; please retry.', 503);
+      }
       const transactionKey = `${environment}:${current.originalTransactionId}`;
       if (current.originalTransactionId !== originalTransactionId || current.productId !== expectedProduct ||
           current.type !== Type.NON_CONSUMABLE) {

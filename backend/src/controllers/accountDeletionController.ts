@@ -5,7 +5,7 @@ import { validationResult } from 'express-validator';
 import { AccountDeletionReauth } from '../models/AccountDeletionReauth';
 import { Otp, User } from '../models';
 import { deletionStatusTokenFor, findActiveDeletionRequest, hashDeletionSecret, isAccountWritable, requestAccountDeletion } from '../services/accountDeletion';
-import { AccountDeletionRequest } from '../models/AccountDeletionRequest';
+import { AccountDeletionRequest, IAccountDeletionRequest } from '../models/AccountDeletionRequest';
 import { BadRequestError, UnauthorizedError } from '../utils/errors';
 import { sendOTPEmail } from '../services/emailService';
 import mongoose from 'mongoose';
@@ -85,7 +85,7 @@ export async function verifyExternalDeletionOtp(req: Request, res: Response, nex
 
     const user = await User.findOne({ email }).select('_id blocked deletionState');
     if (!user) return next(invalidExternalCode());
-    let request = await findActiveDeletionRequest(user._id);
+    let request: IAccountDeletionRequest | null = await findActiveDeletionRequest(user._id);
     if (!request) {
       if (!(await isAccountWritable(user._id))) return next(invalidExternalCode());
       request = await requestAccountDeletion(user._id, crypto.randomBytes(32).toString('base64url'), 'external_web');
@@ -101,7 +101,7 @@ export async function verifyExternalDeletionOtp(req: Request, res: Response, nex
       );
     }
     request = await AccountDeletionRequest.findById(request._id);
-    if (!request?.publicReference) return next(new Error('Could not create a deletion request reference'));
+    if (!request || !request.publicReference) return next(new Error('Could not create a deletion request reference'));
     // Derive the same high-entropy status bearer credential as the signed-in
     // flow. Only its hash is stored; the requester must save the plaintext.
     statusToken = deletionStatusTokenFor(request.publicReference, user._id);

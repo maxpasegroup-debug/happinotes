@@ -88,9 +88,11 @@ async function resolveClaim(row: IStoreNotificationInbox, owner: string): Promis
     return false;
   }
   const store = row.provider === 'google_play' ? 'android' : 'ios';
-  const model: Model<any> = row.claimType === 'store_purchase' ? StorePurchase : SubscriptionPurchase;
-  const claim = await model.findOne({ store, transactionKey: row.transactionKey, productId: row.productId })
-    .select('_id').lean();
+  const claim = row.claimType === 'store_purchase'
+    ? await StorePurchase.findOne({ store, transactionKey: row.transactionKey, productId: row.productId })
+      .select('_id').lean()
+    : await SubscriptionPurchase.findOne({ store, transactionKey: row.transactionKey, productId: row.productId })
+      .select('_id').lean();
   if (!claim) {
     await releaseUnmatched(row, owner);
     return false;
@@ -118,8 +120,11 @@ async function applyDetachedSnapshot(row: IStoreNotificationInbox, owner: string
     return;
   }
   const model: Model<any> = row.claimType === 'store_purchase' ? StorePurchase : SubscriptionPurchase;
-  const claim = await model.findById(row.claimId)
-    .select('userId productId active expiresAt autoRenewing providerStateSignedAt providerStateVersionAt providerStateVersion providerEventOrder').lean();
+  const claim = row.claimType === 'store_purchase'
+    ? await StorePurchase.findById(row.claimId)
+      .select('userId productId active expiresAt autoRenewing providerStateSignedAt providerStateVersionAt providerStateVersion providerEventOrder').lean()
+    : await SubscriptionPurchase.findById(row.claimId)
+      .select('userId productId active expiresAt autoRenewing providerStateSignedAt providerStateVersionAt providerStateVersion providerEventOrder').lean();
   if (!claim) {
     await finish(row, owner, 'blocked', 'CLAIM_UNAVAILABLE');
     return;
