@@ -133,13 +133,17 @@ class AuthFormController extends ChangeNotifier {
     _notify();
     try {
       if (step == AuthStep.email) {
-        final result = await session.requestEmailOtp(email, isSignup);
-        step = AuthStep.otp;
-        final resendAfter =
-            int.tryParse(result['resendAfterSeconds']?.toString() ?? '') ?? 60;
-        _startResendCooldown(resendAfter);
+        if (isSignup) {
+          final result = await session.requestEmailOtp(email);
+          step = AuthStep.otp;
+          final resendAfter =
+              int.tryParse(result['resendAfterSeconds']?.toString() ?? '') ?? 60;
+          _startResendCooldown(resendAfter);
+        } else {
+          step = AuthStep.password;
+        }
       } else if (step == AuthStep.otp) {
-        challenge = await session.verifyEmailOtp(email, otp, isSignup);
+        challenge = await session.verifyEmailOtp(email, otp);
         _resendTimer?.cancel();
         resendSeconds = 0;
         step = AuthStep.password;
@@ -152,7 +156,7 @@ class AuthFormController extends ChangeNotifier {
         );
         successMessage = 'Your account was created successfully';
       } else {
-        await session.loginWithEmailChallenge(email, password, challenge);
+        await session.loginWithEmail(email, password);
         successMessage = 'Login successful';
       }
     } catch (exception) {
@@ -164,7 +168,7 @@ class AuthFormController extends ChangeNotifier {
   }
 
   Future<void> resendOtp() async {
-    if (step != AuthStep.otp || loading) return;
+    if (!isSignup || step != AuthStep.otp || loading) return;
     if (resendSeconds > 0) {
       error =
           'Please wait $resendSeconds seconds before requesting another code.';
@@ -176,7 +180,7 @@ class AuthFormController extends ChangeNotifier {
     successMessage = null;
     _notify();
     try {
-      final result = await session.requestEmailOtp(email, isSignup);
+      final result = await session.requestEmailOtp(email);
       final resendAfter =
           int.tryParse(result['resendAfterSeconds']?.toString() ?? '') ?? 60;
       _startResendCooldown(resendAfter);

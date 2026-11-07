@@ -59,10 +59,6 @@ class SessionController extends ChangeNotifier {
 
   Future<Map<String, dynamic>> requestSignupOtp(String phone) =>
       repository.requestSignupOtp(phone);
-  Future<Map<String, dynamic>> requestLoginOtp(String phone) =>
-      repository.requestLoginOtp(phone);
-  Future<String> verifyLoginOtp(String phone, String otp) =>
-      repository.verifyLoginOtp(phone, otp);
 
   Future<void> signup(String name, String phone, String pin, String otp) async {
     user = await repository.signup(
@@ -74,11 +70,10 @@ class SessionController extends ChangeNotifier {
     notifyListeners();
   }
 
-  Future<void> login(String phone, String pin, String challenge) async {
+  Future<void> login(String phone, String pin) async {
     user = await repository.login(
       phoneNumber: phone,
       pin: pin,
-      challenge: challenge,
     );
     notifyListeners();
   }
@@ -139,28 +134,15 @@ class SessionController extends ChangeNotifier {
     notifyListeners();
   }
 
-  Future<void> signupWithEmail(
-    String name,
-    String email,
-    String password,
-  ) async {
-    user = await repository.signupWithEmail(
-      name: name,
-      email: email,
-      password: password,
-    );
-    notifyListeners();
-  }
-
   Future<void> loginWithEmail(String email, String password) async {
     user = await repository.loginWithEmail(email: email, password: password);
     notifyListeners();
   }
 
-  Future<Map<String, dynamic>> requestEmailOtp(String email, bool signup) =>
-      repository.requestEmailOtp(email: email, signup: signup);
-  Future<String> verifyEmailOtp(String email, String otp, bool signup) =>
-      repository.verifyEmailOtp(email: email, otp: otp, signup: signup);
+  Future<Map<String, dynamic>> requestEmailOtp(String email) =>
+      repository.requestEmailOtp(email: email);
+  Future<String> verifyEmailOtp(String email, String otp) =>
+      repository.verifyEmailOtp(email: email, otp: otp);
   Future<void> signupWithEmailChallenge(
     String name,
     String email,
@@ -169,19 +151,6 @@ class SessionController extends ChangeNotifier {
   ) async {
     user = await repository.signupWithEmailChallenge(
       name: name,
-      email: email,
-      password: password,
-      challenge: challenge,
-    );
-    notifyListeners();
-  }
-
-  Future<void> loginWithEmailChallenge(
-    String email,
-    String password,
-    String challenge,
-  ) async {
-    user = await repository.loginWithEmailChallenge(
       email: email,
       password: password,
       challenge: challenge,

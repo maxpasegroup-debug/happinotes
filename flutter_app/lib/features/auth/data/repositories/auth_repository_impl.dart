@@ -29,15 +29,6 @@ class AuthRepositoryImpl implements AuthRepository {
   }
 
   @override
-  Future<Map<String, dynamic>> requestLoginOtp(String phoneNumber) async {
-    final r = await client.dio.post(
-      '/auth/request-login-otp',
-      data: {'phoneNumber': phoneNumber},
-    );
-    return Map<String, dynamic>.from(r.data);
-  }
-
-  @override
   Future<Map<String, dynamic>> requestResetPinOtp(String phoneNumber) async {
     final r = await client.dio.post(
       '/auth/request-reset-pin-otp',
@@ -95,15 +86,6 @@ class AuthRepositoryImpl implements AuthRepository {
   }
 
   @override
-  Future<String> verifyLoginOtp(String phoneNumber, String otp) async {
-    final r = await client.dio.post(
-      '/auth/verify-login-otp',
-      data: {'phoneNumber': phoneNumber, 'otp': otp},
-    );
-    return r.data['loginChallenge'].toString();
-  }
-
-  @override
   Future<User> signup({
     required String name,
     required String phoneNumber,
@@ -122,32 +104,12 @@ class AuthRepositoryImpl implements AuthRepository {
   Future<User> login({
     required String phoneNumber,
     required String pin,
-    required String challenge,
   }) async {
     final r = await client.dio.post(
       '/auth/login',
       data: {
         'phoneNumber': phoneNumber,
         'pin': pin,
-        'loginChallenge': challenge,
-      },
-    );
-    await client.saveToken(r.data['token'].toString());
-    return UserModel.fromJson(Map<String, dynamic>.from(r.data['user']));
-  }
-
-  @override
-  Future<User> signupWithEmail({
-    required String name,
-    required String email,
-    required String password,
-  }) async {
-    final r = await client.dio.post(
-      '/auth/signup',
-      data: {
-        'name': name,
-        'email': email.trim().toLowerCase(),
-        'password': password,
       },
     );
     await client.saveToken(r.data['token'].toString());
@@ -170,11 +132,10 @@ class AuthRepositoryImpl implements AuthRepository {
   @override
   Future<Map<String, dynamic>> requestEmailOtp({
     required String email,
-    required bool signup,
   }) async {
     final r = await client.dio.post(
       '/auth/request-email-otp',
-      data: {'email': email, 'purpose': signup ? 'signup' : 'login'},
+      data: {'email': email.trim().toLowerCase(), 'purpose': 'signup'},
     );
     return Map<String, dynamic>.from(r.data);
   }
@@ -183,14 +144,13 @@ class AuthRepositoryImpl implements AuthRepository {
   Future<String> verifyEmailOtp({
     required String email,
     required String otp,
-    required bool signup,
   }) async {
     final r = await client.dio.post(
       '/auth/verify-email-otp',
       data: {
         'email': email,
         'otp': otp,
-        'purpose': signup ? 'signup' : 'login',
+        'purpose': 'signup',
       },
     );
     return r.data['emailChallenge'].toString();
@@ -211,20 +171,6 @@ class AuthRepositoryImpl implements AuthRepository {
         'password': password,
         'emailChallenge': challenge,
       },
-    );
-    await client.saveToken(r.data['token'].toString());
-    return UserModel.fromJson(Map<String, dynamic>.from(r.data['user']));
-  }
-
-  @override
-  Future<User> loginWithEmailChallenge({
-    required String email,
-    required String password,
-    required String challenge,
-  }) async {
-    final r = await client.dio.post(
-      '/auth/login',
-      data: {'email': email, 'password': password, 'emailChallenge': challenge},
     );
     await client.saveToken(r.data['token'].toString());
     return UserModel.fromJson(Map<String, dynamic>.from(r.data['user']));

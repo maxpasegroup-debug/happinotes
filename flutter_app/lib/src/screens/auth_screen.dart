@@ -100,6 +100,14 @@ class AuthScreen extends ConsumerWidget {
                     ),
                   ],
                   if (form.step == AuthStep.password) ...[
+                    if (!form.isSignup)
+                      Padding(
+                        padding: const EdgeInsets.only(bottom: 14),
+                        child: Text(
+                          'Signing in as ${form.email}',
+                          textAlign: TextAlign.center,
+                        ),
+                      ),
                     if (form.isSignup) ...[
                       TextFormField(
                         initialValue: form.name,

@@ -9,10 +9,8 @@ import {
   verifyOTP,
   resetPassword,
   requestSignupOtp,
-  requestLoginOtp,
   requestResetPinOtp,
   resetPin,
-  verifyLoginOtp,
   updateLanguage,
   requestEmailOtp,
   verifyEmailOtp,
@@ -48,8 +46,8 @@ const signupValidation = [
 const loginValidation = [
   body().custom((value) => {
     if (value.phoneNumber) {
-      if (!/^\+[1-9]\d{7,14}$/.test(value.phoneNumber) || !/^\d{6}$/.test(value.pin) || !value.loginChallenge) {
-        throw new Error('OTP verification and a valid 6-digit PIN are required');
+      if (!/^\+[1-9]\d{7,14}$/.test(value.phoneNumber) || !/^\d{6}$/.test(value.pin)) {
+        throw new Error('A valid WhatsApp number and 6-digit PIN are required');
       }
     } else if (!value.email || !value.password) {
       throw new Error('Email and password are required');
@@ -68,7 +66,7 @@ const forgotPasswordValidation = [
 
 const emailOtpValidation = [
   body('email').isEmail().normalizeEmail().withMessage('Valid email is required'),
-  body('purpose').isIn(['signup', 'login']).withMessage('OTP purpose must be signup or login'),
+  body('purpose').equals('signup').withMessage('Email OTP is available for sign-up only'),
 ];
 
 const emailVerifyOtpValidation = [
@@ -117,15 +115,8 @@ router.post('/login', authRateLimiter, loginValidation, login);
 router.post('/request-email-otp', authRateLimiter, emailOtpValidation, requestEmailOtp);
 router.post('/verify-email-otp', authRateLimiter, emailVerifyOtpValidation, verifyEmailOtp);
 router.post('/request-signup-otp', authRateLimiter, [phoneValidation], requestSignupOtp);
-router.post('/request-login-otp', authRateLimiter, [phoneValidation], requestLoginOtp);
 router.post('/request-reset-pin-otp', authRateLimiter, [phoneValidation], requestResetPinOtp);
 router.post('/reset-pin', authRateLimiter, [phoneValidation, body('otp').matches(/^\d{6}$/), body('pin').matches(/^\d{6}$/)], resetPin);
-router.post(
-  '/verify-login-otp',
-  authRateLimiter,
-  [phoneValidation, body('otp').matches(/^\d{6}$/).withMessage('OTP must be 6 digits')],
-  verifyLoginOtp
-);
 router.post('/forgot-password', authRateLimiter, forgotPasswordValidation, forgotPassword);
 router.post('/verify-otp', authRateLimiter, verifyOTPValidation, verifyOTP);
 router.post('/reset-password', authRateLimiter, resetPasswordValidation, resetPassword);

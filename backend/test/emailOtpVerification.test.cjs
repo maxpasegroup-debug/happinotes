@@ -10,7 +10,7 @@ const authController = require('../dist/controllers/authController');
 const authRoutes = require('../dist/routes/authRoutes').default;
 
 const EMAIL = 'person@example.test';
-const PURPOSE = 'email-login';
+const PURPOSE = 'email-signup';
 const SECRET = env.JWT_SECRET;
 
 afterEach(() => mock.restoreAll());
@@ -76,9 +76,9 @@ function invoke(controller, body) {
   return Promise.resolve(controller({ body }, res, (error) => { result.error = error; })).then(() => result);
 }
 
-test('correct email OTP creates the existing ten-minute challenge exactly once', async () => {
+test('correct sign-up email OTP creates the existing ten-minute challenge exactly once', async () => {
   const state = setup();
-  const result = await invoke(authController.verifyEmailOtp, { email: EMAIL, otp: '123456', purpose: 'login' });
+  const result = await invoke(authController.verifyEmailOtp, { email: EMAIL, otp: '123456', purpose: 'signup' });
   assert.equal(result.statusCode, 200);
   assert.equal(result.body.success, true);
   const challenge = jwt.verify(result.body.emailChallenge, SECRET);
@@ -86,7 +86,7 @@ test('correct email OTP creates the existing ten-minute challenge exactly once',
   assert.equal(challenge.exp - challenge.iat, 600);
   assert.equal(state.challenge.used, true);
 
-  const replay = await invoke(authController.verifyEmailOtp, { email: EMAIL, otp: '123456', purpose: 'login' });
+  const replay = await invoke(authController.verifyEmailOtp, { email: EMAIL, otp: '123456', purpose: 'signup' });
   assert.equal(replay.statusCode, 200);
   assert.equal(replay.error?.statusCode, 400);
   assert.equal(replay.body, undefined);
@@ -95,12 +95,12 @@ test('correct email OTP creates the existing ten-minute challenge exactly once',
 test('incorrect email OTP attempts persist and the challenge is exhausted after five', async () => {
   const state = setup();
   for (let attempt = 1; attempt <= 5; attempt += 1) {
-    const result = await invoke(authController.verifyEmailOtp, { email: EMAIL, otp: '000000', purpose: 'login' });
+    const result = await invoke(authController.verifyEmailOtp, { email: EMAIL, otp: '000000', purpose: 'signup' });
     assert.equal(result.error?.statusCode, 400);
     assert.equal(state.challenge.attempts, attempt);
   }
   const attemptsAtLimit = state.challenge.attempts;
-  const correctAfterLimit = await invoke(authController.verifyEmailOtp, { email: EMAIL, otp: '123456', purpose: 'login' });
+  const correctAfterLimit = await invoke(authController.verifyEmailOtp, { email: EMAIL, otp: '123456', purpose: 'signup' });
   assert.equal(correctAfterLimit.error?.statusCode, 400);
   assert.equal(state.challenge.attempts, attemptsAtLimit);
   assert.equal(state.challenge.used, false);
@@ -108,10 +108,10 @@ test('incorrect email OTP attempts persist and the challenge is exhausted after 
 
 test('a legacy challenge without attempts starts at zero and receives an atomic counter', async () => {
   const state = setup({ legacyAttempts: true });
-  const wrong = await invoke(authController.verifyEmailOtp, { email: EMAIL, otp: '000000', purpose: 'login' });
+  const wrong = await invoke(authController.verifyEmailOtp, { email: EMAIL, otp: '000000', purpose: 'signup' });
   assert.equal(wrong.error?.statusCode, 400);
   assert.equal(state.challenge.attempts, 1);
-  const correct = await invoke(authController.verifyEmailOtp, { email: EMAIL, otp: '123456', purpose: 'login' });
+  const correct = await invoke(authController.verifyEmailOtp, { email: EMAIL, otp: '123456', purpose: 'signup' });
   assert.equal(correct.body?.success, true);
   assert.equal(state.challenge.used, true);
 });
@@ -124,7 +124,7 @@ test('expired, used, and exhausted email OTP challenges are rejected', async (t)
   ]) {
     await t.test(label, async () => {
       const state = setup(options);
-      const result = await invoke(authController.verifyEmailOtp, { email: EMAIL, otp: '123456', purpose: 'login' });
+      const result = await invoke(authController.verifyEmailOtp, { email: EMAIL, otp: '123456', purpose: 'signup' });
       assert.equal(result.error?.statusCode, 400);
       assert.equal(state.challenge.used, options.used ?? false);
       assert.equal(state.challenge.attempts, options.attempts ?? 0);
@@ -135,7 +135,7 @@ test('expired, used, and exhausted email OTP challenges are rejected', async (t)
 test('concurrent correct email OTP requests can consume one challenge only once', async () => {
   const state = setup();
   const results = await Promise.all(Array.from({ length: 12 }, () =>
-    invoke(authController.verifyEmailOtp, { email: EMAIL, otp: '123456', purpose: 'login' })));
+    invoke(authController.verifyEmailOtp, { email: EMAIL, otp: '123456', purpose: 'signup' })));
   assert.equal(results.filter((result) => result.body?.success === true).length, 1);
   assert.equal(results.filter((result) => result.error?.statusCode === 400).length, 11);
   assert.equal(state.challenge.used, true);
@@ -144,15 +144,13 @@ test('concurrent correct email OTP requests can consume one challenge only once'
 test('concurrent incorrect email OTP attempts cannot increment beyond five', async () => {
   const state = setup();
   const results = await Promise.all(Array.from({ length: 20 }, () =>
-    invoke(authController.verifyEmailOtp, { email: EMAIL, otp: '000000', purpose: 'login' })));
+    invoke(authController.verifyEmailOtp, { email: EMAIL, otp: '000000', purpose: 'signup' })));
   assert.ok(results.every((result) => result.error?.statusCode === 400));
   assert.equal(state.challenge.attempts, 5);
   assert.equal(state.challenge.used, false);
 });
 
-test('email challenge still permits ordinary customer login', async () => {
-  const state = setup();
-  const verified = await invoke(authController.verifyEmailOtp, { email: EMAIL, otp: '123456', purpose: 'login' });
+test('registered customer can sign in using email and password without an OTP challenge', async () => {
   const passwordHash = await bcrypt.hash('customer-password', 4);
   const user = {
     _id: 'customer-id', id: 'customer-id', name: 'Customer', email: EMAIL,
@@ -160,15 +158,12 @@ test('email challenge still permits ordinary customer login', async () => {
   };
   mock.method(User, 'findOne', () => ({ select: async () => user }));
   mock.method(deletion, 'isAccountWritable', async () => true);
-  const login = await invoke(authController.login, {
-    email: EMAIL, password: 'customer-password', emailChallenge: verified.body.emailChallenge,
-  });
+  const login = await invoke(authController.login, { email: EMAIL, password: 'customer-password' });
   assert.equal(login.error, undefined);
   assert.equal(login.body.success, true);
   const accessClaims = jwt.verify(login.body.token, SECRET);
   assert.equal(accessClaims.id, 'customer-id');
   assert.equal(accessClaims.sessionVersion, 0);
-  assert.equal(state.challenge.used, true);
 });
 
 test('configured administrator email-password login remains compatible', async () => {
@@ -193,7 +188,7 @@ test('configured administrator email-password login remains compatible', async (
   }
 });
 
-test('signup uses the same authentication rate limiter without weakening other auth routes', () => {
+test('email login does not expose OTP endpoints while sign-up and password reset retain rate limits', () => {
   const route = (path) => authRoutes.stack.find((layer) => layer.route?.path === path).route;
   const signup = route('/signup');
   const login = route('/login');
@@ -206,4 +201,6 @@ test('signup uses the same authentication rate limiter without weakening other a
   assert.equal(emailOtp.stack[0].handle, verifyOtp.stack[0].handle);
   assert.equal(forgotPassword.stack[0].handle, resetPassword.stack[0].handle);
   assert.equal(login.stack[0].handle, forgotPassword.stack[0].handle);
+  assert.equal(authRoutes.stack.some((layer) => layer.route?.path === '/request-login-otp'), false);
+  assert.equal(authRoutes.stack.some((layer) => layer.route?.path === '/verify-login-otp'), false);
 });

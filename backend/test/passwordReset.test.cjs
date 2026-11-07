@@ -227,13 +227,8 @@ test('a token issued before reset is rejected afterward and a new token works', 
 
   const afterReset = await authenticateToken(oldToken);
   assert.equal(afterReset.error.statusCode, 401);
-  const emailChallenge = jwt.sign(
-    { email: 'person@example.test', type: 'email-login' },
-    env.JWT_SECRET,
-    { expiresIn: '10m' },
-  );
   const login = await invoke(authController.login, {
-    email: 'person@example.test', password: 'new-password', emailChallenge,
+    email: 'person@example.test', password: 'new-password',
   });
   assert.equal(login.error, undefined);
   assert.equal(jwt.verify(login.body.token, env.JWT_SECRET).sessionVersion, 1);

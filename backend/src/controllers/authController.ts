@@ -47,9 +47,6 @@ function respondInvalidResetOtp(res: Response): void {
   res.status(400).json({ message: INVALID_RESET_OTP_MESSAGE });
 }
 
-const isConfiguredAdminEmail = (email: string): boolean =>
-  Boolean(env.ADMIN_EMAIL && email.trim().toLowerCase() === env.ADMIN_EMAIL.toLowerCase());
-
 export const testOtpResponse = (otp: string): Record<string, string> =>
   env.WHATSAPP_OTP_MODE === 'test' ? { testOtp: otp } : {};
 
@@ -143,7 +140,7 @@ export const unregisterFcmToken = async (req: Request, res: Response, next: Next
   } catch (err) { next(err); }
 };
 
-const createPhoneOtp = async (phoneNumber: string, purpose: 'signup' | 'login' | 'reset-pin') => {
+const createPhoneOtp = async (phoneNumber: string, purpose: 'signup' | 'reset-pin') => {
   assertPhoneOtpDeliveryAvailable();
   const otp = generateOtp();
   await Otp.updateMany({ identifier: phoneNumber, purpose, used: false }, { used: true });
@@ -156,7 +153,8 @@ const createPhoneOtp = async (phoneNumber: string, purpose: 'signup' | 'login' |
   return otp;
 };
 
-const createEmailOtp = async (email: string, purpose: 'email-signup' | 'email-login') => {
+const createEmailOtp = async (email: string) => {
+  const purpose = 'email-signup';
   const now = Date.now();
   const latest = await Otp.findOne({
     identifier: email,
@@ -191,7 +189,7 @@ const createEmailOtp = async (email: string, purpose: 'email-signup' | 'email-lo
   }
 };
 
-const verifyEmailChallenge = (token: string, email: string, type: 'email-signup' | 'email-login') => {
+const verifyEmailChallenge = (token: string, email: string, type: 'email-signup') => {
   try {
     const challenge = jwt.verify(token, env.JWT_SECRET, { algorithms: ['HS256'] }) as { email?: string; type?: string };
     if (challenge.type !== type || challenge.email !== email) return false;
@@ -289,19 +287,8 @@ export const login = async (
       return next(new BadRequestError(errors.array()[0].msg));
     }
 
-    const { email, password, phoneNumber, pin, loginChallenge, emailChallenge } = req.body;
+    const { email, password, phoneNumber, pin } = req.body;
     if (phoneNumber) {
-      try {
-        const challenge = jwt.verify(loginChallenge, env.JWT_SECRET, { algorithms: ['HS256'] }) as {
-          phoneNumber?: string;
-          type?: string;
-        };
-        if (challenge.type !== 'phone-login' || challenge.phoneNumber !== phoneNumber) {
-          return next(new UnauthorizedError('Verify the WhatsApp OTP before entering your PIN'));
-        }
-      } catch {
-        return next(new UnauthorizedError('OTP verification expired. Request a new OTP'));
-      }
       const phoneUser = await User.findOne({ phoneNumber }).select('+password');
       if (!phoneUser || !phoneUser.password || !(await bcrypt.compare(pin, phoneUser.password))) {
         return next(new UnauthorizedError('Invalid WhatsApp number or PIN'));
@@ -311,13 +298,7 @@ export const login = async (
       res.json({ success: true, token: signToken(phoneUser.id, phoneUser.sessionVersion ?? 0), user: userResponse(phoneUser) });
       return;
     }
-    const normalizedEmail = email.toLowerCase();
-    // The admin dashboard uses a dedicated email/password login. Regular
-    // users still require the email OTP challenge from the mobile flow.
-    if (!isConfiguredAdminEmail(normalizedEmail) &&
-        !verifyEmailChallenge(emailChallenge, normalizedEmail, 'email-login')) {
-      return next(new UnauthorizedError('Verify the email OTP before signing in'));
-    }
+    const normalizedEmail = email.trim().toLowerCase();
     const user = await User.findOne({ email: normalizedEmail }).select('+password');
     if (!user) {
       return next(new UnauthorizedError('Invalid email or password'));
@@ -367,36 +348,13 @@ export const requestSignupOtp = async (req: Request, res: Response, next: NextFu
   } catch (err) { next(err); }
 };
 
-export const requestLoginOtp = async (req: Request, res: Response, next: NextFunction) => {
-  try {
-    assertPhoneOtpDeliveryAvailable();
-    const { phoneNumber } = req.body;
-    const user = await User.findOne({ phoneNumber });
-    if (!user || !(await isAccountWritable(user._id))) {
-      return next(new BadRequestError('No account found for this WhatsApp number'));
-    }
-    const otp = await createPhoneOtp(phoneNumber, 'login');
-    res.json({
-      success: true,
-      message: 'OTP generated',
-      ...testOtpResponse(otp),
-    });
-  } catch (err) { next(err); }
-};
-
 export const requestEmailOtp = async (req: Request, res: Response, next: NextFunction) => {
   try {
     const email = (req.body.email ?? '').toString().trim().toLowerCase();
-    const purpose = req.body.purpose === 'signup' ? 'email-signup' : 'email-login';
+    if (req.body.purpose !== 'signup') return next(new BadRequestError('Email OTP is available for sign-up only'));
     const exists = await User.exists({ email });
-    if (purpose === 'email-signup' && exists) return next(new BadRequestError('Email already registered'));
-    if (purpose === 'email-login') {
-      const user = await User.findOne({ email });
-      if (!user || !(await isAccountWritable(user._id))) {
-        return next(new UnauthorizedError('No account found for this email'));
-      }
-    }
-    await createEmailOtp(email, purpose);
+    if (exists) return next(new BadRequestError('Email already registered'));
+    await createEmailOtp(email);
     res.json({
       success: true,
       message: 'OTP sent to your email',
@@ -410,7 +368,8 @@ export const verifyEmailOtp = async (req: Request, res: Response, next: NextFunc
   try {
     const email = (req.body.email ?? '').toString().trim().toLowerCase();
     const otp = (req.body.otp ?? '').toString().trim();
-    const purpose = req.body.purpose === 'signup' ? 'email-signup' : 'email-login';
+    if (req.body.purpose !== 'signup') return next(new BadRequestError('Email OTP is available for sign-up only'));
+    const purpose = 'email-signup';
     const now = new Date();
     const activeChallenge = {
       identifier: email,
@@ -498,27 +457,6 @@ export const resetPin = async (req: Request, res: Response, next: NextFunction) 
   } catch (err) { next(err); }
 };
 
-export const verifyLoginOtp = async (req: Request, res: Response, next: NextFunction) => {
-  try {
-    const { phoneNumber, otp } = req.body;
-    const record = await Otp.findOne({
-      identifier: phoneNumber,
-      purpose: 'login',
-      otp: hashOtp(phoneNumber, otp),
-      used: false,
-      expiresAt: { $gt: new Date() },
-    });
-    if (!record) return next(new BadRequestError('Invalid or expired OTP'));
-    record.used = true;
-    await record.save();
-    const loginChallenge = jwt.sign(
-      { phoneNumber, type: 'phone-login' },
-      env.JWT_SECRET,
-      { algorithm: 'HS256', expiresIn: '5m' }
-    );
-    res.json({ success: true, message: 'OTP verified', loginChallenge });
-  } catch (err) { next(err); }
-};
 
 export const getMe = async (
   req: Request,
