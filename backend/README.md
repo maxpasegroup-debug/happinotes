@@ -212,3 +212,26 @@ is not called by runtime routes and has not been run against production data.
 | DELETE | `/admin/books/:id`  | Admin  | Delete book        |
 
 Protected routes use header: `Authorization: Bearer <token>`.
+
+## Happy Bites access
+
+Happy Bites accept `accessType: "free" | "premium"` on the existing admin
+create/update endpoints. New content and older records without this field
+remain free. Omitting it from a partial update preserves the current choice.
+Premium uses the existing active, unexpired Pro subscription (or admin access);
+individual audiobook purchases do not unlock Happy Bites.
+
+`GET /happy-bites` and `GET /happy-bites/:id` accept optional Bearer authentication.
+Both return published metadata with `accessType` and `locked`. Locked responses
+omit `audioUrl`; allowed responses include it. Responses use `private, no-store`
+and vary by Authorization. Missing or draft detail records return 404. Admin
+CRUD stays behind the existing authentication and admin authorization.
+
+Deploy this backend before releasing the updated admin and mobile app. No
+backfill or subscription migration is required. The app rechecks the detail
+endpoint when starting or resuming playback through its controls. Media storage
+remains the existing URL-based infrastructure, as for audiobooks; this does not
+revoke media URLs that listeners previously received or downloaded.
+
+Verify the access matrix with `npm run build` followed by
+`node --test test/happyBites.test.cjs`.

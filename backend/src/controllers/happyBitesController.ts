@@ -1,6 +1,7 @@
 import type { NextFunction, Request, Response } from 'express';
 import { HappyBite } from '../models';
 import { BadRequestError, NotFoundError } from '../utils/errors';
+import { isValidObjectId } from 'mongoose';
 
 const MAX_PAGE_SIZE = 50;
 const cleanText = (value: unknown, max: number) => typeof value === 'string' ? value.trim().slice(0, max) : '';
@@ -28,11 +29,36 @@ function normalizePayload(body: Record<string, unknown>, partial = false) {
     if (body.published !== undefined && typeof body.published !== 'boolean') throw new BadRequestError('published must be a boolean');
     payload.published = body.published === true;
   }
+  if (!partial || Object.prototype.hasOwnProperty.call(body, 'accessType')) {
+    const accessType = body.accessType === undefined && !partial ? 'free' : body.accessType;
+    if (accessType !== 'free' && accessType !== 'premium') throw new BadRequestError('accessType must be free or premium');
+    payload.accessType = accessType;
+  }
   return payload;
+}
+
+/** Uses the existing Pro entitlement, including the existing admin override. */
+function canListenPremium(req: Request) {
+  if (req.user?.role === 'admin') return true;
+  const subscription = req.user?.subscription;
+  return Boolean(subscription?.active && (!subscription.expiresAt || subscription.expiresAt > new Date()));
+}
+
+function publicBite(doc: Record<string, unknown>, premiumAccess: boolean) {
+  const accessType = doc.accessType === 'premium' ? 'premium' : 'free';
+  const locked = accessType === 'premium' && !premiumAccess;
+  const { audioUrl, ...metadata } = doc;
+  return { ...metadata, accessType, locked, ...(locked ? {} : { audioUrl }) };
+}
+
+function privateResponse(res: Response) {
+  res.setHeader('Cache-Control', 'private, no-store');
+  res.vary('Authorization');
 }
 
 export async function listHappyBites(req: Request, res: Response, next: NextFunction) {
   try {
+    privateResponse(res);
     const page = Math.max(1, Number.parseInt(String(req.query.page ?? '1'), 10) || 1);
     const limit = Math.min(MAX_PAGE_SIZE, Math.max(1, Number.parseInt(String(req.query.limit ?? '20'), 10) || 20));
     const category = cleanText(req.query.category, 80);
@@ -43,14 +69,25 @@ export async function listHappyBites(req: Request, res: Response, next: NextFunc
       HappyBite.countDocuments(filter),
       HappyBite.distinct('category', { published: true }),
     ]);
-    res.json({ success: true, happyBites, categories: categories.sort((a, b) => String(a).localeCompare(String(b))), pagination: { page, limit, total, totalPages: Math.ceil(total / limit), hasMore: page * limit < total } });
+    const premiumAccess = canListenPremium(req);
+    res.json({ success: true, happyBites: happyBites.map((bite) => publicBite(bite, premiumAccess)), categories: categories.sort((a, b) => String(a).localeCompare(String(b))), pagination: { page, limit, total, totalPages: Math.ceil(total / limit), hasMore: page * limit < total } });
+  } catch (error) { next(error); }
+}
+
+export async function getHappyBite(req: Request, res: Response, next: NextFunction) {
+  try {
+    privateResponse(res);
+    if (!isValidObjectId(req.params.id)) throw new NotFoundError('Happy Bite not found');
+    const happyBite = await HappyBite.findOne({ _id: req.params.id, published: true }).lean();
+    if (!happyBite) throw new NotFoundError('Happy Bite not found');
+    res.json({ success: true, happyBite: publicBite(happyBite, canListenPremium(req)) });
   } catch (error) { next(error); }
 }
 
 export async function listAdminHappyBites(_req: Request, res: Response, next: NextFunction) {
   try {
     const happyBites = await HappyBite.find().sort({ displayOrder: 1, createdAt: -1, _id: -1 }).lean();
-    res.json({ success: true, happyBites });
+    res.json({ success: true, happyBites: happyBites.map((bite) => ({ ...bite, accessType: bite.accessType ?? 'free' })) });
   } catch (error) { next(error); }
 }
 
