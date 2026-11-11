@@ -1,4 +1,5 @@
 import dotenv from 'dotenv';
+import { resolveServerPort } from './port';
 
 dotenv.config();
 
@@ -99,7 +100,7 @@ const rateLimitStoreConfiguration = resolveRateLimitStoreConfiguration(
 
 export const env = {
   NODE_ENV,
-  PORT: parseInt(process.env.PORT || '3000', 10),
+  PORT: resolveServerPort(process.env.PORT, NODE_ENV),
   MONGODB_URI: process.env.MONGODB_URI || 'mongodb://localhost:27017/happinotes',
   JWT_SECRET: JWT_SECRET_RAW || JWT_SECRET_FALLBACK,
   JWT_EXPIRES_IN: process.env.JWT_EXPIRES_IN || '7d',

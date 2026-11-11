@@ -1,6 +1,6 @@
 const { test } = require('node:test');
 const assert = require('node:assert/strict');
-const { validateImageUpload, validateLessonAudioUpload } = require('../dist/utils/mediaValidation');
+const { validateImageUpload, validateLessonAudioUpload, validateMediaUpload } = require('../dist/utils/mediaValidation');
 
 function validCover() {
   return { originalname: 'cover.jpg', mimetype: 'image/jpeg', buffer: Buffer.from([0xff, 0xd8, 0xff, 0x00, 0x01]) };
@@ -22,4 +22,11 @@ test('accepts valid MP3 and rejects executables and unsupported audio formats', 
   assert.match(validateLessonAudioUpload({ ...validMp3('setup.exe'), mimetype: 'application/x-msdownload', buffer: Buffer.from('MZ') }), /MP3/);
   assert.match(validateLessonAudioUpload({ ...validMp3(), buffer: Buffer.from('MZ executable') }), /valid MP3/);
   assert.match(validateLessonAudioUpload({ ...validMp3('lesson.wav'), mimetype: 'audio/wav' }), /MP3/);
+});
+
+test('Happy Bites uploads accept validated image thumbnails and one MP3 audio file', () => {
+  assert.equal(validateMediaUpload(validCover(), 'happy-bite-thumbnail'), null);
+  assert.equal(validateMediaUpload(validMp3(), 'happy-bite-audio'), null);
+  assert.match(validateMediaUpload({ ...validMp3('voice.wav'), mimetype: 'audio/wav' }, 'happy-bite-audio'), /MP3/);
+  assert.match(validateMediaUpload({ ...validCover(), buffer: Buffer.from('MZ executable') }, 'happy-bite-thumbnail'), /valid image/);
 });

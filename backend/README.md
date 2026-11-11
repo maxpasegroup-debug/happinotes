@@ -62,6 +62,9 @@ Dependencies: `express`, `mongoose`, `bcryptjs`, `jsonwebtoken`, `helmet`, `cors
 
 2. **Environment**
    - Copy `.env.example` to `.env`
+   - For local development, use `NODE_ENV=development` and `PORT=3000`.
+     Production requires an explicit `PORT`; Railway normally supplies it.
+     `npm run dev` does not override values copied from a production `.env`.
    - Set `MONGODB_URI` (e.g. local MongoDB or MongoDB Atlas)
    - Set `JWT_SECRET` to at least 32 cryptographically random bytes (256 bits), with at least 12 distinct bytes. For example, generate it locally with `node -e "console.log(require('node:crypto').randomBytes(32).toString('base64url'))"`; do not commit or print the generated value into logs or reports. Production rejects missing, short, placeholder, fallback, or low-diversity values without displaying the configured value.
    - Rate limits use the installed `express-rate-limit` process-local memory store. They protect each backend process independently and are not shared across Railway replicas. `RATE_LIMIT_STORE` may be omitted or set to `memory`; unsupported values such as `redis` fail startup instead of silently falling back. A shared store requires a separately reviewed adapter and infrastructure configuration.
@@ -81,6 +84,9 @@ Dependencies: `express`, `mongoose`, `bcryptjs`, `jsonwebtoken`, `helmet`, `cors
 
 3. **MongoDB**
    - Run MongoDB locally, or use a cloud URI in `.env`
+   - A `*.railway.internal` MongoDB hostname is only reachable inside Railway.
+     On your laptop, use Railway's public MongoDB connection URL or a local
+     MongoDB URI. Keep database credentials in the ignored `.env` file.
 
 4. **Start**
    ```bash

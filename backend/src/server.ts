@@ -16,12 +16,6 @@ import { SubscriptionPurchase } from './models/SubscriptionPurchase';
 import { configureCloudinary, isCloudinaryConfigured } from './config/cloudinary';
 import { corsConfiguration } from './config/cors';
 
-if (!process.env.PORT && process.env.NODE_ENV === 'production') {
-  throw new Error('PORT is not defined in production');
-}
-
-const PORT = Number(process.env.PORT);
-
 const start = async (): Promise<void> => {
   if (env.RATE_LIMIT_STORE_WARNING) {
     console.warn('auth_rate_limit_store_mode', { mode: env.RATE_LIMIT_STORE_MODE, shared: env.RATE_LIMIT_STORE_SHARED });
@@ -62,8 +56,8 @@ const start = async (): Promise<void> => {
     console.log('realtime_client_connected');
   });
 
-  httpServer.listen(PORT, () => {
-    console.log('server_listening');
+  httpServer.listen(env.PORT, () => {
+    console.log('server_listening', { port: env.PORT });
   });
 };
 

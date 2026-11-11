@@ -24,3 +24,4 @@ export {
   MediaType,
 } from './Content';
 export { SubscriptionPlan, ISubscriptionPlan, SubscriptionPlanKey } from './SubscriptionPlan';
+export { HappyBite, IHappyBite } from './HappyBite';

@@ -110,7 +110,7 @@ async function uploadToCloudinary(
   file: UploadedFile,
   folder: string,
   cleanupAssets?: CloudinaryAsset[],
-): Promise<{ url: string; resourceType: string }> {
+): Promise<{ url: string; resourceType: string; durationSeconds?: number }> {
   if (!isCloudinaryConfigured()) {
     throw new AppError('Media storage is not configured. Please contact an administrator.', 503);
   }
@@ -138,6 +138,9 @@ async function uploadToCloudinary(
         resolve({
           url: result.secure_url,
           resourceType: result.resource_type || resourceType,
+          ...(typeof result.duration === 'number'
+            ? { durationSeconds: Math.round(result.duration) }
+            : {}),
         });
         if (cleanupAssets && result.public_id) {
           cleanupAssets.push({ publicId: result.public_id, resourceType: result.resource_type || resourceType });
@@ -189,6 +192,15 @@ export const uploadContentMedia = async (
     }
 
     const scope = typeof req.body?.scope === 'string' ? req.body.scope.trim() : '';
+    if (scope === 'happy-bite-thumbnail' && mediaType !== 'image') {
+      return next(new BadRequestError('Happy Bite thumbnails must be images.'));
+    }
+    if (scope === 'happy-bite-audio' && mediaType !== 'audio') {
+      return next(new BadRequestError('Happy Bite audio must be an MP3 audio file.'));
+    }
+    if (scope === 'happy-bite-thumbnail' && file.size > 5 * 1024 * 1024) {
+      return next(new BadRequestError('Happy Bite thumbnails must be 5 MB or smaller.'));
+    }
     const validationMessage = validateMediaUpload(file, scope);
     if (validationMessage) return next(new BadRequestError(validationMessage));
     const folder =
@@ -204,6 +216,10 @@ export const uploadContentMedia = async (
                 ? 'happinotes/silence'
                 : scope === 'notification'
                   ? 'happinotes/notifications'
+                  : scope === 'happy-bite-thumbnail'
+                    ? 'happinotes/happy-bites/thumbnails'
+                    : scope === 'happy-bite-audio'
+                      ? 'happinotes/happy-bites/audio'
                 : 'happinotes/uploads';
 
     const uploaded = await uploadToCloudinary(file, folder);
@@ -211,6 +227,9 @@ export const uploadContentMedia = async (
       success: true,
       url: uploaded.url,
       mediaType,
+      ...(scope === 'happy-bite-audio' && uploaded.durationSeconds !== undefined
+        ? { durationSeconds: uploaded.durationSeconds }
+        : {}),
     });
   } catch (err) {
     next(err);
