@@ -4,9 +4,22 @@ import { useAdminConfirmation, useAdminConfirmationOpen } from "@/components/adm
 
 import Link from 'next/link';
 import { usePathname, useRouter } from 'next/navigation';
-import { useState, type ReactNode } from 'react';
-import { motion, useReducedMotion } from 'framer-motion';
+import { forwardRef, useEffect, useState, type ReactNode } from 'react';
+import { motion, useReducedMotion, type HTMLMotionProps } from 'framer-motion';
 import { Avatar, BreadcrumbItem, Breadcrumbs, Button, Chip, Divider, Drawer, DrawerBody, DrawerContent, DrawerHeader } from '@heroui/react';
+import { AdminInstallButton } from './AdminPwaProvider';
+
+// Animate the actual panel, whose width is smaller than the overlay on mobile.
+// Using motion.section also loads the animation features before the first open.
+const MobileDrawerPanel = forwardRef<HTMLElement, HTMLMotionProps<'section'>>(function MobileDrawerPanel(props, ref) {
+  const reducedMotion = useReducedMotion();
+  return <motion.section {...props} ref={ref}
+    initial={reducedMotion ? false : { x: '-100%' }}
+    animate={{ x: 0 }}
+    exit={{ x: reducedMotion ? 0 : '-100%' }}
+    transition={reducedMotion ? { duration: 0 } : { type: 'spring', stiffness: 360, damping: 38, mass: 0.8 }}
+  />;
+});
 
 const menu = [
   { label: 'Dashboard', href: '/admin/dashboard', icon: 'dashboard', group: 'Workspace' },
@@ -39,6 +52,12 @@ export default function AdminShell({ children }: { children: ReactNode }) {
   const router = useRouter();
   const [menuOpen, setMenuOpen] = useState(false);
   const [sidebarOpen, setSidebarOpen] = useState(true);
+  useEffect(() => {
+    const desktop = window.matchMedia('(min-width: 1024px)');
+    const closeMobileMenu = () => { if (desktop.matches) setMenuOpen(false); };
+    desktop.addEventListener('change', closeMobileMenu);
+    return () => desktop.removeEventListener('change', closeMobileMenu);
+  }, []);
   const reducedMotion = useReducedMotion();
   const sidebarTransition = reducedMotion
     ? { duration: 0 }
@@ -83,11 +102,11 @@ export default function AdminShell({ children }: { children: ReactNode }) {
     <div className="min-w-0 flex-1">
       <header className="sticky top-0 z-30 flex min-h-[76px] items-center justify-between gap-4 border-b border-divider bg-background/90 px-5 backdrop-blur-xl sm:px-8">
         <div className="flex items-center gap-3">
-          <Button isIconOnly variant="light" className="lg:hidden" aria-label="Open navigation" aria-expanded={menuOpen && !confirming} onPress={() => setMenuOpen(true)}><Icon name="menu" /></Button>
+          <Button isIconOnly variant="light" className="lg:hidden" aria-label="Open navigation" aria-controls={menuOpen && !confirming ? 'admin-mobile-sidebar' : undefined} aria-expanded={menuOpen && !confirming} onPress={() => setMenuOpen(true)}><Icon name="menu" /></Button>
           <Button isIconOnly variant="light" className="hidden lg:inline-flex" aria-label={sidebarOpen ? 'Close sidebar' : 'Open sidebar'} aria-expanded={sidebarOpen} aria-controls="admin-desktop-sidebar" onPress={() => setSidebarOpen((open) => !open)}><Icon name={sidebarOpen ? 'collapse' : 'menu'} /></Button>
           <Breadcrumbs size="sm"><BreadcrumbItem href="/admin/dashboard">Admin</BreadcrumbItem><BreadcrumbItem>{current}</BreadcrumbItem></Breadcrumbs>
         </div>
-        <Chip size="sm" variant="flat" className="hidden border border-divider text-default-400 sm:inline-flex">HappiNotes Studio</Chip>
+        <div className="flex shrink-0 items-center gap-3"><AdminInstallButton /><Chip size="sm" variant="flat" className="hidden border border-divider text-default-400 sm:inline-flex">HappiNotes Studio</Chip></div>
       </header>
       <main className="mx-auto min-w-0 max-w-[1600px] p-5 sm:p-8 lg:p-10">{children}</main>
     </div>
@@ -97,13 +116,10 @@ export default function AdminShell({ children }: { children: ReactNode }) {
       onOpenChange={setMenuOpen}
       placement="left"
       size="xs"
-      motionProps={{ variants: {
-        enter: { x: 0, transition: sidebarTransition },
-        exit: { x: '-100%', transition: reducedMotion ? { duration: 0 } : { duration: 0.2, ease: [0.4, 0, 1, 1] } },
-      } }}
-      classNames={{ base: 'dark bg-content1 text-foreground' }}
+      motionProps={{ initial: false, animate: { x: 0 }, exit: { x: 0 }, transition: { duration: 0 } }}
+      classNames={{ base: 'dark admin-ui admin-mobile-drawer bg-content1 text-foreground', wrapper: 'overflow-hidden' }}
     >
-      <DrawerContent><DrawerHeader className="px-6 pt-8"><Brand /></DrawerHeader><DrawerBody className="p-6">{navigation}<Divider className="my-4" /><Button onPress={logout} startContent={<Icon name="logout" />} color="danger" variant="flat">Log out</Button></DrawerBody></DrawerContent>
+      <DrawerContent as={MobileDrawerPanel} id="admin-mobile-sidebar" aria-label="Admin navigation"><DrawerHeader className="admin-mobile-drawer-header px-6 pt-8"><Brand /></DrawerHeader><DrawerBody className="admin-mobile-drawer-body p-6">{navigation}<Divider className="my-4" /><Button onPress={logout} startContent={<Icon name="logout" />} color="danger" variant="flat">Log out</Button></DrawerBody></DrawerContent>
     </Drawer>
   </div>;
 }

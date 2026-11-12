@@ -1,6 +1,7 @@
 "use client";
 
 import { AdminButton, AdminInput } from "@/components/admin/ui";
+import { AdminInstallButton } from "@/components/admin/AdminPwaProvider";
 
 import { Card, CardBody, Chip, Divider } from "@heroui/react";
 import { FormEvent, useState } from "react";
@@ -60,6 +61,7 @@ export default function AdminLoginPage() {
             {error ? <p role="alert" className="rounded-xl border border-danger/20 bg-danger/10 p-3 text-sm text-danger-300">{error}</p> : null}
             <AdminButton type="submit" disabled={loading} isLoading={loading} color="primary" variant="solid" className="mt-2 w-full min-h-12">{loading ? "Signing in..." : "Admin login"}</AdminButton>
           </form>
+          <div className="mt-4 flex justify-center"><AdminInstallButton /></div>
         </CardBody></Card>
       </section>
     </main>

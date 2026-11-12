@@ -6,7 +6,7 @@ import { useAdminConfirmation } from "@/components/admin/ConfirmationProvider";
 
 import { AdminButton, AdminInput, AdminTextarea, AdminSelect, AdminFieldset } from "@/components/admin/ui";
 
-import { Card, Chip, ModalContent, ModalBody, ModalHeader, ModalFooter, Progress, Switch } from "@heroui/react";
+import { Card, Chip, ModalContent, ModalBody, ModalHeader, ModalFooter, Progress, Skeleton, Switch } from "@heroui/react";
 import { useCallback, useEffect, useRef, useState } from "react";
 import Image from "next/image";
 import AudioPreview from "@/components/admin/AudioPreview";
@@ -56,6 +56,33 @@ function Thumbnail({ src, title, large = false }: { src: string; title: string; 
   </div>;
 }
 
+function HappyBitesSkeleton() {
+  return <div role="status" aria-label="Loading Happy Bites">
+    <span className="sr-only">Loading Happy Bites…</span>
+    <div aria-hidden="true">
+      {[0, 1, 2, 3].map((row) => <div key={row} className="border-b border-white/10 p-4 last:border-0 sm:p-5">
+        <div className="flex flex-wrap items-center justify-between gap-4">
+          <div className="flex min-w-0 flex-1 items-center gap-4">
+            <Skeleton className="happy-bites-skeleton h-16 w-16 shrink-0 rounded-2xl motion-reduce:before:animate-none" />
+            <div className="min-w-0 flex-1 space-y-2">
+              <Skeleton className="happy-bites-skeleton h-5 w-56 max-w-full rounded-md motion-reduce:before:animate-none" />
+              <Skeleton className="happy-bites-skeleton h-3 w-32 max-w-full rounded-md motion-reduce:before:animate-none" />
+              <Skeleton className="happy-bites-skeleton h-3 w-44 max-w-full rounded-md motion-reduce:before:animate-none" />
+            </div>
+          </div>
+          <div className="flex flex-wrap gap-2">
+            <Skeleton className="happy-bites-skeleton h-6 w-14 rounded-full motion-reduce:before:animate-none" />
+            <Skeleton className="happy-bites-skeleton h-6 w-20 rounded-full motion-reduce:before:animate-none" />
+          </div>
+        </div>
+        <div className="mt-4 flex flex-wrap gap-2">
+          {[0, 1, 2, 3].map((action) => <Skeleton key={action} className="h-10 w-20 rounded-xl motion-reduce:before:animate-none" />)}
+        </div>
+      </div>)}
+    </div>
+  </div>;
+}
+
 export default function HappyBitesAdminPage() {
   const confirm = useAdminConfirmation();
   const [items, setItems] = useState<HappyBite[]>([]);
@@ -73,22 +100,33 @@ export default function HappyBitesAdminPage() {
   const [audioName, setAudioName] = useState("");
   const locked = useRef(false);
   const audioInput = useRef<HTMLInputElement>(null);
+  const loadRequest = useRef(0);
   const busy = Boolean(operation);
 
   const load = useCallback(async () => {
+    const request = ++loadRequest.current;
+    // Keep fast responses from removing the skeleton before it can be seen.
+    // This runs alongside the request, so slower responses incur no extra delay.
+    const minimumDisplay = new Promise<void>((resolve) => window.setTimeout(resolve, 450));
     setLoading(true);
     setError("");
     try {
       const result = await apiRequest<{ happyBites: HappyBite[] }>("/admin/happy-bites", "GET", undefined, token());
-      setItems((result.happyBites || []).map((item) => ({ ...item, accessType: item.accessType ?? 'free' })));
+      if (request === loadRequest.current) setItems((result.happyBites || []).map((item) => ({ ...item, accessType: item.accessType ?? 'free' })));
     } catch (exception) {
       const message = errorMessage(exception);
-      setError(message === 'Request failed with status 404'
+      if (request === loadRequest.current) setError(message === 'Request failed with status 404'
         ? 'Happy Bites is not available on the connected server yet. Deploy the updated backend, then refresh this page.' : message);
-    } finally { setLoading(false); }
+    } finally {
+      await minimumDisplay;
+      if (request === loadRequest.current) setLoading(false);
+    }
   }, []);
 
-  useEffect(() => { void load(); }, [load]);
+  useEffect(() => {
+    void load();
+    return () => { loadRequest.current += 1; };
+  }, [load]);
 
   const categories = [...new Set([...BITE_CATEGORIES, ...items.map((item) => item.category)])].sort();
   const visibleItems = items.filter((item) =>
@@ -248,7 +286,7 @@ export default function HappyBitesAdminPage() {
         <div className="flex flex-wrap gap-3"><AdminButton type="submit" className={primaryClass}>{operation === 'save' ? 'Saving…' : draft.published ? 'Save & publish' : 'Save draft'}</AdminButton><AdminButton type="button" onClick={async () => { if (!await confirm({ title: 'Discard unsaved changes?', description: 'Leave the Happy Bite editor without saving these changes?', confirmLabel: 'Discard changes', tone: 'danger' })) return; setDraft(null); setError(''); setNotice(''); }} className={buttonClass}>Cancel</AdminButton></div>
       </AdminFieldset>
     </form> : <>
-      <div className="grid grid-cols-3 gap-3">{[['Total bites', items.length], ['Published', items.filter((item) => item.published).length], ['Drafts', items.filter((item) => !item.published).length]].map(([label, value]) => <Card as="div" shadow="none" key={label} className="rounded-2xl border border-divider bg-content1 p-4"><p className="text-xs text-zinc-400">{label}</p><p className="mt-2 text-2xl font-semibold">{loading ? '—' : value}</p></Card>)}</div>
+      <div className="grid grid-cols-3 gap-3" aria-busy={loading}>{[['Total bites', items.length], ['Published', items.filter((item) => item.published).length], ['Drafts', items.filter((item) => !item.published).length]].map(([label, value]) => <Card as="div" shadow="none" key={label} className="rounded-2xl border border-divider bg-content1 p-4"><p className="text-xs text-zinc-400">{label}</p>{loading ? <Skeleton aria-hidden="true" className="happy-bites-skeleton mt-2 h-8 w-12 rounded-lg motion-reduce:before:animate-none" /> : <p className="mt-2 text-2xl font-semibold">{value}</p>}</Card>)}</div>
       <div className="flex flex-wrap items-end gap-3">
         <label className="min-w-[160px] flex-1 text-xs text-zinc-400">Search<AdminInput className={inputClass} type="search" placeholder="Search Happy Bites…" value={search} onChange={(e) => setSearch(e.target.value)} /></label>
         <div className="text-xs text-zinc-400">
@@ -257,8 +295,8 @@ export default function HappyBitesAdminPage() {
           <AdminSelect label="Category" className={inputClass} value={categoryFilter} onChange={(e) => setCategoryFilter(e.target.value)}><option value="">All categories</option>{[...new Set(items.map((item) => item.category))].sort().map((category) => <option key={category}>{category}</option>)}</AdminSelect></div>
         <AdminButton disabled={loading || busy} onClick={() => void load()} className={buttonClass}>Refresh</AdminButton>
       </div>
-      <Card as="div" shadow="none" className="overflow-hidden rounded-3xl border border-divider bg-content1">
-        {loading ? <p role="status" className="p-8 text-sm text-zinc-400">Loading Happy Bites…</p> : visibleItems.length === 0 ? <div className="px-5 py-12 text-center"><p className="text-lg font-semibold">{items.length ? 'No matching Happy Bites' : error ? 'Library unavailable' : 'Make someone’s day a little brighter'}</p><p className="mt-2 text-sm text-zinc-400">{items.length ? 'Try a different search or filter.' : error ? 'Check the message above, then refresh to try again.' : 'Upload your first short audio and share it for free.'}</p></div> : visibleItems.map((item) => <article key={item._id} className="border-b border-white/10 p-4 last:border-0 sm:p-5">
+      <Card as="div" shadow="none" aria-busy={loading} className="overflow-hidden rounded-3xl border border-divider bg-content1">
+        {loading ? <HappyBitesSkeleton /> : visibleItems.length === 0 ? <div className="px-5 py-12 text-center"><p className="text-lg font-semibold">{items.length ? 'No matching Happy Bites' : error ? 'Library unavailable' : 'Make someone’s day a little brighter'}</p><p className="mt-2 text-sm text-zinc-400">{items.length ? 'Try a different search or filter.' : error ? 'Check the message above, then refresh to try again.' : 'Upload your first short audio and share it for free.'}</p></div> : visibleItems.map((item) => <article key={item._id} className="border-b border-white/10 p-4 last:border-0 sm:p-5">
           <div className="flex flex-wrap items-center justify-between gap-4">
             <div className="flex min-w-0 flex-1 items-center gap-4"><Thumbnail key={item.thumbnailUrl} src={item.thumbnailUrl} title={item.title} /><div className="min-w-0"><h2 className="truncate font-semibold">{item.title}</h2><p className="mt-1 text-xs text-zinc-400">{item.category} · {formatBiteDuration(item.durationSeconds)}</p><p className="mt-1 text-xs text-zinc-500">Order {item.displayOrder} · Updated {dateLabel(item.updatedAt)}</p></div></div>
             <div className="flex flex-wrap gap-2"><Chip size="sm" variant="flat" color={item.accessType === "premium" ? "warning" : "default"}>{item.accessType === "premium" ? "Premium" : "Free"}</Chip><Chip size="sm" variant="flat" color={item.published ? 'success' : 'default'}>{item.published ? 'Published' : 'Draft'}</Chip></div>

@@ -1,0 +1,22 @@
+{
+  "id": "/admin/",
+  "name": "HappiNotes Admin",
+  "short_name": "HappiNotes",
+  "description": "Manage books, Happy Bites and your HappiNotes community.",
+  "start_url": "/admin/dashboard",
+  "scope": "/admin/",
+  "display": "standalone",
+  "background_color": "#090B10",
+  "theme_color": "#F27055",
+  "lang": "en",
+  "icons": [
+    { "src": "/admin/icons/icon-192.png", "sizes": "192x192", "type": "image/png", "purpose": "any" },
+    { "src": "/admin/icons/icon-512.png", "sizes": "512x512", "type": "image/png", "purpose": "any" },
+    { "src": "/admin/icons/icon-maskable-512.png", "sizes": "512x512", "type": "image/png", "purpose": "maskable" }
+  ],
+  "shortcuts": [
+    { "name": "Happy Bites", "url": "/admin/happy-bites" },
+    { "name": "Dashboard", "url": "/admin/dashboard" }
+  ],
+  "prefer_related_applications": false
+}

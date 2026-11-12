@@ -48,6 +48,29 @@ body {
 /* Admin-only presentation: public reader pages keep their existing styling. */
 .admin-ui { --background: #090b10; --foreground: #f4f4f5; color-scheme: dark; font-family: Arial, Helvetica, sans-serif; }
 
+/* Explicit colors and keyframes keep these placeholders visible in the dark theme. */
+.admin-ui .happy-bites-skeleton {
+  background: #2b3140;
+  isolation: isolate;
+}
+.admin-ui .happy-bites-skeleton::before {
+  content: "";
+  position: absolute;
+  inset: 0;
+  border: 0;
+  background: linear-gradient(90deg, transparent, #f2705540, transparent);
+  translate: none;
+  animation: happy-bites-shimmer 1.2s ease-in-out infinite;
+}
+.admin-ui .happy-bites-skeleton::after { display: none; }
+@keyframes happy-bites-shimmer {
+  from { transform: translateX(-100%); }
+  to { transform: translateX(100%); }
+}
+@media (prefers-reduced-motion: reduce) {
+  .admin-ui .happy-bites-skeleton::before { animation: none; display: none; }
+}
+
 /* Scope to the admin document so body-mounted drawers and dropdowns match too. */
 html:has(.admin-ui) {
   --admin-scrollbar-thumb: #f27055;
@@ -117,6 +140,18 @@ html:has(.admin-ui) {
 .admin-confirm-wrapper { z-index: 100; }
 .admin-confirm-backdrop { z-index: 99; }
 .admin-modal-panel { margin: 0; max-height: calc(100dvh - 2rem); animation: admin-dialog-enter 160ms ease-out; }
+.admin-mobile-drawer {
+  width: min(20rem, calc(100vw - 2rem));
+  height: 100dvh;
+  max-height: 100dvh;
+  will-change: transform;
+}
+.admin-mobile-drawer-header { padding-top: max(2rem, env(safe-area-inset-top)); }
+.admin-mobile-drawer-body { padding-bottom: max(1.5rem, env(safe-area-inset-bottom)); }
+@media (display-mode: standalone) {
+  .admin-ui { padding-top: env(safe-area-inset-top); padding-bottom: env(safe-area-inset-bottom); }
+  .admin-ui.admin-mobile-drawer, .admin-ui.admin-modal-panel { padding-top: 0; padding-bottom: 0; }
+}
 @keyframes admin-dialog-enter { from { opacity: 0; transform: translateY(6px); } to { opacity: 1; transform: translateY(0); } }
 @media (prefers-reduced-motion: reduce) { .admin-modal-panel { animation: none; } }
 @media (prefers-reduced-motion: reduce) { .admin-ui *, .admin-ui *::before, .admin-ui *::after { scroll-behavior: auto !important; } }
