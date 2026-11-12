@@ -72,10 +72,16 @@ export const authenticateDeletionFlow = async (
     // sessionVersion may still read only the deletion status endpoints.
     const user = await userFromToken(req, true);
     if (user.blocked) return next(new UnauthorizedError('Account is blocked'));
-    if (!(await AccountDeletionRequest.exists({ userId: user._id }))) {
-      return next(new UnauthorizedError('Account deletion is no longer available'));
+    const existingRequest = await AccountDeletionRequest.exists({ userId: user._id });
+    if (!existingRequest) {
+      // First submission must use a current, active session. The relaxed
+      // session-version check above is only for existing deletion workflows.
+      const activeUser = await userFromToken(req);
+      await rejectInactiveAccount(activeUser);
+      req.user = activeUser;
+    } else {
+      req.user = user;
     }
-    req.user = user;
     next();
   } catch {
     next(new UnauthorizedError('Invalid or expired token'));

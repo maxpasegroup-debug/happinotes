@@ -1,3 +1,4 @@
+import { emitAccountDeletionsChanged } from './realtime';
 import { randomUUID } from 'crypto';
 import { AccountDeletionReauth, Otp, User } from '../models';
 import { IAccountDeletionRequest } from '../models/AccountDeletionRequest';
@@ -260,6 +261,7 @@ export async function processClaimedDeletionRequest(
     );
     return 'failed';
   } finally {
+    emitAccountDeletionsChanged();
     clearInterval(heartbeatInterval);
     if (heartbeatInFlight) await heartbeatInFlight;
   }

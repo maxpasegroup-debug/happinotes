@@ -235,3 +235,23 @@ revoke media URLs that listeners previously received or downloaded.
 
 Verify the access matrix with `npm run build` followed by
 `node --test test/happyBites.test.cjs`.
+
+## Account deletion live updates
+
+Confirmed in-app requests use `POST /auth/me/deletion-request`. First submissions
+require a current, active user session and a fresh password/PIN verification
+proof. Existing workflows allow deletion-only status/retry access after their
+normal session is revoked. Request creation and the pending account marker
+remain in one MongoDB transaction, requiring a transaction-capable MongoDB
+replica set or sharded deployment.
+
+After a committed request, admin review, or worker processing, Socket.IO emits
+`account-deletions:changed` on the authenticated `/admin` namespace. The event
+contains only a timestamp; the admin fetches records through the protected
+`GET /admin/account-deletions` endpoint. The admin also refreshes on reconnect,
+window focus, and every 15 seconds to reconcile missed or cross-instance events.
+The app checks pending request status every 5 seconds while its screen is mounted.
+
+This implementation uses the existing MongoDB and Socket.IO infrastructure, not
+Redis. Deploy the backend before the admin/app updates; the admin continues
+periodic HTTP refresh if the live socket is unavailable.

@@ -33,3 +33,10 @@ export function emitSubscriptionPlansChanged(planKey?: 'monthly' | 'yearly'): vo
     occurredAt: new Date().toISOString(),
   });
 }
+
+/** Invalidation only: account details and status credentials stay in the admin API. */
+export function emitAccountDeletionsChanged(): void {
+  socketServer?.of('/admin').emit('account-deletions:changed', {
+    occurredAt: new Date().toISOString(),
+  });
+}

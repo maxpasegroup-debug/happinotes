@@ -314,7 +314,7 @@ export const login = async (
     if (!(await isAccountWritable(user._id))) {
       return next(new UnauthorizedError('Account deletion is in progress'));
     }
-
+ 
     const token = signToken(user._id.toString(), user.sessionVersion ?? 0);
     res.json({
       success: true,

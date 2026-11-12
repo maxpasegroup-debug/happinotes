@@ -1,3 +1,4 @@
+import { emitAccountDeletionsChanged } from '../services/realtime';
 import bcrypt from 'bcryptjs';
 import crypto from 'crypto';
 import { Request, Response, NextFunction } from 'express';
@@ -6,7 +7,7 @@ import { AccountDeletionReauth } from '../models/AccountDeletionReauth';
 import { Otp, User } from '../models';
 import { deletionStatusTokenFor, findActiveDeletionRequest, hashDeletionSecret, isAccountWritable, requestAccountDeletion } from '../services/accountDeletion';
 import { AccountDeletionRequest, IAccountDeletionRequest } from '../models/AccountDeletionRequest';
-import { BadRequestError, UnauthorizedError } from '../utils/errors';
+import { BadRequestError, NotFoundError, UnauthorizedError } from '../utils/errors';
 import { sendOTPEmail } from '../services/emailService';
 import mongoose from 'mongoose';
 
@@ -149,6 +150,7 @@ export async function getExternalDeletionStatus(req: Request, res: Response, nex
 
 export async function getAdminDeletionRequests(req: Request, res: Response, next: NextFunction): Promise<void> {
   try {
+    res.setHeader('Cache-Control', 'private, no-store');
     const requests = await AccountDeletionRequest.find({})
       .sort({ requestedAt: -1 })
       .limit(200)
@@ -190,6 +192,7 @@ export async function markDeletionRequestUnderReview(req: Request, res: Response
       { new: true },
     );
     if (!request) return next(new BadRequestError('Deletion request not found or already completed'));
+    emitAccountDeletionsChanged();
     res.json({ success: true, reference: request.publicReference ?? String(request._id), status: publicDeletionStatus(request) });
   } catch (error) { next(error); }
 }
@@ -302,7 +305,7 @@ export async function getDeletionStatus(
   try {
     if (!req.user) return next(new UnauthorizedError('Not authenticated'));
     const request = await AccountDeletionRequest.findOne({ userId: req.user._id }).sort({ requestedAt: -1 });
-    if (!request) return next(new UnauthorizedError('Deletion request not found'));
+    if (!request) return next(new NotFoundError('Deletion request not found'));
     res.json({
       success: true,
       requestId: String(request._id),

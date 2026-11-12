@@ -1,4 +1,5 @@
 import crypto from 'crypto';
+import { emitAccountDeletionsChanged } from './realtime';
 import mongoose, { ClientSession, Types } from 'mongoose';
 import { env } from '../config/env';
 import { User } from '../models';
@@ -171,6 +172,7 @@ export async function requestAccountDeletion(
   }
 
   if (!request) throw new ForbiddenError('Account cannot accept a deletion request');
+  emitAccountDeletionsChanged();
   // Another transaction may have created the idempotent/active request after
   // the non-transactional fast-path lookups above.
   if (!createdRequest) return request;
