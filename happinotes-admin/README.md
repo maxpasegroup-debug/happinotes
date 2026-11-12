@@ -51,9 +51,14 @@ production, where the existing direct API connection and CORS rules apply.
 
 Open **Content management → Happy Bites** (`/admin/happy-bites`) and choose
 **New Happy Bite**. Add a title, description and category, upload a thumbnail
-(JPG/PNG/WebP, up to 5 MB) and one MP3 (up to 50 MB), then save as a draft or
+(JPG/PNG/WebP, up to 5 MB) and one MP3 (no application file-size cap), then save as a draft or
 publish. Duration is read from upload metadata or the local audio file when
 possible and remains editable. The suggested 50–60 seconds is not a limit.
+
+Audio uses `POST /admin/contents/upload-happy-bite-audio`. Deploy the updated
+backend alongside the admin panel: this endpoint stages a single MP3 on disk,
+checks its format, transfers it to Cloudinary in chunks, and deletes the
+temporary file. Thumbnail uploads keep their existing endpoint and 5 MB cap.
 
 Use Listen to preview an item, Edit to change its details or display order,
 and Publish/Unpublish to control visibility. Deleting requires confirmation.
@@ -63,6 +68,55 @@ The connected backend must include `/admin/happy-bites` and the Happy Bites
 media upload scopes before saving and uploading can work. These controls use
 the existing admin authorization; Happy Bites remain free and independent
 from audiobook purchases and subscriptions.
+
+## Install the admin panel (PWA)
+
+Use a production build served over HTTPS, or `localhost` for local testing:
+
+```bash
+npm run build
+npm run start -- --port 3001
+```
+
+Open `/admin/login`. On supported Chromium browsers, **Install app** appears
+on the login page and in the admin header when the browser offers installation.
+It opens the browser's install prompt. On iPhone/iPad, the button explains how
+to use Safari → Share → Add to Home Screen. Installed windows hide the button.
+The installed app opens `/admin/dashboard` and uses the normal admin login.
+
+The manifest and service worker are scoped to `/admin/`. The worker caches
+only the public offline page and icons; admin HTML, API responses, credentials,
+uploads, and Next.js navigation data are never stored in its cache. Reopening
+the app without a connection shows an offline page with a retry button.
+Content management still requires a connection. The worker registers only in
+production; `npm run dev` does not install it. If testing development on a port
+previously used for production, unregister its worker in browser DevTools first.
+
+The mobile sidebar animates its panel using Framer Motion, while HeroUI retains
+focus management, Escape/backdrop dismissal and scroll locking. Reduced-motion
+settings skip the slide. Opening a confirmation hides the drawer immediately.
+
+PWA source tree (icons are generated from the existing waveform brand):
+
+```text
+components/admin/
+└── AdminPwaProvider.tsx
+public/admin/
+├── manifest.webmanifest
+├── offline.html
+├── sw.js
+└── icons/
+    ├── admin-icon.svg
+    ├── apple-touch-icon.png
+    ├── icon-192.png
+    ├── icon-512.png
+    └── icon-maskable-512.png
+test/
+└── admin-pwa.test.mjs
+```
+
+Run `node --test test/admin-pwa.test.mjs` for manifest, icon dimensions,
+offline navigation, cache isolation and network-only admin request checks.
 
 You can start editing the page by modifying `app/page.tsx`. The page auto-updates as you edit the file.
 

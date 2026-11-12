@@ -71,7 +71,9 @@ export async function uploadMultipart<T = unknown>(
     const xhr = new XMLHttpRequest();
     xhr.open(method, getUrl(endpoint), true);
     xhr.setRequestHeader("Authorization", `Bearer ${token}`);
-    xhr.timeout = 120_000;
+    // Large Happy Bites audio keeps the same progress events without a fixed
+    // two-minute deadline; other upload workflows retain their timeout.
+    xhr.timeout = endpoint === '/admin/contents/upload-happy-bite-audio' ? 0 : 120_000;
 
     xhr.upload.onprogress = (event) => {
       if (!event.lengthComputable || event.total <= 0 || !onProgress) return;

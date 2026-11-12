@@ -102,7 +102,7 @@ export default function AdminShell({ children }: { children: ReactNode }) {
     <div className="min-w-0 flex-1">
       <header className="sticky top-0 z-30 flex min-h-[76px] items-center justify-between gap-4 border-b border-divider bg-background/90 px-5 backdrop-blur-xl sm:px-8">
         <div className="flex items-center gap-3">
-          <Button isIconOnly variant="light" className="lg:hidden" aria-label="Open navigation" aria-controls={menuOpen && !confirming ? 'admin-mobile-sidebar' : undefined} aria-expanded={menuOpen && !confirming} onPress={() => setMenuOpen(true)}><Icon name="menu" /></Button>
+          <Button isIconOnly variant="light" className="lg:hidden" aria-label="Open navigation" aria-haspopup="dialog" aria-expanded={menuOpen && !confirming} onPress={() => setMenuOpen(true)}><Icon name="menu" /></Button>
           <Button isIconOnly variant="light" className="hidden lg:inline-flex" aria-label={sidebarOpen ? 'Close sidebar' : 'Open sidebar'} aria-expanded={sidebarOpen} aria-controls="admin-desktop-sidebar" onPress={() => setSidebarOpen((open) => !open)}><Icon name={sidebarOpen ? 'collapse' : 'menu'} /></Button>
           <Breadcrumbs size="sm"><BreadcrumbItem href="/admin/dashboard">Admin</BreadcrumbItem><BreadcrumbItem>{current}</BreadcrumbItem></Breadcrumbs>
         </div>
@@ -119,7 +119,7 @@ export default function AdminShell({ children }: { children: ReactNode }) {
       motionProps={{ initial: false, animate: { x: 0 }, exit: { x: 0 }, transition: { duration: 0 } }}
       classNames={{ base: 'dark admin-ui admin-mobile-drawer bg-content1 text-foreground', wrapper: 'overflow-hidden' }}
     >
-      <DrawerContent as={MobileDrawerPanel} id="admin-mobile-sidebar" aria-label="Admin navigation"><DrawerHeader className="admin-mobile-drawer-header px-6 pt-8"><Brand /></DrawerHeader><DrawerBody className="admin-mobile-drawer-body p-6">{navigation}<Divider className="my-4" /><Button onPress={logout} startContent={<Icon name="logout" />} color="danger" variant="flat">Log out</Button></DrawerBody></DrawerContent>
+      <DrawerContent as={MobileDrawerPanel} aria-label="Admin navigation"><DrawerHeader className="admin-mobile-drawer-header px-6 pt-8"><Brand /></DrawerHeader><DrawerBody className="admin-mobile-drawer-body p-6">{navigation}<Divider className="my-4" /><Button onPress={logout} startContent={<Icon name="logout" />} color="danger" variant="flat">Log out</Button></DrawerBody></DrawerContent>
     </Drawer>
   </div>;
 }

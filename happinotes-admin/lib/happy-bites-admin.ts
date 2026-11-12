@@ -29,8 +29,7 @@ export function validateBiteFile(kind: UploadKind, file: Pick<File, 'name' | 'ty
     return image ? 'Choose a JPG, PNG or WebP image.' : 'Choose an MP3 audio file.';
   }
   if (!file.size) return 'This file is empty. Choose another file.';
-  const limit = image ? 5 : 50;
-  if (file.size > limit * 1024 * 1024) return `Choose a file smaller than or equal to ${limit} MB.`;
+  if (image && file.size > 5 * 1024 * 1024) return 'Choose a file smaller than or equal to 5 MB.';
   return null;
 }
 

@@ -32,7 +32,9 @@ export async function forwardDevelopmentApi(
       duplex: "half",
       cache: "no-store",
       redirect: "error",
-      signal: AbortSignal.any([request.signal, AbortSignal.timeout(120_000)]),
+      signal: path.join('/') === 'admin/contents/upload-happy-bite-audio'
+        ? request.signal
+        : AbortSignal.any([request.signal, AbortSignal.timeout(120_000)]),
     };
     const upstream = await fetcher(target, options);
     const responseHeaders = new Headers({ "Cache-Control": "no-store" });

@@ -13,6 +13,20 @@ afterEach(() => {
 
 const request = (path, init) => new Request(`http://localhost:3001/api/backend/${path}`, init);
 
+test('large Happy Bites uploads preserve streaming and cancellation without the shared proxy deadline', async () => {
+  const incoming = request('admin/contents/upload-happy-bite-audio', {
+    method: 'POST', body: 'multipart test body', headers: { authorization: 'Bearer test-token' },
+  });
+  const response = await forwardDevelopmentApi(incoming, ['admin', 'contents', 'upload-happy-bite-audio'], 'http://localhost:3000', 'development', async (_url, init) => {
+    assert.equal(init.body, incoming.body);
+    assert.equal(init.signal, incoming.signal);
+    assert.equal(init.duplex, 'half');
+    assert.equal(init.headers.get('authorization'), 'Bearer test-token');
+    return Response.json({ url: 'https://media.test/large.mp3' }, { status: 201 });
+  });
+  assert.equal(response.status, 201);
+});
+
 test('local login passes the body to the configured API without localhost CORS headers', async () => {
   const body = JSON.stringify({ email: 'admin@example.test', password: 'test-only' });
   const response = await forwardDevelopmentApi(request('auth/login', {

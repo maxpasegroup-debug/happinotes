@@ -160,7 +160,7 @@ export default function HappyBitesAdminPage() {
       const mime = kind === 'audio' ? 'audio/mpeg' : extension === 'png' ? 'image/png' : extension === 'webp' ? 'image/webp' : 'image/jpeg';
       form.append('media', file.type ? file : new File([file], file.name, { type: mime }));
       const [response, detected] = await Promise.all([
-        uploadMultipart<{ url?: string; durationSeconds?: number }>('/admin/contents/upload-media', form, token(), (percent) => {
+        uploadMultipart<{ url?: string; durationSeconds?: number }>(kind === 'audio' ? '/admin/contents/upload-happy-bite-audio' : '/admin/contents/upload-media', form, token(), (percent) => {
           setUploads((current) => ({ ...current, [kind]: { name: file.name, percent, phase: percent === 100 ? 'processing' : 'uploading' } }));
         }),
         kind === 'audio' ? detectAudioDuration(file) : Promise.resolve(0),
@@ -250,7 +250,7 @@ export default function HappyBitesAdminPage() {
                 <h3 className="font-semibold">{draft.audioUrl ? 'Replace audio' : 'Upload audio'} <span className="text-orange-300">*</span></h3>
                 {draft.audioUrl ? <Chip size="sm" variant="flat" color="success">Audio attached</Chip> : null}
               </div>
-              <p className="mt-1 text-xs leading-5 text-zinc-400">One MP3 · up to 50 MB. Aim for 50–60 seconds; longer clips are welcome.</p>
+              <p className="mt-1 text-xs leading-5 text-zinc-400">One MP3. Aim for 50–60 seconds; longer clips are welcome.</p>
               {draft.audioUrl ? <div className="mt-4"><AudioPreview src={draft.audioUrl} title={audioName || draft.title || 'Current audio'} durationSeconds={draft.durationSeconds} /></div> : null}
               <input ref={audioInput} type="file" accept="audio/mpeg,.mp3" className="hidden" disabled={busy} aria-label={draft.audioUrl ? 'Replace MP3 audio' : 'Upload MP3 audio'} onChange={(event) => { void upload('audio', event.target.files?.[0]); event.currentTarget.value = ''; }} />
               <AdminButton type="button" disabled={busy} onClick={() => audioInput.current?.click()} color="primary" variant="flat" className="mt-4">

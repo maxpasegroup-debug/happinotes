@@ -12,15 +12,20 @@ test('Happy Bites uploads accept supported images and MP3 audio', () => {
   assert.equal(validateBiteFile('audio', { ...audio, type: '' }), null);
 });
 
-test('wrong media type, unsupported format, empty and oversized uploads are rejected', () => {
+test('wrong media type, unsupported format, empty files and oversized thumbnails are rejected', () => {
   assert.ok(validateBiteFile('thumbnail', audio));
   assert.ok(validateBiteFile('audio', image));
   assert.ok(validateBiteFile('audio', { ...audio, type: 'video/mp4' }));
   assert.ok(validateBiteFile('audio', { ...audio, name: 'clip.wav' }));
   assert.ok(validateBiteFile('thumbnail', { ...image, size: 0 }));
   assert.ok(validateBiteFile('thumbnail', { ...image, size: 5 * 1024 * 1024 + 1 }));
-  assert.ok(validateBiteFile('audio', { ...audio, size: 50 * 1024 * 1024 + 1 }));
-  assert.equal(validateBiteFile('audio', { ...audio, size: 50 * 1024 * 1024 }), null);
+  assert.ok(validateBiteFile('audio', { ...audio, size: 0 }));
+});
+
+test('Happy Bites MP3 audio has no application file-size cap', () => {
+  for (const size of [50 * 1024 * 1024, 50 * 1024 * 1024 + 1, 1024 * 1024 * 1024]) {
+    assert.equal(validateBiteFile('audio', { ...audio, size }), null);
+  }
 });
 
 test('duration uses server metadata, falls back locally, and resets if replacement metadata is unknown', () => {
