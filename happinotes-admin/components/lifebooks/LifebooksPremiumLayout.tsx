@@ -1,5 +1,7 @@
 "use client";
 
+import Image from "next/image";
+
 import { useEffect, useMemo, useState } from "react";
 import { motion } from "framer-motion";
 import type { LifebookItem } from "@/lib/content-api";
@@ -115,7 +117,7 @@ export function LifebooksPremiumLayout({
         <div className="flex flex-col gap-3 md:flex-row md:items-center md:justify-between">
           <div className="min-w-0">
             <div className="flex items-center gap-2">
-              <img src="/happinotes-logo.png" alt="Happinotes" className="h-8 w-auto object-contain" />
+              <Image width={32} height={32} src="/happinotes-logo.png" alt="Happinotes" className="h-8 w-auto object-contain" />
               <p className="text-xl font-semibold text-white">HappiNotes</p>
             </div>
             <p className="mt-1 text-sm text-[#B0B0B0]">Practical Books for Real Life</p>

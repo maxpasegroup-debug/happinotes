@@ -1,5 +1,7 @@
 "use client";
 
+import Image from "next/image";
+
 import { useEffect, useMemo, useState, useSyncExternalStore } from "react";
 import { useRouter } from "next/navigation";
 import type { LifebookItem } from "@/lib/content-api";
@@ -211,7 +213,7 @@ export function DashboardClient({ initialLifebooks }: { initialLifebooks: Lifebo
       {comingSoonPreview ? (
         <div className="fixed inset-0 z-50 flex items-end justify-center bg-black/70 p-4 sm:items-center">
           <div className="w-full max-w-md overflow-hidden rounded-2xl border border-white/10 bg-[#141a2a]">
-            <img
+            <Image unoptimized width={448} height={600}
               src={comingSoonPreview.thumbnailUrl || FALLBACK_IMAGE}
               alt={comingSoonPreview.title}
               className="h-auto max-h-[55vh] w-full object-cover"

@@ -1,5 +1,7 @@
 "use client";
 
+import Image from "next/image";
+
 import Link from "next/link";
 import { useEffect, useState, useSyncExternalStore } from "react";
 import { MobileShell } from "@/components/mobile-shell";
@@ -87,7 +89,7 @@ export default function FavouritesPage() {
               key={item._id}
               className="flex items-center gap-3 rounded-2xl border border-white/10 bg-[#141a2a] p-3"
             >
-              <img
+              <Image unoptimized width={56} height={64}
                 src={item.thumbnailUrl || FALLBACK_IMAGE}
                 alt={item.title}
                 className="h-16 w-14 rounded-lg object-cover"

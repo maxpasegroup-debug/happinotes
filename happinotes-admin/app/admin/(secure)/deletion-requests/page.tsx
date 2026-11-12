@@ -1,6 +1,12 @@
 "use client";
 
-import { useCallback, useEffect, useState } from "react";
+import { useAdminConfirmation } from "@/components/admin/ConfirmationProvider";
+
+import { AdminButton } from "@/components/admin/ui";
+
+import { Card, CardBody, Chip, Divider, Spinner } from "@heroui/react";
+import { useCallback, useEffect, useRef, useState } from "react";
+import { io } from "socket.io-client";
 import { apiRequest } from "@/lib/api";
 
 type DeletionRequest = {
@@ -17,19 +23,68 @@ type DeletionRequest = {
 };
 
 export default function DeletionRequestsPage() {
+  const confirm = useAdminConfirmation();
   const [requests, setRequests] = useState<DeletionRequest[]>([]);
   const [message, setMessage] = useState("");
+  const [loading, setLoading] = useState(true);
+  const [loadError, setLoadError] = useState("");
+  const [live, setLive] = useState(false);
+  const refreshInFlight = useRef(false);
+  const refreshQueued = useRef(false);
+  const mounted = useRef(false);
   const [busy, setBusy] = useState("");
 
   const load = useCallback(async () => {
-    const token = window.localStorage.getItem("admin_token") || "";
-    const result = await apiRequest<{ requests: DeletionRequest[] }>("/admin/account-deletions", "GET", undefined, token);
-    setRequests(result.requests);
+    if (refreshInFlight.current) { refreshQueued.current = true; return; }
+    refreshInFlight.current = true;
+    try {
+      do {
+        refreshQueued.current = false;
+        const token = window.localStorage.getItem("admin_token") || "";
+        const result = await apiRequest<{ requests: DeletionRequest[] }>("/admin/account-deletions", "GET", undefined, token);
+        if (!mounted.current) return;
+        setRequests(result.requests);
+        setLoadError("");
+      } while (refreshQueued.current && mounted.current);
+    } catch {
+      if (mounted.current) setLoadError("Could not refresh deletion requests. Retrying automatically.");
+    } finally {
+      refreshInFlight.current = false;
+      if (mounted.current) setLoading(false);
+    }
   }, []);
 
-  useEffect(() => { void load().catch(() => setMessage("Could not load deletion requests.")); }, [load]);
+  useEffect(() => {
+    mounted.current = true;
+    const apiBase = (process.env.NEXT_PUBLIC_API_BASE_URL || "https://happinotes-production-6b44.up.railway.app").replace(/\/+$/, "");
+    const socket = io(`${apiBase}/admin`, {
+      transports: ["websocket", "polling"],
+      auth: (callback) => callback({ token: window.localStorage.getItem("admin_token") || "" }),
+    });
+    const refresh = () => { void load(); };
+    const connected = () => { setLive(true); refresh(); };
+    const disconnected = () => setLive(false);
+    socket.on("connect", connected);
+    socket.on("disconnect", disconnected);
+    socket.on("connect_error", disconnected);
+    socket.on("account-deletions:changed", refresh);
+    const onVisible = () => { if (document.visibilityState === "visible") refresh(); };
+    // Reconcile missed events, unavailable sockets, and other backend replicas.
+    const interval = window.setInterval(onVisible, 15000);
+    window.addEventListener("focus", refresh);
+    document.addEventListener("visibilitychange", onVisible);
+    refresh();
+    return () => {
+      mounted.current = false;
+      window.clearInterval(interval);
+      window.removeEventListener("focus", refresh);
+      document.removeEventListener("visibilitychange", onVisible);
+      socket.disconnect();
+    };
+  }, [load]);
 
   async function markUnderReview(id: string) {
+    if (!await confirm({ title: 'Mark request under review?', description: 'Update this request to under review? This does not complete account deletion.', confirmLabel: 'Mark under review', tone: 'warning' })) return;
     setBusy(id); setMessage("");
     try {
       const token = window.localStorage.getItem("admin_token") || "";
@@ -40,22 +95,24 @@ export default function DeletionRequestsPage() {
     finally { setBusy(""); }
   }
 
-  return <section style={{ maxWidth: 1100, margin: "0 auto", color: "#eee" }}>
-    <h1 style={{ fontSize: 28, marginBottom: 8 }}>Account deletion requests</h1>
-    <p style={{ color: "#aaa", lineHeight: 1.6 }}>Review requests from the app and public form. Purchase and transaction records are retained pending an approved retention policy. This admin screen cannot mark a request completed.</p>
-    {message && <p role="status" style={{ padding: 12, background: "#201b10", borderRadius: 8 }}>{message}</p>}
-    <div style={{ display: "grid", gap: 14, marginTop: 20 }}>
-      {requests.map((request) => <article key={request.id} style={{ padding: 18, border: "1px solid #292933", borderRadius: 12, background: "#101015" }}>
-        <div style={{ display: "flex", flexWrap: "wrap", justifyContent: "space-between", gap: 12 }}>
-          <div><h2 style={{ margin: 0, fontSize: 18 }}>{request.reference}</h2><p style={{ margin: "6px 0", color: "#aaa" }}>{request.status.replaceAll("_", " ")} · {request.source.replaceAll("_", " ")} · {new Date(request.requestedAt).toLocaleString()}</p></div>
-          {request.status !== "COMPLETED" && <button type="button" disabled={busy === request.id} onClick={() => void markUnderReview(request.id)} style={{ padding: "8px 12px", borderRadius: 8, border: "1px solid #514339", background: "#211b17", color: "#f2c6ad", cursor: "pointer" }}>{busy === request.id ? "Saving…" : "Mark under review"}</button>}
+  return <section className="mx-auto max-w-6xl space-y-6">
+    <header><p className="mb-2 text-xs font-semibold uppercase tracking-[.18em] text-primary">Account management</p><h1>Account deletion requests</h1><p className="mt-3 max-w-3xl text-sm leading-6 text-default-400">Review requests from the app and public form. Purchase and transaction records are retained pending an approved retention policy. This admin screen cannot mark a request completed.</p></header>
+    <div className="flex items-center justify-between gap-3"><Chip size="sm" variant="flat" color={live ? "success" : "default"}>{live ? "Live updates" : "Auto-refresh · every 15 seconds"}</Chip><AdminButton size="sm" variant="flat" onClick={() => void load()}>Refresh</AdminButton></div>
+    {loadError && <div role="alert" className="rounded-2xl bg-danger/10 p-4 text-sm text-danger">{loadError}</div>}
+    {message && <div role="status" className="rounded-2xl border border-warning/20 bg-warning/10 p-4 text-sm text-warning-200">{message}</div>}
+    <div className="grid gap-5">
+      {requests.map((request) => <Card as="article" key={request.id} shadow="sm" className="border border-divider bg-content1"><CardBody className="gap-4 p-5 sm:p-6">
+        <div className="flex flex-wrap items-start justify-between gap-4">
+          <div><div className="flex flex-wrap items-center gap-3"><h2>{request.reference}</h2><Chip size="sm" variant="flat" color={request.status === 'COMPLETED' ? 'success' : request.status === 'UNDER_REVIEW' ? 'warning' : 'primary'}>{request.status.replaceAll("_", " ")}</Chip></div><p className="mt-2 text-xs text-default-400">{request.source.replaceAll("_", " ")} · {new Date(request.requestedAt).toLocaleString()}</p></div>
+          {request.status !== "COMPLETED" && <AdminButton type="button" color="primary" disabled={busy === request.id} isLoading={busy === request.id} onClick={() => void markUnderReview(request.id)}>{busy === request.id ? "Saving…" : "Mark under review"}</AdminButton>}
         </div>
-        <p style={{ color: "#ccc" }}>Account: {request.account?.name || "Unavailable"} · {request.account?.email || request.account?.phoneNumber || "No contact on record"}</p>
-        <p style={{ color: "#888", fontSize: 12 }}>Internal workflow: {request.internalStatus} · review flag: {request.reviewStatus}</p>
-        <details><summary>Processing history ({request.history.length})</summary><ol>{request.history.map((entry, index) => <li key={`${request.id}-${index}`}>{entry.status} — {entry.actor} — {new Date(entry.at).toLocaleString()}</li>)}</ol></details>
-        {request.internalStatus === "blocked_policy" && <p style={{ color: "#f0c38b" }}>Paused at the retention-policy gate. Owner/legal approval and a backend implementation are required before processing can continue.</p>}
-      </article>)}
-      {requests.length === 0 && <p style={{ color: "#aaa" }}>No deletion requests recorded.</p>}
+        <Divider />
+        <div><p className="text-sm">Account: {request.account?.name || "Unavailable"} · {request.account?.email || request.account?.phoneNumber || "No contact on record"}</p><p className="mt-2 text-xs text-default-400">Internal workflow: {request.internalStatus} · review flag: {request.reviewStatus}</p></div>
+        <details className="rounded-xl bg-content2/50 px-4"><summary>Processing history ({request.history.length})</summary><ol className="pb-4 text-default-400">{request.history.map((entry, index) => <li key={`${request.id}-${index}`}>{entry.status} — {entry.actor} — {new Date(entry.at).toLocaleString()}</li>)}</ol></details>
+        {request.internalStatus === "blocked_policy" && <p className="rounded-xl bg-warning/10 p-3 text-sm leading-6 text-warning-200">Paused at the retention-policy gate. Owner/legal approval and a backend implementation are required before processing can continue.</p>}
+      </CardBody></Card>)}
+      {loading && <div className="flex justify-center py-12"><Spinner label="Loading deletion requests…" /></div>}
+      {!loading && !loadError && requests.length === 0 && <Card shadow="none" className="border border-dashed border-divider bg-content1"><CardBody className="p-12 text-center"><p className="font-medium">No deletion requests recorded.</p><p className="mt-2 text-sm text-default-400">Requests from the app and public form will appear here.</p></CardBody></Card>}
     </div>
   </section>;
 }

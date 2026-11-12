@@ -2,19 +2,67 @@ This is a [Next.js](https://nextjs.org) project bootstrapped with [`create-next-
 
 ## Getting Started
 
-First, run the development server:
+Install dependencies before starting the app:
 
 ```bash
-npm run dev
-# or
-yarn dev
-# or
-pnpm dev
-# or
-bun dev
+npm install
 ```
 
-Open [http://localhost:3000](http://localhost:3000) with your browser to see the result.
+The admin interface uses **HeroUI v2** (`@heroui/react` 2.x), with its
+Tailwind v4 plugin in `hero.ts` and its provider scoped to `/admin`.
+Keep HeroUI on major version 2. Native file pickers, audio previews, and
+the draggable ordering table retain their browser behavior. API calls,
+authorization, publishing, and subscription actions keep their existing logic.
+
+
+Set the API target in `.env.local` (restart Next.js after changing it):
+
+```dotenv
+NEXT_PUBLIC_LOCAL_API_BASE_URL=http://localhost:3000
+NEXT_PUBLIC_RAILWAY_API_BASE_URL=https://happinotes-production-6b44.up.railway.app
+
+# Choose one backend:
+NEXT_PUBLIC_API_BASE_URL=$NEXT_PUBLIC_RAILWAY_API_BASE_URL
+# For local, replace the active line with:
+# NEXT_PUBLIC_API_BASE_URL=$NEXT_PUBLIC_LOCAL_API_BASE_URL
+```
+
+Both URLs stay configured; only change the active `NEXT_PUBLIC_API_BASE_URL`
+reference to switch. Next.js expands the referenced variable when it starts.
+The local backend must successfully connect to MongoDB
+before login is available. A Railway private database hostname is not
+reachable from a laptop; use a local database or its public connection URL.
+
+Run the admin on a separate port from the backend:
+
+```bash
+npm run dev -- --port 3001
+```
+
+Open [http://localhost:3001/admin/login](http://localhost:3001/admin/login).
+Enter the configured administrator's email and password.
+
+In development, admin requests and uploads pass through `/api/backend` on
+the Next.js server to avoid cross-origin browser failures. The backend still
+validates credentials and admin bearer tokens. The proxy is disabled in
+production, where the existing direct API connection and CORS rules apply.
+
+## Happy Bites uploads
+
+Open **Content management → Happy Bites** (`/admin/happy-bites`) and choose
+**New Happy Bite**. Add a title, description and category, upload a thumbnail
+(JPG/PNG/WebP, up to 5 MB) and one MP3 (up to 50 MB), then save as a draft or
+publish. Duration is read from upload metadata or the local audio file when
+possible and remains editable. The suggested 50–60 seconds is not a limit.
+
+Use Listen to preview an item, Edit to change its details or display order,
+and Publish/Unpublish to control visibility. Deleting requires confirmation.
+Lower display-order values appear first, with newest content breaking ties.
+
+The connected backend must include `/admin/happy-bites` and the Happy Bites
+media upload scopes before saving and uploading can work. These controls use
+the existing admin authorization; Happy Bites remain free and independent
+from audiobook purchases and subscriptions.
 
 You can start editing the page by modifying `app/page.tsx`. The page auto-updates as you edit the file.
 

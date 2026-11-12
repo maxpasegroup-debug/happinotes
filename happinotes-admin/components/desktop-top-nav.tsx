@@ -1,5 +1,7 @@
 "use client";
 
+import Image from "next/image";
+
 import Link from "next/link";
 import { usePathname } from "next/navigation";
 
@@ -21,7 +23,7 @@ export function DesktopTopNav() {
     <header className="hidden border-b border-white/10 bg-[#10172a]/90 backdrop-blur lg:block">
       <div className="mx-auto flex w-full max-w-6xl items-center justify-between px-6 py-4">
         <div className="flex items-center gap-3">
-          <img src="/happinotes-logo.png" alt="Happinotes" className="h-9 w-auto object-contain" />
+          <Image width={36} height={36} src="/happinotes-logo.png" alt="Happinotes" className="h-9 w-auto object-contain" />
           <p className="text-sm text-[#b7c0d8]">Practical Books for Real Life</p>
         </div>
         <nav className="flex items-center gap-2 rounded-xl border border-white/10 bg-[#141a2a] p-1">

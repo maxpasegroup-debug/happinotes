@@ -1,10 +1,16 @@
 const BASE_URL =
-  process.env.NEXT_PUBLIC_API_BASE_URL || "https://happinotes-production-6b44.up.railway.app";
+  (process.env.NEXT_PUBLIC_API_BASE_URL || "https://happinotes-production-6b44.up.railway.app").replace(/\/+$/, "");
 
 export type HttpMethod = "GET" | "POST" | "PUT" | "PATCH" | "DELETE";
 
 function getUrl(endpoint: string): string {
-  return endpoint.startsWith("http") ? endpoint : `${BASE_URL}${endpoint}`;
+  if (endpoint.startsWith("http")) return endpoint;
+  // Keep local browser requests on the Next.js origin. Production still calls
+  // the API directly, using its existing origin allowlist.
+  const base = process.env.NODE_ENV === "development" && typeof window !== "undefined"
+    ? "/api/backend"
+    : BASE_URL;
+  return `${base}${endpoint}`;
 }
 
 async function parseResponse(res: Response): Promise<unknown> {
@@ -43,7 +49,12 @@ export async function apiRequest<T = unknown>(
     options.body = JSON.stringify(body);
   }
 
-  const res = await fetch(getUrl(endpoint), options);
+  let res: Response;
+  try {
+    res = await fetch(getUrl(endpoint), options);
+  } catch {
+    throw new Error("Cannot reach the API. Check your connection and backend URL, then try again.");
+  }
   const parsed = await parseResponse(res);
   if (!res.ok) throw new Error(readErrorMessage(parsed, res.status));
   return parsed as T;
@@ -63,10 +74,12 @@ export async function uploadMultipart<T = unknown>(
     xhr.timeout = 120_000;
 
     xhr.upload.onprogress = (event) => {
-      if (!event.lengthComputable || !onProgress) return;
-      const percent = Math.round((event.loaded / event.total) * 100);
+      if (!event.lengthComputable || event.total <= 0 || !onProgress) return;
+      // Reserve 100% for upload completion, not rounded partial progress.
+      const percent = Math.max(0, Math.min(99, Math.floor((event.loaded / event.total) * 100)));
       onProgress(percent);
     };
+    xhr.upload.onload = () => onProgress?.(100);
 
     xhr.onerror = () => reject(new Error("Network error during upload"));
     xhr.ontimeout = () => reject(new Error("Upload timed out. Check your connection and try again."));

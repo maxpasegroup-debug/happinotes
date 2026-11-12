@@ -1,5 +1,7 @@
 "use client";
 
+import Image from "next/image";
+
 import { useEffect, useMemo, useRef, useState } from "react";
 import type { PointerEvent as ReactPointerEvent } from "react";
 import { useParams, useRouter } from "next/navigation";
@@ -288,7 +290,7 @@ export default function PlayerPage() {
 
         <div className="px-0 pb-[172px] pt-0">
           <div className="relative h-[260px] w-full overflow-hidden bg-black">
-            <img src={thumb} alt={content?.title || "Lifebook"} className="h-full w-full object-cover" />
+            <Image unoptimized fill sizes="100vw" loading="eager" src={thumb} alt={content?.title || "Lifebook"} className="h-full w-full object-cover" />
             <div className="absolute inset-x-0 bottom-0 h-20 bg-gradient-to-t from-black/35 to-transparent" />
           </div>
 
@@ -369,7 +371,7 @@ export default function PlayerPage() {
                         : ""
                     } ${locked ? "opacity-70" : ""}`}
                   >
-                    <img src={thumb} alt="Thumb" className="h-20 w-40 rounded-xl object-cover" />
+                    <Image unoptimized width={160} height={80} src={thumb} alt="Thumb" className="h-20 w-40 rounded-xl object-cover" />
                     <div className="min-w-0 flex-1">
                       <p className="text-[11px] font-semibold tracking-[0.08em] text-[#4b5563]">{label}</p>
                       <p className="line-clamp-2 text-base font-semibold leading-6 text-[#111111]">
@@ -445,7 +447,7 @@ export default function PlayerPage() {
             </div>
             <div className="p-3">
               <div className="flex items-center gap-3">
-                <img src={thumb} alt="Thumbnail" className="h-16 w-16 rounded-xl object-cover" />
+                <Image unoptimized width={64} height={64} src={thumb} alt="Thumbnail" className="h-16 w-16 rounded-xl object-cover" />
                 <div className="min-w-0">
                   <p className="line-clamp-1 text-sm font-semibold text-[#111111]">{chapter.title}</p>
                   <p className="line-clamp-1 text-xs text-[#6b7280]">{content?.title}</p>

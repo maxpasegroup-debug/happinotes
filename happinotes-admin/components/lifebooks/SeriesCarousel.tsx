@@ -1,5 +1,7 @@
 "use client";
 
+import Image from "next/image";
+
 import { motion } from "framer-motion";
 import type { LifebookItem } from "@/lib/content-api";
 import type { SeriesItem } from "./types";
@@ -33,7 +35,7 @@ export function SeriesCarousel({
                   onClick={() => onListen(item)}
                   className="w-[180px] shrink-0 overflow-hidden rounded-xl border border-white/10 bg-[#1F1F2E] text-left"
                 >
-                  <img
+                  <Image unoptimized
                     src={item.thumbnailUrl || FALLBACK_IMAGE}
                     alt={item.title}
                     width={180}

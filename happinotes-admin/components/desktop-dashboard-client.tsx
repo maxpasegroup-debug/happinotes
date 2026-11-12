@@ -1,5 +1,7 @@
 "use client";
 
+import Image from "next/image";
+
 import { useEffect, useMemo, useState, useSyncExternalStore } from "react";
 import { useRouter } from "next/navigation";
 import type { LifebookItem } from "@/lib/content-api";
@@ -213,7 +215,7 @@ export function DesktopDashboardClient({ initialLifebooks }: { initialLifebooks:
       {comingSoonPreview ? (
         <div className="fixed inset-0 z-50 flex items-center justify-center bg-black/70 p-4">
           <div className="w-full max-w-lg overflow-hidden rounded-2xl border border-white/10 bg-[#141a2a]">
-            <img
+            <Image unoptimized width={512} height={680}
               src={comingSoonPreview.thumbnailUrl || FALLBACK_IMAGE}
               alt={comingSoonPreview.title}
               className="h-auto max-h-[60vh] w-full object-cover"
