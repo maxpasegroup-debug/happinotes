@@ -11,7 +11,8 @@ import {
   uploadContentMedia,
 } from '../controllers/adminContentController';
 import { authenticate, requireAdmin } from '../middleware';
-import { upload } from '../middleware/upload';
+import { upload, happyBiteAudioUpload } from '../middleware/upload';
+import { uploadHappyBiteAudio } from '../controllers/happyBiteAudioUploadController';
 
 const router = Router();
 
@@ -74,6 +75,7 @@ const updateStatusValidation = [
 ];
 
 router.get('/', getAllContents);
+router.post('/upload-happy-bite-audio', happyBiteAudioUpload.single('media'), uploadHappyBiteAudio);
 router.post('/upload-media', upload.single('media'), uploadContentMedia);
 router.post(
   '/',

@@ -1,4 +1,5 @@
 import path from 'path';
+import { open } from 'fs/promises';
 
 export interface UploadCandidate {
   originalname: string;
@@ -52,6 +53,25 @@ export function validateLessonAudioUpload(file: UploadCandidate): string | null 
   }
   if (!isMp3(file.buffer)) return 'The selected lesson file is not a valid MP3 audio file.';
   return null;
+}
+
+/** Validate a staged MP3 with bounded reads, including files with large ID3 tags. */
+export async function validateAudioFile(file: Pick<UploadCandidate, 'originalname' | 'mimetype'> & { path: string }): Promise<string | null> {
+  const handle = await open(file.path, 'r');
+  try {
+    const header = Buffer.alloc(10);
+    const { bytesRead } = await handle.read(header, 0, header.length, 0);
+    let offset = 0;
+    if (header.subarray(0, 3).toString('ascii') === 'ID3') {
+      if (bytesRead < 10 || header.subarray(6, 10).some((byte) => (byte & 0x80) !== 0)) {
+        return 'The selected file is not a valid MP3 audio file.';
+      }
+      offset = 10 + ((header[6] << 21) | (header[7] << 14) | (header[8] << 7) | header[9]) + ((header[5] & 0x10) !== 0 ? 10 : 0);
+    }
+    const frames = Buffer.alloc(4097);
+    const read = await handle.read(frames, 0, frames.length, offset);
+    return validateLessonAudioUpload({ ...file, buffer: frames.subarray(0, read.bytesRead) });
+  } finally { await handle.close(); }
 }
 
 export function validateMediaUpload(file: UploadCandidate, scope: string): string | null {

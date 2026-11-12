@@ -18,6 +18,7 @@ backend/
 │   │   ├── authController.ts
 │   │   ├── booksController.ts
 │   │   ├── collectionController.ts
+│   │   ├── happyBiteAudioUploadController.ts
 │   │   └── adminController.ts
 │   ├── routes/
 │   │   ├── authRoutes.ts
@@ -36,11 +37,27 @@ backend/
 │   ├── app.ts             # Express app setup
 │   └── server.ts          # DB connect + listen
 ├── .env.example
+├── test/
+│   └── happyBiteAudioUpload.test.cjs  # Large audio upload regression checks
 ├── .gitignore
 ├── package.json
 ├── tsconfig.json
 └── README.md
 ```
+
+## Happy Bites audio uploads
+
+`POST /admin/contents/upload-happy-bite-audio` accepts one multipart `media`
+MP3 behind the existing authentication and admin authorization middleware.
+It has no application file-size cap. Files are staged in the operating system
+temporary directory, validated using bounded reads, and uploaded to Cloudinary
+in 6 MB chunks. Temporary files are removed after success or failure. The
+response retains `url`, `mediaType`, and detected `durationSeconds` for the admin.
+Storage-provider and hosting limits still apply.
+
+Deploy this endpoint before using the updated Happy Bites admin upload form.
+The existing `/admin/contents/upload-media` and audiobook uploads retain their
+50 MB limit; Happy Bites thumbnails retain their 5 MB limit.
 
 ## package.json (main scripts)
 
