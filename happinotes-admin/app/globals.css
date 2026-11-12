@@ -47,6 +47,55 @@ body {
 
 /* Admin-only presentation: public reader pages keep their existing styling. */
 .admin-ui { --background: #090b10; --foreground: #f4f4f5; color-scheme: dark; font-family: Arial, Helvetica, sans-serif; }
+
+/* Scope to the admin document so body-mounted drawers and dropdowns match too. */
+html:has(.admin-ui) {
+  --admin-scrollbar-thumb: #f27055;
+  --admin-scrollbar-hover: #ff9879;
+  --admin-scrollbar-track: #12151d;
+}
+:where(html:has(.admin-ui), html:has(.admin-ui) *) {
+  scrollbar-width: thin;
+  scrollbar-color: var(--admin-scrollbar-thumb) var(--admin-scrollbar-track);
+}
+@supports selector(::-webkit-scrollbar) {
+  :where(html:has(.admin-ui), html:has(.admin-ui) *) {
+    scrollbar-width: auto;
+    scrollbar-color: auto;
+  }
+  :where(html:has(.admin-ui), html:has(.admin-ui) *)::-webkit-scrollbar {
+    width: 8px;
+    height: 8px;
+  }
+  :where(html:has(.admin-ui), html:has(.admin-ui) *)::-webkit-scrollbar-track {
+    background: var(--admin-scrollbar-track);
+    border-radius: 999px;
+  }
+  :where(html:has(.admin-ui), html:has(.admin-ui) *)::-webkit-scrollbar-thumb {
+    min-height: 32px;
+    border: 2px solid var(--admin-scrollbar-track);
+    border-radius: 999px;
+    background: var(--admin-scrollbar-thumb);
+  }
+  :where(html:has(.admin-ui), html:has(.admin-ui) *)::-webkit-scrollbar-thumb:hover,
+  :where(html:has(.admin-ui), html:has(.admin-ui) *)::-webkit-scrollbar-thumb:active {
+    background: var(--admin-scrollbar-hover);
+  }
+  :where(html:has(.admin-ui), html:has(.admin-ui) *)::-webkit-scrollbar-corner {
+    background: var(--admin-scrollbar-track);
+  }
+}
+@media (forced-colors: active) {
+  html:has(.admin-ui) {
+    --admin-scrollbar-thumb: ButtonText;
+    --admin-scrollbar-hover: Highlight;
+    --admin-scrollbar-track: Canvas;
+  }
+  :where(html:has(.admin-ui), html:has(.admin-ui) *) {
+    scrollbar-color: auto;
+  }
+}
+
 .admin-ui h1 { font-size: clamp(1.65rem, 3vw, 2.15rem); font-weight: 700; letter-spacing: -.04em; line-height: 1.2; }
 .admin-ui h2 { font-size: 1.1rem; font-weight: 650; letter-spacing: -.02em; }
 .admin-ui h3 { font-weight: 600; }
