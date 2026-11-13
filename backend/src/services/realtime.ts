@@ -21,6 +21,13 @@ export function emitCatalogChanged(
   });
 }
 
+/** Invalidation only: clients refetch through the existing published/access filters. */
+export function emitHappyBitesChanged(): void {
+  socketServer?.emit('happy-bites:changed', {
+    occurredAt: new Date().toISOString(),
+  });
+}
+
 /**
  * Notify connected mobile clients that the shared monthly/yearly prices have
  * changed.  The subscription endpoint remains the source of truth; this event

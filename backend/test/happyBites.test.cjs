@@ -2,12 +2,58 @@ const { test, afterEach, mock } = require('node:test');
 const assert = require('node:assert/strict');
 const { HappyBite } = require('../dist/models');
 const controller = require('../dist/controllers/happyBitesController');
+const realtime = require('../dist/services/realtime');
 
-afterEach(() => mock.restoreAll());
+afterEach(() => { mock.restoreAll(); realtime.registerRealtimeServer(null); });
 
 function response() {
   return { headers: {}, setHeader(key, value) { this.headers[key] = value; }, vary(value) { this.headers.Vary = value; }, statusCode: 200, payload: undefined, status(code) { this.statusCode = code; return this; }, json(value) { this.payload = value; return this; } };
 }
+
+test('successful Happy Bite create, edit, publish/unpublish and delete broadcast invalidation only', async () => {
+  const events = [];
+  realtime.registerRealtimeServer({ emit: (...args) => events.push(args) });
+  const body = { title: 'Draft title', description: 'Private description', thumbnailUrl: '/cover.jpg', audioUrl: '/premium.mp3', category: 'Joy' };
+  mock.method(HappyBite, 'create', async value => ({ ...value, _id: 'b1' }));
+  mock.method(HappyBite, 'findByIdAndUpdate', async (_id, value) => ({ _id: 'b1', ...value.$set }));
+  mock.method(HappyBite, 'findByIdAndDelete', async () => ({ _id: 'b1' }));
+  const next = error => { throw error; };
+  await controller.createHappyBite({ body }, response(), next);
+  for (const update of [{ title: 'Edited', audioUrl: '/replacement.mp3' }, { published: true }, { published: false }, { accessType: 'premium', displayOrder: 2 }]) {
+    await controller.updateHappyBite({ params: { id: 'b1' }, body: update }, response(), next);
+  }
+  await controller.deleteHappyBite({ params: { id: 'b1' } }, response(), next);
+  assert.equal(events.length, 6);
+  for (const [name, payload] of events) {
+    assert.equal(name, 'happy-bites:changed');
+    assert.deepEqual(Object.keys(payload), ['occurredAt']);
+    assert.ok(Number.isFinite(Date.parse(payload.occurredAt)));
+  }
+});
+
+test('Happy Bite change events wait for persistence and are not sent on failed saves', async () => {
+  const events = [];
+  realtime.registerRealtimeServer({ emit: (...args) => events.push(args) });
+  let save;
+  mock.method(HappyBite, 'create', () => new Promise(resolve => { save = resolve; }));
+  const body = { title: 'Title', description: 'Description', thumbnailUrl: '/cover.jpg', audioUrl: '/clip.mp3', category: 'Joy' };
+  const pending = controller.createHappyBite({ body }, response(), error => { throw error; });
+  assert.equal(events.length, 0);
+  save({ _id: 'b1', ...body });
+  await pending;
+  assert.equal(events.length, 1);
+  events.length = 0;
+  mock.method(HappyBite, 'create', async () => { throw new Error('Database unavailable'); });
+  mock.method(HappyBite, 'findByIdAndUpdate', async () => null);
+  mock.method(HappyBite, 'findByIdAndDelete', async () => null);
+  const errors = [];
+  await controller.createHappyBite({ body }, response(), error => errors.push(error));
+  await controller.createHappyBite({ body: {} }, response(), error => errors.push(error));
+  await controller.updateHappyBite({ params: { id: 'missing' }, body: { published: false } }, response(), error => errors.push(error));
+  await controller.deleteHappyBite({ params: { id: 'missing' } }, response(), error => errors.push(error));
+  assert.equal(errors.length, 4);
+  assert.equal(events.length, 0);
+});
 
 test('public Happy Bites listing excludes drafts, filters category, and paginates', async () => {
   let filter;

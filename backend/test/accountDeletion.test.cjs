@@ -243,7 +243,7 @@ test('worker performs only policy-independent cleanup and blocks at the policy g
   });
   const preferenceUpdate = updateCalls.find((call) => call.update.$set?.bookCollection);
   assert.deepEqual(preferenceUpdate.update.$set, {
-    bookCollection: [], favourites: [], fcmTokens: [],
+    bookCollection: [], happyBiteCollection: [], favourites: [], fcmTokens: [],
   });
   const policyUpdate = updateCalls.at(-1).update;
   assert.equal(policyUpdate[0].$set.status, 'blocked_policy');

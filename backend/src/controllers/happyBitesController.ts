@@ -2,6 +2,7 @@ import type { NextFunction, Request, Response } from 'express';
 import { HappyBite } from '../models';
 import { BadRequestError, NotFoundError } from '../utils/errors';
 import { isValidObjectId } from 'mongoose';
+import { emitHappyBitesChanged } from '../services/realtime';
 
 const MAX_PAGE_SIZE = 50;
 const cleanText = (value: unknown, max: number) => typeof value === 'string' ? value.trim().slice(0, max) : '';
@@ -38,13 +39,13 @@ function normalizePayload(body: Record<string, unknown>, partial = false) {
 }
 
 /** Uses the existing Pro entitlement, including the existing admin override. */
-function canListenPremium(req: Request) {
+export function canListenPremium(req: Request) {
   if (req.user?.role === 'admin') return true;
   const subscription = req.user?.subscription;
   return Boolean(subscription?.active && (!subscription.expiresAt || subscription.expiresAt > new Date()));
 }
 
-function publicBite(doc: Record<string, unknown>, premiumAccess: boolean) {
+export function publicBite(doc: Record<string, unknown>, premiumAccess: boolean) {
   const accessType = doc.accessType === 'premium' ? 'premium' : 'free';
   const locked = accessType === 'premium' && !premiumAccess;
   const { audioUrl, ...metadata } = doc;
@@ -95,6 +96,7 @@ export async function createHappyBite(req: Request, res: Response, next: NextFun
   try {
     const body = normalizePayload(req.body ?? {});
     const happyBite = await HappyBite.create(body);
+    emitHappyBitesChanged();
     res.status(201).json({ success: true, happyBite });
   } catch (error) { next(error); }
 }
@@ -104,6 +106,7 @@ export async function updateHappyBite(req: Request, res: Response, next: NextFun
     const payload = normalizePayload(req.body ?? {}, true);
     const happyBite = await HappyBite.findByIdAndUpdate(req.params.id, { $set: payload }, { new: true, runValidators: true });
     if (!happyBite) throw new NotFoundError('Happy Bite not found');
+    emitHappyBitesChanged();
     res.json({ success: true, happyBite });
   } catch (error) { next(error); }
 }
@@ -112,6 +115,7 @@ export async function deleteHappyBite(req: Request, res: Response, next: NextFun
   try {
     const happyBite = await HappyBite.findByIdAndDelete(req.params.id);
     if (!happyBite) throw new NotFoundError('Happy Bite not found');
+    emitHappyBitesChanged();
     res.json({ success: true, message: 'Happy Bite deleted' });
   } catch (error) { next(error); }
 }

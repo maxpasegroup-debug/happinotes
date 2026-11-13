@@ -38,7 +38,8 @@ backend/
 │   └── server.ts          # DB connect + listen
 ├── .env.example
 ├── test/
-│   └── happyBiteAudioUpload.test.cjs  # Large audio upload regression checks
+│   ├── happyBiteAudioUpload.test.cjs  # Large audio upload regression checks
+│   └── happyBiteCollection.test.cjs   # Saved Happy Bites and access regression checks
 ├── .gitignore
 ├── package.json
 ├── tsconfig.json
@@ -272,3 +273,10 @@ The app checks pending request status every 5 seconds while its screen is mounte
 This implementation uses the existing MongoDB and Socket.IO infrastructure, not
 Redis. Deploy the backend before the admin/app updates; the admin continues
 periodic HTTP refresh if the live socket is unavailable.
+
+
+## Saved Happy Bites
+
+Authenticated `POST /collection/happy-bites/:biteId` and `DELETE /collection/happy-bites/:biteId` save/remove a bookmark using the real MongoDB Happy Bite ID. `GET /collection` retains the audiobook `collection` array and adds `happyBites`. References live in `User.happyBiteCollection`, separate from `bookCollection`; missing fields on existing users behave as empty arrays and populate on first save. No migration is needed.
+
+Only published bites can be added or returned; removal works even after content deletion/unpublishing. Duplicate saves use `$addToSet`. Reads preserve existing Happy Bite Pro audio restrictions and use private/no-store caching. Saving does not grant playback access or alter purchase/subscription rules. Existing account-deletion preference cleanup also clears Happy Bite references. Deploy these routes before shipping the matching mobile save UI.

@@ -94,7 +94,7 @@ async function cleanupPreferencesAndDevices(request: IAccountDeletionRequest): P
     {
       // These are user-owned, non-financial records. Entitlement removal runs
       // in its own ordered checkpoint after profile/contact cleanup.
-      $set: { bookCollection: [], favourites: [], fcmTokens: [] },
+      $set: { bookCollection: [], happyBiteCollection: [], favourites: [], fcmTokens: [] },
     },
   );
   if (!matchedCount(result)) {

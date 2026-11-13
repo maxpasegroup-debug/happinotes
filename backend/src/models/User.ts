@@ -27,6 +27,7 @@ export interface IUser extends Document {
   role: UserRole;
   languagePreference: 'all' | 'english' | 'malayalam' | 'hindi';
   bookCollection: mongoose.Types.ObjectId[];
+  happyBiteCollection: mongoose.Types.ObjectId[];
   purchasedBooks: mongoose.Types.ObjectId[];
   favourites: { contentId: mongoose.Types.ObjectId; contentType: string }[];
   fcmTokens: string[];
@@ -62,6 +63,7 @@ const userSchema = new Schema<IUser>(
     role: { type: String, enum: ['admin', 'user'], default: 'user' },
     languagePreference: { type: String, enum: ['all', 'english', 'malayalam', 'hindi'], default: 'all' },
     bookCollection: [{ type: Schema.Types.ObjectId, ref: 'Content', default: [] }],
+    happyBiteCollection: { type: [{ type: Schema.Types.ObjectId, ref: 'HappyBite' }], default: [] },
     purchasedBooks: [{ type: Schema.Types.ObjectId, ref: 'Content', default: [] }],
     favourites: {
       type: [
