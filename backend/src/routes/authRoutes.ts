@@ -1,3 +1,4 @@
+import { reportVpn } from '../controllers/vpnSecurityController';
 import { recordNetwork, createDeviceIdentity } from '../controllers/userSecurityController';
 import { Router } from 'express';
 import rateLimit from 'express-rate-limit';
@@ -126,6 +127,7 @@ router.post('/me/fcm-token', authenticate, body('token').isString().trim().isLen
 router.delete('/me/fcm-token', authenticate, body('token').isString().trim().isLength({ min: 20, max: 4096 }), unregisterFcmToken);
 router.get('/me', authenticate, getMe);
 router.post('/logout', authenticate, logout);
+router.post('/vpn-detected', authenticate, rateLimit({ windowMs: 60000, max: 10, keyGenerator: req => String(req.user!._id), standardHeaders: true, legacyHeaders: false }), reportVpn);
 router.get('/me/network/identity', authenticate, rateLimit({ windowMs: 60_000, max: 10, keyGenerator: req => String(req.user!._id), standardHeaders: true, legacyHeaders: false }), createDeviceIdentity);
 router.post('/me/network', authenticate, rateLimit({ windowMs: 60_000, max: 10, keyGenerator: req => String(req.user!._id), standardHeaders: true, legacyHeaders: false }), recordNetwork);
 router.put('/me', authenticate, updateLanguage);

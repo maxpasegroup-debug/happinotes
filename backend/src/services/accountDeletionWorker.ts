@@ -1,3 +1,4 @@
+import { VpnIncident } from '../models/VpnIncident';
 import { UserDevice } from '../models/UserDevice';
 import { UserNetwork } from '../models/UserNetwork';
 import { emitAccountDeletionsChanged } from './realtime';
@@ -57,6 +58,7 @@ async function ensurePendingAccount(request: IAccountDeletionRequest): Promise<v
 }
 
 async function cleanupAuthArtifacts(request: IAccountDeletionRequest): Promise<void> {
+  await VpnIncident.deleteMany({ userId: request.userId });
   await UserDevice.deleteMany({ userId: request.userId });
   await UserNetwork.deleteMany({ userId: request.userId });
   await PasswordResetToken.deleteMany({ userId: request.userId });

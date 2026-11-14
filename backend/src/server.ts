@@ -1,3 +1,5 @@
+import { SecurityBlock } from './models/SecurityBlock';
+import { VpnIncident } from './models/VpnIncident';
 import app from './app';
 import { UserDevice } from './models/UserDevice';
 import { DeviceReferenceCache } from './models/DeviceReferenceCache';
@@ -38,7 +40,7 @@ const start = async (): Promise<void> => {
 
   await connectDB();
   await ensureAdminUser();
-  await Promise.all([UserDevice.init(), DeviceReferenceCache.init()]);
+  await Promise.all([UserDevice.init(), DeviceReferenceCache.init(), SecurityBlock.init(), VpnIncident.init()]);
   // Do not accept provider events until the inbox collection and required
   // indexes are ready. Mongoose autoIndex remains enabled in this app.
   await StoreNotificationInbox.init();

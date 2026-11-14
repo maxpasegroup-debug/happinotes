@@ -7,7 +7,7 @@ import { emitUserSecurityChanged } from './realtime';
 
 /** Credentials must have been verified before calling this. One atomic account
  * update elects the newest login and appends its history, even before telemetry. */
-export async function startAccountSession(user: IUser): Promise<string> {
+export async function startAccountSession(user: IUser, installationKey?: string): Promise<string> {
   const options: jwt.SignOptions = { algorithm: 'HS256', expiresIn: env.JWT_EXPIRES_IN as jwt.SignOptions['expiresIn'] };
   if (user.role === 'admin') return jwt.sign({ id: String(user._id), sessionVersion: user.sessionVersion ?? 0 }, env.JWT_SECRET, options);
   const loginSessionId = randomUUID();
@@ -24,7 +24,7 @@ export async function startAccountSession(user: IUser): Promise<string> {
     $push: { loginHistory: { $each: [{ sessionId: loginSessionId, startedAt, expiresAt: new Date(expiry.exp! * 1000) }], $slice: -50 } },
   }, { new: true, runValidators: true });
   if (!updated) throw new UnauthorizedError('Account access changed. Please sign in again.');
-  const token = jwt.sign({ id: String(updated._id), sessionVersion: updated.sessionVersion, loginSessionId, exp: expiry.exp }, env.JWT_SECRET, { algorithm: 'HS256' });
+  const token = jwt.sign({ id: String(updated._id), sessionVersion: updated.sessionVersion, loginSessionId, ...(installationKey ? { installationKey } : {}), exp: expiry.exp }, env.JWT_SECRET, { algorithm: 'HS256' });
   emitUserSecurityChanged(String(updated._id));
   return token;
 }

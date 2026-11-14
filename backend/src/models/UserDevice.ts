@@ -11,6 +11,7 @@ const schema = new Schema({
   os: String,
   osVersion: String,
   lastSeen: { type: Date, default: Date.now, index: { expires: 90 * 24 * 60 * 60 } },
+  locationStatus: { state: String, checkedAt: Date },
   deviceLocation: { type: new Schema({
     latitude: { type: Number, required: true, min: -90, max: 90 },
     longitude: { type: Number, required: true, min: -180, max: 180 },

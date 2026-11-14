@@ -1,3 +1,4 @@
+import { checkVpnLogin, parseDeviceSecurity, assertNoSecurityBlock, securityKey } from '../services/vpnSecurity';
 import { startAccountSession } from '../services/accountSessions';
 import { emitUserSecurityChanged } from '../services/realtime';
 import { releaseExpiredBan, assertNotBanned } from '../services/accountModeration';
@@ -212,6 +213,9 @@ export const signup = async (
     }
 
     const { name, email, password, phoneNumber, pin, otp, emailChallenge } = req.body;
+    const deviceSecurity = parseDeviceSecurity(req.body.deviceSecurity);
+    await assertNoSecurityBlock(deviceSecurity ? securityKey('installation', deviceSecurity.installationId) : undefined, req.ip, typeof email === 'string' ? email : undefined);
+    if (deviceSecurity?.vpn) throw new AppError('Turn off VPN before creating an account.', 403);
     if (phoneNumber) {
       if (await User.exists({ phoneNumber })) {
         return next(new BadRequestError('WhatsApp number already registered'));
@@ -234,7 +238,7 @@ export const signup = async (
       });
       otpRecord.used = true;
       await otpRecord.save();
-      res.status(201).json({ success: true, token: await startAccountSession(user), user: userResponse(user) });
+      res.status(201).json({ success: true, token: await startAccountSession(user, await checkVpnLogin(user, req.body.deviceSecurity, req.ip)), user: userResponse(user) });
       return;
     }
     const normalizedEmail = email.toLowerCase();
@@ -255,7 +259,7 @@ export const signup = async (
       role: 'user',
     });
 
-    const token = await startAccountSession(user);
+    const token = await startAccountSession(user, await checkVpnLogin(user, req.body.deviceSecurity, req.ip));
     res.status(201).json({
       success: true,
       token,
@@ -292,7 +296,7 @@ export const login = async (
       await releaseExpiredBan(phoneUser);
       assertNotBanned(phoneUser);
       if (!(await isAccountWritable(phoneUser._id))) return next(new UnauthorizedError('Account deletion is in progress'));
-      res.json({ success: true, token: await startAccountSession(phoneUser), user: userResponse(phoneUser) });
+      res.json({ success: true, token: await startAccountSession(phoneUser, await checkVpnLogin(phoneUser, req.body.deviceSecurity, req.ip)), user: userResponse(phoneUser) });
       return;
     }
     const normalizedEmail = email.trim().toLowerCase();
@@ -311,7 +315,7 @@ export const login = async (
       return next(new UnauthorizedError('Account deletion is in progress'));
     }
  
-    const token = await startAccountSession(user);
+    const token = await startAccountSession(user, await checkVpnLogin(user, req.body.deviceSecurity, req.ip));
     res.json({
       success: true,
       token,

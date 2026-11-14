@@ -42,6 +42,9 @@ export interface IUser extends Document {
   moderationHistory: { action: string; reason: string; actorId: string; at: Date; expiresAt?: Date }[];
   /** Incremented atomically with password changes to revoke prior access tokens. */
   sessionVersion: number;
+  vpnDetectionCount: number;
+  vpnLastDetectedAt?: Date;
+  vpnLastIp?: string;
   activeLoginSessionId?: string;
   loginHistory: LoginHistoryEntry[];
   /**
@@ -104,6 +107,9 @@ const userSchema = new Schema<IUser>(
     loginHistory: { type: [new Schema({ sessionId: String, startedAt: Date, expiresAt: Date, endedAt: Date, lastSeen: Date,
       deviceId: String, deviceModel: String, os: String, osVersion: String, publicIp: String,
     }, { _id: false })], default: [], select: false },
+    vpnDetectionCount: { type: Number, default: 0, min: 0 },
+    vpnLastDetectedAt: Date,
+    vpnLastIp: String,
     sessionVersion: { type: Number, default: 0, min: 0 },
     deletionState: { type: String, enum: ['active', 'pending', 'completed'], default: 'active', index: true },
     deletionRequestedAt: Date,

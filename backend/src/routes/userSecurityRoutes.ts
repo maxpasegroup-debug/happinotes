@@ -1,3 +1,4 @@
+import { moderateIp } from '../controllers/vpnSecurityController';
 import { Router } from 'express';
 import rateLimit from 'express-rate-limit';
 import { authenticate, requireAdmin } from '../middleware';
@@ -8,6 +9,7 @@ router.get('/', listUserSecurity);
 const mutations = rateLimit({ windowMs: 60_000, max: 30, standardHeaders: true, legacyHeaders: false });
 router.get('/:id/device-reference', getDeviceReference);
 router.put('/:id/device-reference', rateLimit({ windowMs: 60_000, max: 120, standardHeaders: true, legacyHeaders: false }), saveDeviceReference);
+router.put('/:id/ip-ban', mutations, moderateIp);
 router.patch('/:id/ban', mutations, moderateUser);
 router.delete('/:id', mutations, deleteUserAccount);
 export default router;

@@ -1,3 +1,4 @@
+import { assertNoSecurityBlock } from '../services/vpnSecurity';
 import { Request, Response, NextFunction } from 'express';
 import jwt from 'jsonwebtoken';
 import { releaseExpiredBan, assertNotBanned } from '../services/accountModeration';
@@ -14,6 +15,7 @@ declare global {
     interface Request {
       user?: IUser;
       authSessionId?: string;
+      installationKey?: string;
     }
   }
 }
@@ -22,7 +24,7 @@ const userFromToken = async (req: Request, allowRevokedSession = false): Promise
   const authHeader = req.headers.authorization;
   const token = authHeader?.startsWith('Bearer ') ? authHeader.slice(7) : null;
   if (!token) throw new UnauthorizedError('Access token required');
-  const decoded = jwt.verify(token, env.JWT_SECRET, { algorithms: ['HS256'] }) as { id?: unknown; sessionVersion?: unknown; loginSessionId?: unknown };
+  const decoded = jwt.verify(token, env.JWT_SECRET, { algorithms: ['HS256'] }) as { id?: unknown; sessionVersion?: unknown; loginSessionId?: unknown; installationKey?: unknown };
   if (!decoded || typeof decoded !== 'object' || typeof decoded.id !== 'string') {
     throw new UnauthorizedError('Invalid token claims');
   }
@@ -41,6 +43,8 @@ const userFromToken = async (req: Request, allowRevokedSession = false): Promise
   if (!allowRevokedSession && decoded.loginSessionId !== undefined && decoded.loginSessionId !== user.activeLoginSessionId) {
     throw new UnauthorizedError('Your account was signed in on another device. Please sign in again.');
   }
+  if (typeof decoded.installationKey === 'string' && /^[a-f0-9]{64}$/.test(decoded.installationKey)) req.installationKey = decoded.installationKey;
+  if (!allowRevokedSession && user.role === 'user') await assertNoSecurityBlock(req.installationKey, req.ip);
   if (typeof decoded.loginSessionId === 'string') req.authSessionId = decoded.loginSessionId;
   return user;
 };
