@@ -26,6 +26,7 @@ const menu = [
   { label: 'Happy Bites', href: '/admin/happy-bites', icon: 'audio', group: 'Content management' },
   { label: 'Featured', href: '/admin/featured', icon: 'star', group: 'Content management' },
   { label: 'Settings', href: '/admin/settings', icon: 'settings', group: 'Management' },
+  { label: 'User Security', href: '/admin/user-security', icon: 'shield', group: 'Management' },
   { label: 'Deletion requests', href: '/admin/deletion-requests', icon: 'shield', group: 'Management' },
 ];
 const paths: Record<string, string> = {
@@ -108,7 +109,7 @@ export default function AdminShell({ children }: { children: ReactNode }) {
         </div>
         <div className="flex shrink-0 items-center gap-3"><AdminInstallButton /><Chip size="sm" variant="flat" className="hidden border border-divider text-default-400 sm:inline-flex">HappiNotes Studio</Chip></div>
       </header>
-      <main className="mx-auto min-w-0 max-w-[1600px] p-5 sm:p-8 lg:p-10">{children}</main>
+      <main className={`min-w-0 p-5 sm:p-8 lg:p-10 ${pathname.startsWith('/admin/happy-bites') ? 'w-full' : 'mx-auto max-w-[1600px]'}`}>{children}</main>
     </div>
     <Drawer
       disableAnimation={Boolean(reducedMotion) || confirming}

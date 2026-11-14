@@ -62,3 +62,32 @@ test('large Happy Bites audio keeps progress without the shared upload deadline'
   xhr.onload();
   assert.equal((await pending).durationSeconds, 900);
 });
+
+
+test('upload failures preserve backend messages and explain non-JSON hosting rejections', async (t) => {
+  const original = globalThis.XMLHttpRequest;
+  const instances = [];
+  globalThis.XMLHttpRequest = class {
+    upload = {};
+    constructor() { instances.push(this); }
+    open() {}
+    setRequestHeader() {}
+    send() {}
+  };
+  t.after(() => {
+    if (original === undefined) delete globalThis.XMLHttpRequest;
+    else globalThis.XMLHttpRequest = original;
+  });
+  for (const [status, response, expected] of [
+    [413, '<html>too large</html>', /rejected the file size/],
+    [504, '<html>gateway timeout</html>', /timed out/],
+    [413, JSON.stringify({ message: 'Cloudinary rejected this audio: per-file limit.' }), /Cloudinary rejected/],
+  ]) {
+    const pending = uploadMultipart('/admin/contents/upload-happy-bite-audio', new FormData(), 'test-token');
+    const xhr = instances.at(-1);
+    xhr.status = status;
+    xhr.responseText = response;
+    xhr.onload();
+    await assert.rejects(pending, expected);
+  }
+});

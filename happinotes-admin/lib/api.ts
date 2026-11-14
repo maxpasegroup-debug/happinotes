@@ -32,6 +32,8 @@ function readErrorMessage(parsed: unknown, status: number): string {
   ) {
     return (parsed as { message: string }).message;
   }
+  if (status === 413) return "The server or hosting provider rejected the file size. Check the server and storage account upload limits.";
+  if (status === 408 || status === 504) return "The server or hosting provider timed out during the upload. Check its request timeout settings and try again.";
   return `Request failed with status ${status}`;
 }
 

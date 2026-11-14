@@ -6,10 +6,12 @@ import { useAdminConfirmation } from "@/components/admin/ConfirmationProvider";
 
 import { AdminButton, AdminInput, AdminTextarea, AdminSelect, AdminFieldset } from "@/components/admin/ui";
 
-import { Card, Chip, ModalContent, ModalBody, ModalHeader, ModalFooter, Progress, Skeleton, Switch } from "@heroui/react";
+import { Card, Chip, ModalContent, ModalBody, ModalHeader, ModalFooter, Skeleton, Switch } from "@heroui/react";
 import { useCallback, useEffect, useRef, useState } from "react";
 import Image from "next/image";
 import AudioPreview from "@/components/admin/AudioPreview";
+import HappyBiteUpload, { type BiteUploadState } from "@/components/admin/HappyBiteUpload";
+import { uploadHappyBiteChunks, type AudioUploadTicket } from "@/lib/happy-bite-upload";
 import { apiRequest, uploadMultipart } from "@/lib/api";
 import {
   BITE_CATEGORIES, EMPTY_BITE, detectAudioDuration, formatBiteDuration,
@@ -25,29 +27,6 @@ const errorMessage = (error: unknown) => error instanceof Error ? error.message 
 const dateLabel = (value?: string) => value && Number.isFinite(Date.parse(value))
   ? new Date(value).toLocaleDateString(undefined, { day: 'numeric', month: 'short', year: 'numeric' }) : '—';
 
-type UploadState = {
-  name: string;
-  percent: number;
-  phase: 'uploading' | 'processing' | 'complete' | 'error';
-};
-
-function UploadProgress({ kind, state }: { kind: UploadKind; state?: UploadState }) {
-  if (!state) return null;
-  const label = kind === 'audio' ? 'MP3 audio' : 'Thumbnail image';
-  const failed = state.phase === 'error';
-  const message = state.phase === 'complete' ? 'Upload complete'
-    : state.phase === 'processing' ? '100% uploaded — processing your file…'
-      : failed ? 'Upload failed. Please try again.' : `Uploading ${label.toLowerCase()}…`;
-  return <div className={`mt-4 rounded-2xl border p-4 ${failed ? 'border-red-400/25 bg-red-500/5' : 'border-orange-400/20 bg-orange-500/5'}`}>
-    <div className="flex items-center justify-between gap-3">
-      <p className="min-w-0 truncate text-xs text-zinc-300" title={state.name}>{state.name}</p>
-      <span className={`shrink-0 text-lg font-semibold tabular-nums ${failed ? 'text-red-300' : 'text-orange-200'}`}>{state.percent}%</span>
-    </div>
-    <Progress aria-label={`${label} upload`} value={state.percent} aria-valuetext={`${state.percent}% — ${message}`} color={failed ? 'danger' : state.phase === 'complete' ? 'success' : 'primary'} size="sm" className="mt-3" />
-    <p role="status" className={`mt-2 text-xs leading-5 ${failed ? 'text-red-300' : 'text-zinc-400'}`}>{message}</p>
-  </div>;
-}
-
 function Thumbnail({ src, title, large = false }: { src: string; title: string; large?: boolean }) {
   const [failed, setFailed] = useState(false);
   return <div className={`relative shrink-0 overflow-hidden rounded-2xl bg-orange-500/10 ${large ? 'aspect-square w-full' : 'h-16 w-16'}`}>
@@ -60,7 +39,7 @@ function HappyBitesSkeleton() {
   return <div role="status" aria-label="Loading Happy Bites">
     <span className="sr-only">Loading Happy Bites…</span>
     <div aria-hidden="true">
-      {[0, 1, 2, 3].map((row) => <div key={row} className="border-b border-white/10 p-4 last:border-0 sm:p-5">
+      {[0, 1, 2, 3].map((row) => <div key={row} className="border-b border-white/10 py-5 last:border-0">
         <div className="flex flex-wrap items-center justify-between gap-4">
           <div className="flex min-w-0 flex-1 items-center gap-4">
             <Skeleton className="happy-bites-skeleton h-16 w-16 shrink-0 rounded-2xl motion-reduce:before:animate-none" />
@@ -89,7 +68,7 @@ export default function HappyBitesAdminPage() {
   const [draft, setDraft] = useState<HappyBiteDraft | null>(null);
   const [loading, setLoading] = useState(true);
   const [operation, setOperation] = useState("");
-  const [uploads, setUploads] = useState<Partial<Record<UploadKind, UploadState>>>({});
+  const [uploads, setUploads] = useState<Partial<Record<UploadKind, BiteUploadState>>>({});
   const [error, setError] = useState("");
   const [notice, setNotice] = useState("");
   const [search, setSearch] = useState("");
@@ -97,9 +76,9 @@ export default function HappyBitesAdminPage() {
   const [categoryFilter, setCategoryFilter] = useState("");
   const [deleteItem, setDeleteItem] = useState<HappyBite | null>(null);
   const [preview, setPreview] = useState<string | null>(null);
-  const [audioName, setAudioName] = useState("");
   const locked = useRef(false);
-  const audioInput = useRef<HTMLInputElement>(null);
+  const uploadController = useRef<AbortController | null>(null);
+  useEffect(() => () => { uploadController.current?.abort(); }, []);
   const loadRequest = useRef(0);
   const busy = Boolean(operation);
 
@@ -138,7 +117,7 @@ export default function HappyBitesAdminPage() {
   const openEditor = async (item?: HappyBite) => {
     if (locked.current) return;
     if (!await confirm({ title: item ? 'Edit Happy Bite?' : 'Create Happy Bite?', description: item ? `Open “${item.title}” for editing? You will confirm again before saving changes.` : 'Open a new Happy Bite draft? Nothing is published until you save and publish it.', confirmLabel: item ? 'Edit Happy Bite' : 'Create draft' })) return;
-    setError(''); setNotice(''); setPreview(null); setAudioName('');
+    setError(''); setNotice(''); setPreview(null);
     setUploads({});
     setDraft(item ? { ...item, accessType: item.accessType ?? 'free' } : { ...EMPTY_BITE });
   };
@@ -151,6 +130,8 @@ export default function HappyBitesAdminPage() {
     if (!await confirm({ title: `${replacing ? 'Replace' : 'Upload'} ${kind === 'audio' ? 'audio' : 'thumbnail'}?`, description: `Upload “${file.name}” (${(file.size / 1024 / 1024).toFixed(1)} MB)? ${replacing ? 'The attached file will be replaced after this upload succeeds. ' : ''}Save the Happy Bite afterward to keep the change.`, confirmLabel: replacing ? 'Replace file' : 'Upload file', tone: replacing ? 'warning' : 'primary' })) return;
     if (locked.current) return;
     locked.current = true; setOperation(kind); setError(''); setNotice('');
+    const controller = new AbortController();
+    uploadController.current = controller;
     setUploads((current) => ({ ...current, [kind]: { name: file.name, percent: 0, phase: 'uploading' } }));
     try {
       const form = new FormData();
@@ -159,28 +140,39 @@ export default function HappyBitesAdminPage() {
       const extension = file.name.split('.').pop()?.toLowerCase();
       const mime = kind === 'audio' ? 'audio/mpeg' : extension === 'png' ? 'image/png' : extension === 'webp' ? 'image/webp' : 'image/jpeg';
       form.append('media', file.type ? file : new File([file], file.name, { type: mime }));
+      const progress = (percent: number) => setUploads((current) => ({ ...current, [kind]: { name: file.name, percent, phase: percent === 100 ? 'processing' : 'uploading' } }));
       const [response, detected] = await Promise.all([
-        uploadMultipart<{ url?: string; durationSeconds?: number }>(kind === 'audio' ? '/admin/contents/upload-happy-bite-audio' : '/admin/contents/upload-media', form, token(), (percent) => {
-          setUploads((current) => ({ ...current, [kind]: { name: file.name, percent, phase: percent === 100 ? 'processing' : 'uploading' } }));
-        }),
+        kind === 'audio' ? (async () => {
+          const ticket = await apiRequest<AudioUploadTicket>('/admin/contents/sign-happy-bite-audio', 'POST', { name: file.name, size: file.size, type: file.type }, token()).catch(error => {
+            if (errorMessage(error) === 'Request failed with status 404') throw new Error('The connected backend does not support the updated audio uploader yet. Deploy the backend update, then press Retry upload.');
+            throw error;
+          });
+          return uploadHappyBiteChunks(file, ticket, progress, controller.signal);
+        })() : uploadMultipart<{ url?: string; durationSeconds?: number }>('/admin/contents/upload-media', form, token(), progress),
         kind === 'audio' ? detectAudioDuration(file) : Promise.resolve(0),
       ]);
       if (!response.url) throw new Error('The upload did not return a file URL. Please try again.');
       setDraft((current) => current ? { ...current, ...(kind === 'thumbnail'
         ? { thumbnailUrl: response.url! }
         : { audioUrl: response.url!, durationSeconds: uploadedAudioDuration(response.durationSeconds, detected) }) } : current);
-      if (kind === 'audio') setAudioName(file.name);
       setUploads((current) => ({ ...current, [kind]: { name: file.name, percent: 100, phase: 'complete' } }));
       setNotice(`${kind === 'audio' ? 'Audio' : 'Thumbnail'} uploaded. Save your Happy Bite to keep this change.`);
+      return true;
     } catch (exception) {
-      setUploads((current) => ({ ...current, [kind]: { name: file.name, percent: current[kind]?.percent ?? 0, phase: 'error' } }));
+      setUploads((current) => ({ ...current, [kind]: { name: file.name, percent: current[kind]?.percent ?? 0, phase: 'error', error: errorMessage(exception) } }));
       setError(errorMessage(exception));
     }
-    finally { locked.current = false; setOperation(''); }
+    finally { locked.current = false; setOperation(''); uploadController.current = null; }
+  };
+
+  const selected = (kind: UploadKind, file?: File) => {
+    setUploads(current => ({ ...current, [kind]: file ? { name: file.name, percent: 0, phase: 'selected' } : undefined }));
+    setError('');
   };
 
   const save = async () => {
     if (!draft || locked.current) return;
+    if (Object.values(uploads).some(state => state?.phase === 'selected' || state?.phase === 'error')) { setError('Upload or discard your selected files before saving.'); return; }
     const invalid = validateBiteDraft(draft);
     if (invalid) { setError(invalid); return; }
     if (!await confirm({ title: draft.published ? 'Save and publish Happy Bite?' : 'Save Happy Bite draft?', description: `Save “${draft.title}”? ${draft.published ? draft.accessType === 'premium' ? 'An active Pro subscription will be required to listen.' : 'It will be available to everyone for free.' : 'It will remain hidden from listeners.'}`, confirmLabel: draft.published ? 'Save & publish' : 'Save draft' })) return;
@@ -223,7 +215,7 @@ export default function HappyBitesAdminPage() {
     finally { locked.current = false; setOperation(''); }
   };
 
-  return <section className="mx-auto max-w-6xl space-y-6 text-white">
+  return <section className="w-full min-w-0 space-y-6 text-white">
     <header className="flex flex-wrap items-center justify-between gap-4">
       <div><p className="text-xs font-semibold uppercase tracking-[0.18em] text-orange-300">Content management</p>
         <h1 className="mt-2 text-3xl font-bold tracking-tight">Happy Bites</h1>
@@ -237,7 +229,7 @@ export default function HappyBitesAdminPage() {
     {draft ? <form onSubmit={(event) => { event.preventDefault(); void save(); }}>
       <AdminFieldset disabled={busy} className="min-w-0 space-y-6">
         <div className="grid gap-6 lg:grid-cols-[1fr_320px]">
-          <Card as="div" shadow="none" className="min-w-0 space-y-6 rounded-3xl border border-divider bg-content1 p-5 sm:p-7">
+          <Card as="div" shadow="none" className="min-w-0 space-y-6 rounded-none border-0 bg-transparent shadow-none">
             <div><h2 className="text-xl font-semibold">{draft._id ? 'Edit Happy Bite' : 'Create a Happy Bite'}</h2><p className="mt-1 text-sm text-zinc-500">Add a little inspiration to someone’s day.</p></div>
             <label className="block text-sm font-medium">Title <span className="text-orange-300">*</span><AdminInput required autoFocus className={inputClass} value={draft.title} onChange={(e) => setDraft({ ...draft, title: e.target.value })} maxLength={160} placeholder="A small step toward a calmer day" /></label>
             <label className="block text-sm font-medium">Short description <span className="text-orange-300">*</span><AdminTextarea required className={`${inputClass} min-h-28 resize-y`} value={draft.description} onChange={(e) => setDraft({ ...draft, description: e.target.value })} maxLength={2000} placeholder="What will listeners take away from this bite?" /><span className="mt-1 block text-right text-xs text-zinc-500">{draft.description.length}/2000</span></label>
@@ -246,30 +238,12 @@ export default function HappyBitesAdminPage() {
               <label className="block text-sm font-medium">Display order<AdminInput required className={inputClass} type="number" min="0" step="1" value={Number.isFinite(draft.displayOrder) ? draft.displayOrder : ''} onChange={(e) => setDraft({ ...draft, displayOrder: e.target.valueAsNumber })} /><span className="mt-2 block text-xs text-zinc-500">Lower numbers appear first. Newest breaks ties.</span></label>
             </div>
             <div className="border-t border-white/10 pt-5">
-              <div className="flex flex-wrap items-center justify-between gap-2">
-                <h3 className="font-semibold">{draft.audioUrl ? 'Replace audio' : 'Upload audio'} <span className="text-orange-300">*</span></h3>
-                {draft.audioUrl ? <Chip size="sm" variant="flat" color="success">Audio attached</Chip> : null}
-              </div>
-              <p className="mt-1 text-xs leading-5 text-zinc-400">One MP3. Aim for 50–60 seconds; longer clips are welcome.</p>
-              {draft.audioUrl ? <div className="mt-4"><AudioPreview src={draft.audioUrl} title={audioName || draft.title || 'Current audio'} durationSeconds={draft.durationSeconds} /></div> : null}
-              <input ref={audioInput} type="file" accept="audio/mpeg,.mp3" className="hidden" disabled={busy} aria-label={draft.audioUrl ? 'Replace MP3 audio' : 'Upload MP3 audio'} onChange={(event) => { void upload('audio', event.target.files?.[0]); event.currentTarget.value = ''; }} />
-              <AdminButton type="button" disabled={busy} onClick={() => audioInput.current?.click()} color="primary" variant="flat" className="mt-4">
-                <svg aria-hidden="true" width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="1.8" strokeLinecap="round" strokeLinejoin="round"><path d="M12 16V4m-4 4 4-4 4 4M4 16v4h16v-4" /></svg>
-                {operation === 'audio' ? 'Uploading audio…' : draft.audioUrl ? 'Replace audio' : 'Choose MP3 audio'}
-              </AdminButton>
-              {draft.audioUrl ? <p className="mt-2 text-xs leading-5 text-default-400">Your attached audio stays in place until a new upload succeeds. Save the Happy Bite to keep your changes.</p> : null}
-              <UploadProgress kind="audio" state={uploads.audio} />
+              <HappyBiteUpload kind="audio" url={draft.audioUrl} title={draft.title} durationSeconds={draft.durationSeconds} disabled={busy} state={uploads.audio} onSelect={file => selected('audio', file)} onUpload={file => upload('audio', file)} />
               <label className="mt-4 block text-sm font-medium">Duration in seconds<AdminInput className={inputClass} type="number" min="0" step="1" value={Number.isFinite(draft.durationSeconds) ? draft.durationSeconds : ''} onChange={(e) => setDraft({ ...draft, durationSeconds: e.target.valueAsNumber })} /><span className="mt-2 block text-xs text-zinc-500">Detected automatically when possible. You can correct it here.</span></label>
             </div>
           </Card>
           <div className="min-w-0 space-y-5">
-            <Card as="div" shadow="none" className="rounded-3xl border border-divider bg-content1 p-5">
-              <h3 className="mb-4 font-semibold">Thumbnail <span className="text-orange-300">*</span></h3>
-              <Thumbnail key={draft.thumbnailUrl} src={draft.thumbnailUrl} title="Happy Bite thumbnail preview" large />
-              <AdminInput aria-label="Upload thumbnail image" className="mt-4 block w-full min-w-0 text-xs text-zinc-400 file:mb-2 file:mr-2 file:rounded-xl file:border-0 file:bg-white/10 file:px-3 file:py-2.5 file:text-xs file:text-white" type="file" accept="image/jpeg,image/png,image/webp,.jpg,.jpeg,.png,.webp" onChange={(event) => { void upload('thumbnail', event.target.files?.[0]); event.currentTarget.value = ''; }} />
-              <UploadProgress kind="thumbnail" state={uploads.thumbnail} />
-              <p className="mt-2 text-xs text-zinc-500">JPG, PNG or WebP · up to 5 MB. A square image works best.</p>
-            </Card>
+            <HappyBiteUpload kind="thumbnail" url={draft.thumbnailUrl} title={draft.title} disabled={busy} state={uploads.thumbnail} onSelect={file => selected('thumbnail', file)} onUpload={file => upload('thumbnail', file)} />
             <Card as="div" shadow="none" className="gap-3 rounded-3xl border border-divider bg-content1 p-5">
               <div className="flex items-center justify-between gap-3"><div><h3 className="text-sm font-semibold">Listening access</h3><p className="mt-1 text-xs text-default-400">{draft.accessType === 'premium' ? 'Premium · Pro members' : 'Free · Everyone'}</p></div>
                 <Switch aria-label="Require a Pro subscription for this Happy Bite" color="primary" isSelected={draft.accessType === 'premium'} isDisabled={busy} onValueChange={(premium) => setDraft({ ...draft, accessType: premium ? 'premium' : 'free' })} />
@@ -295,8 +269,8 @@ export default function HappyBitesAdminPage() {
           <AdminSelect label="Category" className={inputClass} value={categoryFilter} onChange={(e) => setCategoryFilter(e.target.value)}><option value="">All categories</option>{[...new Set(items.map((item) => item.category))].sort().map((category) => <option key={category}>{category}</option>)}</AdminSelect></div>
         <AdminButton disabled={loading || busy} onClick={() => void load()} className={buttonClass}>Refresh</AdminButton>
       </div>
-      <Card as="div" shadow="none" aria-busy={loading} className="overflow-hidden rounded-3xl border border-divider bg-content1">
-        {loading ? <HappyBitesSkeleton /> : visibleItems.length === 0 ? <div className="px-5 py-12 text-center"><p className="text-lg font-semibold">{items.length ? 'No matching Happy Bites' : error ? 'Library unavailable' : 'Make someone’s day a little brighter'}</p><p className="mt-2 text-sm text-zinc-400">{items.length ? 'Try a different search or filter.' : error ? 'Check the message above, then refresh to try again.' : 'Upload your first short audio and share it for free.'}</p></div> : visibleItems.map((item) => <article key={item._id} className="border-b border-white/10 p-4 last:border-0 sm:p-5">
+      <Card as="div" shadow="none" aria-busy={loading} className="w-full rounded-none border-0 bg-transparent shadow-none">
+        {loading ? <HappyBitesSkeleton /> : visibleItems.length === 0 ? <div className="px-5 py-12 text-center"><p className="text-lg font-semibold">{items.length ? 'No matching Happy Bites' : error ? 'Library unavailable' : 'Make someone’s day a little brighter'}</p><p className="mt-2 text-sm text-zinc-400">{items.length ? 'Try a different search or filter.' : error ? 'Check the message above, then refresh to try again.' : 'Upload your first short audio and share it for free.'}</p></div> : visibleItems.map((item) => <article key={item._id} className="border-b border-white/10 py-5 last:border-0">
           <div className="flex flex-wrap items-center justify-between gap-4">
             <div className="flex min-w-0 flex-1 items-center gap-4"><Thumbnail key={item.thumbnailUrl} src={item.thumbnailUrl} title={item.title} /><div className="min-w-0"><h2 className="truncate font-semibold">{item.title}</h2><p className="mt-1 text-xs text-zinc-400">{item.category} · {formatBiteDuration(item.durationSeconds)}</p><p className="mt-1 text-xs text-zinc-500">Order {item.displayOrder} · Updated {dateLabel(item.updatedAt)}</p></div></div>
             <div className="flex flex-wrap gap-2"><Chip size="sm" variant="flat" color={item.accessType === "premium" ? "warning" : "default"}>{item.accessType === "premium" ? "Premium" : "Free"}</Chip><Chip size="sm" variant="flat" color={item.published ? 'success' : 'default'}>{item.published ? 'Published' : 'Draft'}</Chip></div>

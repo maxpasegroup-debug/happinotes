@@ -136,3 +136,20 @@ You can check out [the Next.js GitHub repository](https://github.com/vercel/next
 The easiest way to deploy your Next.js app is to use the [Vercel Platform](https://vercel.com/new?utm_medium=default-template&filter=next.js&utm_source=create-next-app&utm_campaign=create-next-app-readme) from the creators of Next.js.
 
 Check out our [Next.js deployment documentation](https://nextjs.org/docs/app/building-your-application/deploying) for more details.
+
+
+## User Security menu
+
+The Management sidebar opens `/admin/user-security` (`app/admin/(secure)/user-security/page.tsx`). It shows seven users per page, search, latest public/device IP, Wi-Fi/mobile icons, provider initials, SIM carrier and OS/model. Device-reported values are labeled; unknown values are not guessed. OpenStreetMap embeds display approximate IP locations with attribution after backend IP lookup is configured.
+
+Temporary/permanent ban, unban and account deletion use confirmation dialogs with required reasons. Temporary bans require a future local expiry; deletion requires typing DELETE and queues the existing deletion workflow. The page receives admin socket invalidations and refreshes every 15 seconds. Do not confuse a queued deletion with completed cleanup or subscription cancellation. Deploy the backend endpoints before this admin page.
+
+### Happy Bites uploader and full-width library
+
+The Happy Bites library uses the available content width without an outer rounded card. `components/admin/HappyBiteUpload.tsx` combines file selection, drag/drop, local preview, upload progress and retry for each media item. The selected file remains available after failure; discard or upload it before saving. Existing attached URLs change only on successful upload and remain unsaved until the form is saved.
+
+Deploy the backend's authenticated `/admin/contents/sign-happy-bite-audio` endpoint with this UI. `lib/happy-bite-upload.ts` sends 6 MiB MP3 chunks directly to Cloudinary using server-signed parameters. This avoids sending a large file through the Next.js proxy and a long-lived backend request. Transient chunk failures retry twice; **Retry upload** starts a fresh authorized upload using the selected file. Navigation aborts the direct audio upload. Thumbnail uploads keep their existing 5 MB validation and endpoint.
+
+Cloudinary account limits still apply to the complete asset regardless of chunking. Size, quota, authorization, timeout and network failures have actionable messages. No provider account settings or quotas are changed by this code. The existing multipart endpoint remains available for current mobile/admin clients.
+
+Validation: `npm run lint`, `npx tsc --noEmit`, `npm run test:auth`, `npm run build -- --webpack`. Upload transport regression tests are in `test/happy-bite-upload.test.mjs` and `test/upload-progress.test.mjs`.
