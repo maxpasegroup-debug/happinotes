@@ -1,11 +1,13 @@
 import { Router } from 'express';
 import rateLimit from 'express-rate-limit';
 import { authenticate, requireAdmin } from '../middleware';
-import { listUserSecurity, moderateUser, deleteUserAccount } from '../controllers/userSecurityController';
+import { listUserSecurity, moderateUser, deleteUserAccount, getDeviceReference, saveDeviceReference } from '../controllers/userSecurityController';
 const router = Router();
 router.use(authenticate, requireAdmin);
 router.get('/', listUserSecurity);
 const mutations = rateLimit({ windowMs: 60_000, max: 30, standardHeaders: true, legacyHeaders: false });
+router.get('/:id/device-reference', getDeviceReference);
+router.put('/:id/device-reference', rateLimit({ windowMs: 60_000, max: 120, standardHeaders: true, legacyHeaders: false }), saveDeviceReference);
 router.patch('/:id/ban', mutations, moderateUser);
 router.delete('/:id', mutations, deleteUserAccount);
 export default router;

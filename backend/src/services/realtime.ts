@@ -50,6 +50,10 @@ export function emitAccountDeletionsChanged(): void {
 }
 
 
+export function emitUserDevicesChanged(): void {
+  socketServer?.of('/admin').emit('users:changed');
+}
+
 /** Only authenticated, server-assigned account rooms receive this invalidation. */
 export function emitUserSecurityChanged(userId: string): void {
   socketServer?.of('/account').to(`account:${userId}`).emit('account:changed');

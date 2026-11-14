@@ -1,4 +1,4 @@
-import { recordNetwork } from '../controllers/userSecurityController';
+import { recordNetwork, createDeviceIdentity } from '../controllers/userSecurityController';
 import { Router } from 'express';
 import rateLimit from 'express-rate-limit';
 import { body } from 'express-validator';
@@ -124,6 +124,7 @@ router.post('/reset-password', authRateLimiter, resetPasswordValidation, resetPa
 router.post('/me/fcm-token', authenticate, body('token').isString().trim().isLength({ min: 20, max: 4096 }), registerFcmToken);
 router.delete('/me/fcm-token', authenticate, body('token').isString().trim().isLength({ min: 20, max: 4096 }), unregisterFcmToken);
 router.get('/me', authenticate, getMe);
+router.get('/me/network/identity', authenticate, rateLimit({ windowMs: 60_000, max: 10, keyGenerator: req => String(req.user!._id), standardHeaders: true, legacyHeaders: false }), createDeviceIdentity);
 router.post('/me/network', authenticate, rateLimit({ windowMs: 60_000, max: 10, keyGenerator: req => String(req.user!._id), standardHeaders: true, legacyHeaders: false }), recordNetwork);
 router.put('/me', authenticate, updateLanguage);
 router.post('/me/deletion-re-auth', authRateLimiter, authenticate, deletionReauthValidation, requestDeletionReauth);

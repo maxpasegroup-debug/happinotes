@@ -13,6 +13,8 @@ backend/
 │   ├── models/
 │   │   ├── Book.ts        # Book schema
 │   │   ├── User.ts        # User schema
+│   │   ├── UserDevice.ts
+│   │   ├── DeviceReferenceCache.ts
 │   │   └── index.ts
 │   ├── controllers/
 │   │   ├── authController.ts
@@ -31,6 +33,8 @@ backend/
 │   │   ├── admin.ts       # Admin role check
 │   │   ├── errorHandler.ts
 │   │   └── index.ts
+│   ├── services/
+│   │   └── deviceReferenceCache.ts
 │   ├── utils/
 │   │   ├── errors.ts      # AppError, UnauthorizedError, etc.
 │   │   └── index.ts
@@ -38,6 +42,7 @@ backend/
 │   └── server.ts          # DB connect + listen
 ├── .env.example
 ├── test/
+│   ├── deviceStorage.test.cjs
 │   ├── happyBiteAudioUpload.test.cjs  # Large audio upload regression checks
 │   └── happyBiteCollection.test.cjs   # Saved Happy Bites and access regression checks
 ├── .gitignore
@@ -301,3 +306,16 @@ New source files: `src/models/UserNetwork.ts`, `src/services/accountModeration.t
 `POST /admin/contents/sign-happy-bite-audio` requires the existing admin authentication and authorization. It accepts MP3 name/type/size metadata and signs a server-generated UUID public ID under `happinotes/happy-bites/audio`, `allowed_formats=mp3`, and `overwrite=false`. It never signs arbitrary client parameters or returns the API secret. Responses are not cached; signing requests are rate limited. Cloudinary validates the asset format. Existing thumbnail and audiobook upload flows remain unchanged.
 
 The new admin sends bounded chunks directly to Cloudinary. Existing clients can continue using `/admin/contents/upload-happy-bite-audio`; its storage timeout is increased per request and provider failures are mapped to safe, actionable messages. There is no Happy Bites audio size or duration cap, but storage-provider limits still apply. See https://cloudinary.com/documentation/upload_images and https://cloudinary.com/documentation/authentication_signatures .
+
+## Multiple devices per account and model reference cache
+
+- Existing account/login/subscription identities are unchanged; simultaneous logins are supported.
+- `GET /auth/me/network/identity` is authenticated and rate limited. It issues a UUID without writing a record; the app persists it before its first report.
+- `POST /auth/me/network` accepts an optional UUID `installationId`. Modern reports upsert the `userdevices` collection under a unique `{userId, installationId}` index. Same model/IP does not merge devices, and repeated login/reporting reuses the installation. The client cannot choose the account ID. Installation IDs are not returned to the admin.
+- Calls without `installationId` keep the existing `UserNetwork` legacy snapshot; no destructive migration/index removal is necessary. The authenticated admin listing remains seven **accounts** per page and returns `devices` newest first, plus compatible `network` latest-record data. Legacy reports appear only when no modern device records exist. Past overwritten devices cannot be recovered.
+- Device data retains first/last report times and expires after 90 days of inactivity. Account deletion removes both legacy and modern records. Clearing storage/reinstalling may change the ID; it is not a hardware ban mechanism.
+- Admin-only `GET`/`PUT /admin/user-security/:id/device-reference?deviceId=<record ID>` resolve the device model from the account’s saved report. Missing/wrong-account devices are rejected. Omit `deviceId` only for legacy snapshots.
+- `devicereferencecaches` stores validated image/reference metadata by normalized model, shared across accounts. It contains no account IDs, public IPs, installation IDs or provider keys. Successful entries expire after seven days, misses after one hour, errors after one minute. Reads enforce expiry before the Mongo TTL sweep. The admin Next.js server performs Serper searches only on misses or explicit retry and saves the result through these endpoints.
+- Startup waits for the new indexes. The existing `MONGODB_URI` is reused; no new database service/key is required. Keep `SERPER_API_KEY` on the Next.js admin server. Deploy/restart backend, then admin, then run the updated app; no new native dependency is required. Optional reporting must be enabled for new device records.
+
+Verification: `npm run build`, `npm test`; focused tests: `test/deviceStorage.test.cjs`, `test/userSecurity.test.cjs`, and `test/accountDeletion.test.cjs`.

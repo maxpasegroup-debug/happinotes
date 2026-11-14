@@ -1,4 +1,6 @@
 import app from './app';
+import { UserDevice } from './models/UserDevice';
+import { DeviceReferenceCache } from './models/DeviceReferenceCache';
 import { connectDB } from './config/database';
 import { ensureAdminUser } from './config/ensureAdmin';
 import { env } from './config/env';
@@ -36,6 +38,7 @@ const start = async (): Promise<void> => {
 
   await connectDB();
   await ensureAdminUser();
+  await Promise.all([UserDevice.init(), DeviceReferenceCache.init()]);
   // Do not accept provider events until the inbox collection and required
   // indexes are ready. Mongoose autoIndex remains enabled in this app.
   await StoreNotificationInbox.init();
