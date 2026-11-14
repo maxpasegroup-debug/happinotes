@@ -31,7 +31,7 @@ async function call(file) {
   return result;
 }
 
-function storageMock({ fail = false } = {}) {
+function storageMock({ fail = false, providerError = new Error('Private provider details'), duration = 123.6 } = {}) {
   let transferred = 0;
   mock.method(config, 'isCloudinaryConfigured', () => true);
   mock.method(config, 'configureCloudinary', () => {});
@@ -42,11 +42,11 @@ function storageMock({ fail = false } = {}) {
     return new Writable({
       write(chunk, _encoding, done) {
         transferred += chunk.length;
-        if (fail) callback(new Error('Private provider details'));
+        if (fail) callback(providerError);
         done();
       },
       final(done) {
-        if (!fail) callback(null, { secure_url: 'https://media.test/bite.mp3', public_id: 'bite', duration: 123.6 });
+        if (!fail) callback(null, { secure_url: 'https://media.test/bite.mp3', public_id: 'bite', duration });
         done();
       },
     });
@@ -107,4 +107,61 @@ test('bounded MP3 validation supports large ID3 tags and rejects truncated tags'
   assert.equal(await validateAudioFile(file), null);
   await writeFile(file.path, header);
   assert.match(await validateAudioFile(file), /valid MP3/);
+});
+
+
+test('two-hour-plus audio has no duration cap and streams without buffering the whole file', async (t) => {
+  const file = await stagedFile(t, 160 * 1024 * 1024);
+  const bytes = storageMock({ duration: 7500 });
+  const result = await call(file);
+  assert.equal(result.status, 201);
+  assert.equal(result.body.durationSeconds, 7500);
+  assert.equal(bytes(), file.size);
+  await assert.rejects(access(file.path), { code: 'ENOENT' });
+});
+
+for (const [providerError, status, message] of [
+  [{ http_code: 400, message: 'File size too large. Private provider details' }, 413, /per-file upload limit/],
+  [{ http_code: 413, message: 'Private provider details' }, 413, /per-file upload limit/],
+  [{ http_code: 420, message: 'Storage quota exceeded Private provider details' }, 503, /usage allowance/],
+  [{ http_code: 499, message: 'Request Timeout Private provider details' }, 504, /timed out/],
+]) {
+  test(`storage failure reports an actionable safe category (${status}, ${providerError.http_code})`, async (t) => {
+    const file = await stagedFile(t);
+    storageMock({ fail: true, providerError });
+    const result = await call(file);
+    assert.equal(result.error.statusCode, status);
+    assert.match(result.error.message, message);
+    assert.ok(!result.error.message.includes('Private provider details'));
+    await assert.rejects(access(file.path), { code: 'ENOENT' });
+  });
+}
+
+test('direct-upload signature restricts format, public ID and overwrite, and never returns the secret', async (t) => {
+  const { signHappyBiteAudioUpload } = require('../dist/controllers/happyBiteAudioUploadController');
+  const names = ['CLOUDINARY_CLOUD_NAME', 'CLOUDINARY_API_KEY', 'CLOUDINARY_API_SECRET'];
+  const previous = names.map(name => process.env[name]);
+  names.forEach((name, index) => { process.env[name] = ['test-cloud', 'test-public-key', 'test-private-secret'][index]; });
+  t.after(() => names.forEach((name, index) => { if (previous[index] === undefined) delete process.env[name]; else process.env[name] = previous[index]; }));
+  mock.method(config, 'configureCloudinary', () => {});
+  const result = {};
+  await signHappyBiteAudioUpload({ body: { name: 'long.mp3', type: 'audio/mpeg', size: 500 * 1024 * 1024, public_id: 'victim', overwrite: true } }, {
+    setHeader(name, value) { result[name] = value; }, json(body) { result.body = body; },
+  }, error => { result.error = error; });
+  assert.equal(result.error, undefined);
+  assert.equal(result.body.params.allowed_formats, 'mp3');
+  assert.equal(result.body.params.overwrite, false);
+  assert.match(result.body.params.public_id, /^happinotes\/happy-bites\/audio\/[0-9a-f-]{36}$/);
+  assert.equal(result['Cache-Control'], 'private, no-store');
+  assert.equal(JSON.stringify(result.body).includes('test-private-secret'), false);
+  assert.equal(result.body.signature, config.cloudinary.utils.api_sign_request(result.body.params, 'test-private-secret'));
+});
+
+test('direct-upload signing rejects empty and non-MP3 files without issuing credentials', async () => {
+  const { signHappyBiteAudioUpload } = require('../dist/controllers/happyBiteAudioUploadController');
+  for (const body of [{}, { name: 'video.mp4', size: 10 }, { name: 'bad.mp3', type: 'video/mp4', size: 10 }, { name: 'empty.mp3', size: 0 }]) {
+    let error;
+    await signHappyBiteAudioUpload({ body }, { json() { assert.fail('invalid input was signed'); } }, value => { error = value; });
+    assert.equal(error.statusCode, 400);
+  }
 });

@@ -1,4 +1,5 @@
 import { Router } from 'express';
+import rateLimit from 'express-rate-limit';
 import { body } from 'express-validator';
 import {
   getAllContents,
@@ -12,7 +13,7 @@ import {
 } from '../controllers/adminContentController';
 import { authenticate, requireAdmin } from '../middleware';
 import { upload, happyBiteAudioUpload } from '../middleware/upload';
-import { uploadHappyBiteAudio } from '../controllers/happyBiteAudioUploadController';
+import { uploadHappyBiteAudio, signHappyBiteAudioUpload } from '../controllers/happyBiteAudioUploadController';
 
 const router = Router();
 
@@ -75,6 +76,7 @@ const updateStatusValidation = [
 ];
 
 router.get('/', getAllContents);
+router.post('/sign-happy-bite-audio', rateLimit({ windowMs: 60_000, max: 20, standardHeaders: true, legacyHeaders: false }), signHappyBiteAudioUpload);
 router.post('/upload-happy-bite-audio', happyBiteAudioUpload.single('media'), uploadHappyBiteAudio);
 router.post('/upload-media', upload.single('media'), uploadContentMedia);
 router.post(

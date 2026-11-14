@@ -5,7 +5,7 @@ import { env } from './config/env';
 import { createServer } from 'http';
 import { Server } from 'socket.io';
 import { registerAdminRealtime } from './services/adminRealtime';
-import { registerRealtimeServer } from './services/realtime';
+import { registerRealtimeServer, watchUserSecurityChanges } from './services/realtime';
 import { startProductProvisioningWorker } from './services/storeProductProvisioning';
 import { startAccountDeletionWorker } from './services/accountDeletionWorker';
 import { startStoreNotificationInboxWorker } from './services/storeNotificationInboxWorker';
@@ -54,6 +54,8 @@ const start = async (): Promise<void> => {
   });
   registerAdminRealtime(io);
   registerRealtimeServer(io);
+  const stopSecurityWatch = watchUserSecurityChanges();
+  httpServer.once('close', stopSecurityWatch);
   io.on('connection', (socket) => {
     console.log('realtime_client_connected');
   });

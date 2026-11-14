@@ -1,3 +1,4 @@
+import { releaseExpiredBan, assertNotBanned } from '../services/accountModeration';
 import { Request, Response, NextFunction } from 'express';
 import bcrypt from 'bcryptjs';
 import jwt from 'jsonwebtoken';
@@ -293,7 +294,8 @@ export const login = async (
       if (!phoneUser || !phoneUser.password || !(await bcrypt.compare(pin, phoneUser.password))) {
         return next(new UnauthorizedError('Invalid WhatsApp number or PIN'));
       }
-      if (phoneUser.blocked) return next(new UnauthorizedError('Account is blocked'));
+      await releaseExpiredBan(phoneUser);
+      assertNotBanned(phoneUser);
       if (!(await isAccountWritable(phoneUser._id))) return next(new UnauthorizedError('Account deletion is in progress'));
       res.json({ success: true, token: signToken(phoneUser.id, phoneUser.sessionVersion ?? 0), user: userResponse(phoneUser) });
       return;
@@ -303,14 +305,13 @@ export const login = async (
     if (!user) {
       return next(new UnauthorizedError('Invalid email or password'));
     }
-    if (user.blocked) {
-      return next(new UnauthorizedError('Account is blocked'));
-    }
 
     const match = user.password ? await bcrypt.compare(password, user.password) : false;
     if (!match) {
       return next(new UnauthorizedError('Invalid email or password'));
     }
+    await releaseExpiredBan(user);
+    assertNotBanned(user);
     if (!(await isAccountWritable(user._id))) {
       return next(new UnauthorizedError('Account deletion is in progress'));
     }
@@ -514,6 +515,8 @@ export const forgotPassword = async (
       });
       return;
     }
+    await releaseExpiredBan(user);
+    assertNotBanned(user);
     if (!(await isAccountWritable(user._id))) {
       res.status(200).json({ message: 'If an account exists, an OTP has been sent.' });
       return;

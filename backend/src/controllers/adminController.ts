@@ -1,3 +1,4 @@
+import { moderateUser } from './userSecurityController';
 import { ensureBookProducts, validatePremiumPrice } from '../services/storeProductProvisioning';
 import { Request, Response, NextFunction } from 'express';
 import { validationResult } from 'express-validator';
@@ -409,44 +410,12 @@ export const updateBookStatus = async (
   }
 };
 
-/** PATCH /admin/users/:id/block */
-export const blockUser = async (
-  req: Request,
-  res: Response,
-  next: NextFunction
-): Promise<void> => {
-  try {
-    const user = await User.findByIdAndUpdate(
-      req.params.id,
-      { blocked: true },
-      { new: true }
-    )
-      .select('-password')
-      .lean();
-    if (!user) return next(new NotFoundError('User not found'));
-    res.json({ success: true, user: formatUserForAdmin(user as Record<string, unknown>) });
-  } catch (err) {
-    next(err);
-  }
+/** Existing dashboard actions share the guarded moderation workflow. */
+export const blockUser = async (req: Request, res: Response, next: NextFunction): Promise<void> => {
+  req.body = { action: 'permanent', reason: 'Blocked from the admin dashboard' };
+  await moderateUser(req, res, next);
 };
-
-/** PATCH /admin/users/:id/unblock */
-export const unblockUser = async (
-  req: Request,
-  res: Response,
-  next: NextFunction
-): Promise<void> => {
-  try {
-    const user = await User.findByIdAndUpdate(
-      req.params.id,
-      { blocked: false },
-      { new: true }
-    )
-      .select('-password')
-      .lean();
-    if (!user) return next(new NotFoundError('User not found'));
-    res.json({ success: true, user: formatUserForAdmin(user as Record<string, unknown>) });
-  } catch (err) {
-    next(err);
-  }
+export const unblockUser = async (req: Request, res: Response, next: NextFunction): Promise<void> => {
+  req.body = { action: 'unban', reason: 'Unblocked from the admin dashboard' };
+  await moderateUser(req, res, next);
 };

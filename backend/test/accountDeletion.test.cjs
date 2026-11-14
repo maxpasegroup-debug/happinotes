@@ -1,3 +1,4 @@
+const { UserNetwork } = require('../dist/models/UserNetwork');
 const { test, afterEach, mock } = require('node:test');
 const assert = require('node:assert/strict');
 const bcrypt = require('bcryptjs');
@@ -203,6 +204,7 @@ test('competing workers receive at most one claim for the same request', async (
 });
 
 test('worker performs only policy-independent cleanup and blocks at the policy gate', async () => {
+  mock.method(UserNetwork, 'deleteMany', async () => ({}));
   mock.method(AccountDeletionReauth, 'deleteMany', async () => ({}));
   mock.method(StorePurchase, 'updateMany', async () => ({}));
   mock.method(SubscriptionPurchase, 'updateMany', async () => ({}));
@@ -252,6 +254,7 @@ test('worker performs only policy-independent cleanup and blocks at the policy g
 });
 
 test('worker retries a partial cleanup failure without recording provider text', async () => {
+  mock.method(UserNetwork, 'deleteMany', async () => ({}));
   mock.method(AccountDeletionReauth, 'deleteMany', async () => ({}));
   mock.method(StorePurchase, 'updateMany', async () => ({}));
   mock.method(SubscriptionPurchase, 'updateMany', async () => ({}));

@@ -33,6 +33,9 @@ export interface IUser extends Document {
   fcmTokens: string[];
   subscription?: ISubscriptionEntitlement;
   blocked: boolean;
+  banExpiresAt?: Date;
+  banReason?: string;
+  moderationHistory: { action: string; reason: string; actorId: string; at: Date; expiresAt?: Date }[];
   /** Incremented atomically with password changes to revoke prior access tokens. */
   sessionVersion: number;
   /**
@@ -88,6 +91,9 @@ const userSchema = new Schema<IUser>(
       providerStateSignedAt: Date,
     },
     blocked: { type: Boolean, default: false },
+    banExpiresAt: Date,
+    banReason: { type: String, maxlength: 500 },
+    moderationHistory: { type: [{ action: String, reason: String, actorId: String, at: Date, expiresAt: Date }], default: [], select: false },
     sessionVersion: { type: Number, default: 0, min: 0 },
     deletionState: { type: String, enum: ['active', 'pending', 'completed'], default: 'active', index: true },
     deletionRequestedAt: Date,

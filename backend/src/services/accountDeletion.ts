@@ -73,7 +73,8 @@ export async function assertAccountWritable(userId: Types.ObjectId | string): Pr
 export async function requestAccountDeletion(
   userId: Types.ObjectId | string,
   idempotencyKey: string,
-  source: 'in_app' | 'external_web' = 'in_app',
+  source: 'in_app' | 'external_web' | 'admin' = 'in_app',
+  adminActorId?: string,
 ): Promise<IAccountDeletionRequest> {
   const idempotencyKeyHash = hashDeletionSecret(idempotencyKey);
   const byKey = await AccountDeletionRequest.findOne({ userId, idempotencyKeyHash });
@@ -116,7 +117,7 @@ export async function requestAccountDeletion(
         statusTokenHash: hashDeletionSecret(statusToken),
         source,
         reviewStatus: 'received',
-        processingHistory: [{ status: 'REQUEST_RECEIVED', actor: source, at: requestedAt }],
+        processingHistory: [{ status: 'REQUEST_RECEIVED', actor: source === 'admin' ? `admin:${adminActorId}` : source, at: requestedAt }],
         requestedAt,
         attempts: 0,
         checkpoints: {
@@ -141,7 +142,7 @@ export async function requestAccountDeletion(
       const marker = await User.updateOne(
         {
           _id: userId,
-          blocked: { $ne: true },
+          ...(source === 'admin' ? { role: 'user' } : { blocked: { $ne: true } }),
           $or: [{ deletionState: 'active' }, { deletionState: { $exists: false } }],
         },
         { $set: { deletionState: 'pending', deletionRequestedAt: requestedAt } },
@@ -183,7 +184,7 @@ export async function requestAccountDeletion(
         'checkpoints.accessBlocked': true,
         'checkpoints.accessBlockedAt': requestedAt,
       },
-      $push: { processingHistory: { status: 'ACCESS_BLOCKED', actor: source, at: requestedAt } },
+      $push: { processingHistory: { status: 'ACCESS_BLOCKED', actor: source === 'admin' ? `admin:${adminActorId}` : source, at: requestedAt } },
     });
   } catch (error) {
     await AccountDeletionRequest.updateOne(

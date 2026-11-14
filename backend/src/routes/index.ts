@@ -1,3 +1,4 @@
+import userSecurityRoutes from './userSecurityRoutes';
 import { Router } from 'express';
 import authRoutes from './authRoutes';
 import contentRoutes from './contentRoutes';
@@ -24,6 +25,7 @@ router.use('/account-deletion', accountDeletionRoutes);
 router.use('/contents', contentRoutes);
 router.use('/happy-bites', happyBiteRoutes);
 router.use('/collection', collectionRoutes);
+router.use('/admin/user-security', userSecurityRoutes);
 router.use('/admin', adminRoutes);
 router.use('/admin/store-products', adminStoreProductRoutes);
 router.use('/admin/subscription-plans', adminSubscriptionPlanRoutes);

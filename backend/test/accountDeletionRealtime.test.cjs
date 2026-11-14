@@ -55,7 +55,7 @@ test('blocked accounts are denied even with an existing deletion request', async
   authMocks({ existing: true, blocked: true });
   let error;
   await auth.authenticateDeletionFlow(request(), {}, (e) => { error = e; });
-  assert.equal(error.statusCode, 401);
+  assert.equal(error.statusCode, 403);
 });
 
 test('confirmed first deletion reaches the creation service and appears in the admin response', async () => {

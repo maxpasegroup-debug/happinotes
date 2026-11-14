@@ -19,7 +19,7 @@ export interface IAccountDeletionRequest extends Document {
   idempotencyKeyHash: string;
   publicReference?: string;
   statusTokenHash?: string;
-  source?: 'in_app' | 'external_web';
+  source?: 'in_app' | 'external_web' | 'admin';
   reviewStatus?: 'received' | 'under_review';
   processingHistory: Array<{ status: string; actor: string; at: Date }>;
   status: AccountDeletionStatus;
@@ -108,7 +108,7 @@ const accountDeletionRequestSchema = new Schema<IAccountDeletionRequest>(
     idempotencyKeyHash: { type: String, required: true },
     publicReference: { type: String, trim: true, uppercase: true },
     statusTokenHash: { type: String, select: false },
-    source: { type: String, enum: ['in_app', 'external_web'], default: 'in_app' },
+    source: { type: String, enum: ['in_app', 'external_web', 'admin'], default: 'in_app' },
     reviewStatus: { type: String, enum: ['received', 'under_review'], default: 'received' },
     processingHistory: { type: [processingHistorySchema], default: [] },
     status: {

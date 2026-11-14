@@ -1,5 +1,7 @@
 import { Request, Response, NextFunction } from 'express';
 import jwt from 'jsonwebtoken';
+import { releaseExpiredBan, assertNotBanned } from '../services/accountModeration';
+import { AppError } from '../utils/errors';
 import { env } from '../config/env';
 import { User } from '../models';
 import { UnauthorizedError } from '../utils/errors';
@@ -25,6 +27,8 @@ const userFromToken = async (req: Request, allowRevokedSession = false): Promise
   }
   const user = await User.findById(decoded.id);
   if (!user) throw new UnauthorizedError('User not found');
+  await releaseExpiredBan(user);
+  assertNotBanned(user);
   const currentVersion = user.sessionVersion ?? 0;
   const hasValidVersion = Number.isSafeInteger(currentVersion) && currentVersion >= 0;
   const tokenVersionMatches = decoded.sessionVersion === undefined
@@ -53,7 +57,8 @@ export const authenticate = async (
     await rejectInactiveAccount(user);
     req.user = user;
     next();
-  } catch {
+  } catch (error) {
+    if (error instanceof AppError && error.statusCode === 403) { next(error); return; }
     next(new UnauthorizedError('Invalid or expired token'));
   }
 };
@@ -83,7 +88,8 @@ export const authenticateDeletionFlow = async (
       req.user = user;
     }
     next();
-  } catch {
+  } catch (error) {
+    if (error instanceof AppError && error.statusCode === 403) { next(error); return; }
     next(new UnauthorizedError('Invalid or expired token'));
   }
 };

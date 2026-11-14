@@ -1,3 +1,4 @@
+import { UserNetwork } from '../models/UserNetwork';
 import { emitAccountDeletionsChanged } from './realtime';
 import { randomUUID } from 'crypto';
 import { AccountDeletionReauth, Otp, User } from '../models';
@@ -37,7 +38,7 @@ async function ensurePendingAccount(request: IAccountDeletionRequest): Promise<v
   const result = await User.updateOne(
     {
       _id: request.userId,
-      blocked: { $ne: true },
+      ...(request.source === 'admin' ? { role: 'user' } : { blocked: { $ne: true } }),
       $or: [
         { deletionState: 'pending' },
         { deletionState: 'active' },
@@ -55,6 +56,7 @@ async function ensurePendingAccount(request: IAccountDeletionRequest): Promise<v
 }
 
 async function cleanupAuthArtifacts(request: IAccountDeletionRequest): Promise<void> {
+  await UserNetwork.deleteMany({ userId: request.userId });
   await PasswordResetToken.deleteMany({ userId: request.userId });
   await AccountDeletionReauth.deleteMany({ userId: request.userId });
 
