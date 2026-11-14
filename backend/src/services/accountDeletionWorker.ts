@@ -74,7 +74,7 @@ async function cleanupAuthArtifacts(request: IAccountDeletionRequest): Promise<v
   }
   const credentialCleanup = await User.updateOne(
     { _id: request.userId, deletionState: 'pending', password: { $exists: true } },
-    { $unset: { password: 1 }, $inc: { sessionVersion: 1 } },
+    { $unset: { password: 1, activeLoginSessionId: 1, loginHistory: 1 }, $inc: { sessionVersion: 1 } },
   );
   if (!matchedCount(credentialCleanup) && !(await User.exists({
     _id: request.userId,
@@ -99,6 +99,7 @@ async function cleanupPreferencesAndDevices(request: IAccountDeletionRequest): P
       // These are user-owned, non-financial records. Entitlement removal runs
       // in its own ordered checkpoint after profile/contact cleanup.
       $set: { bookCollection: [], happyBiteCollection: [], favourites: [], fcmTokens: [] },
+      $unset: { loginHistory: 1, activeLoginSessionId: 1 },
     },
   );
   if (!matchedCount(result)) {

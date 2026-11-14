@@ -21,6 +21,23 @@ export function parseNetwork(body: Record<string, unknown>) {
   return { networkType, deviceIp: normalizeIp(body.deviceIp) || '', carrier: clean(body.carrier, 80), deviceModel: clean(body.deviceModel), os: clean(body.os, 30), osVersion: clean(body.osVersion, 40) };
 }
 
+// Explicit location opt-in is separate from basic network reporting. Keep only
+// the latest foreground fix; client-reported coordinates are not trusted proof.
+export function parseDeviceLocation(value: unknown, now = new Date()) {
+  if (value === undefined || value === null) return value;
+  if (typeof value !== 'object' || Array.isArray(value)) throw new BadRequestError('Invalid device location.');
+  const input = value as Record<string, unknown>;
+  const { latitude, longitude, accuracy, capturedAt, mocked, consentVersion } = input;
+  const timestamp = typeof capturedAt === 'string' ? Date.parse(capturedAt) : NaN;
+  if (consentVersion !== 1 || typeof latitude !== 'number' || !Number.isFinite(latitude) || Math.abs(latitude) > 90 ||
+    typeof longitude !== 'number' || !Number.isFinite(longitude) || Math.abs(longitude) > 180 ||
+    (accuracy !== null && (typeof accuracy !== 'number' || !Number.isFinite(accuracy) || accuracy < 0 || accuracy > 100000)) ||
+    !Number.isFinite(timestamp) || timestamp < now.getTime() - 15 * 60 * 1000 || timestamp > now.getTime() + 5 * 60 * 1000 ||
+    (mocked !== undefined && typeof mocked !== 'boolean')) throw new BadRequestError('Invalid or expired device location.');
+  return { latitude, longitude, accuracy, capturedAt: new Date(timestamp), receivedAt: now, consentVersion: 1,
+    ...(typeof mocked === 'boolean' ? { mocked } : {}) };
+}
+
 // No IP is sent to a third party unless the operator explicitly configures it.
 // The fixed HTTPS host prevents a client-provided lookup target or SSRF.
 export async function lookupNetwork(ip: string | undefined) {

@@ -5,6 +5,7 @@ import { body } from 'express-validator';
 import {
   signup,
   login,
+  logout,
   getMe,
   forgotPassword,
   verifyOTP,
@@ -124,6 +125,7 @@ router.post('/reset-password', authRateLimiter, resetPasswordValidation, resetPa
 router.post('/me/fcm-token', authenticate, body('token').isString().trim().isLength({ min: 20, max: 4096 }), registerFcmToken);
 router.delete('/me/fcm-token', authenticate, body('token').isString().trim().isLength({ min: 20, max: 4096 }), unregisterFcmToken);
 router.get('/me', authenticate, getMe);
+router.post('/logout', authenticate, logout);
 router.get('/me/network/identity', authenticate, rateLimit({ windowMs: 60_000, max: 10, keyGenerator: req => String(req.user!._id), standardHeaders: true, legacyHeaders: false }), createDeviceIdentity);
 router.post('/me/network', authenticate, rateLimit({ windowMs: 60_000, max: 10, keyGenerator: req => String(req.user!._id), standardHeaders: true, legacyHeaders: false }), recordNetwork);
 router.put('/me', authenticate, updateLanguage);

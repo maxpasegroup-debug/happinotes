@@ -19,6 +19,10 @@ export interface ISubscriptionEntitlement {
   providerStateSignedAt?: Date;
 }
 
+export interface LoginHistoryEntry {
+  sessionId: string; startedAt: Date; expiresAt: Date; endedAt?: Date; lastSeen?: Date;
+  deviceId?: string; deviceModel?: string; os?: string; osVersion?: string; publicIp?: string;
+}
 export interface IUser extends Document {
   name: string;
   email?: string;
@@ -38,6 +42,8 @@ export interface IUser extends Document {
   moderationHistory: { action: string; reason: string; actorId: string; at: Date; expiresAt?: Date }[];
   /** Incremented atomically with password changes to revoke prior access tokens. */
   sessionVersion: number;
+  activeLoginSessionId?: string;
+  loginHistory: LoginHistoryEntry[];
   /**
    * Missing on legacy documents means active.  The deletion workflow sets
    * this before any cleanup so existing JWTs are rejected by middleware.
@@ -94,6 +100,10 @@ const userSchema = new Schema<IUser>(
     banExpiresAt: Date,
     banReason: { type: String, maxlength: 500 },
     moderationHistory: { type: [{ action: String, reason: String, actorId: String, at: Date, expiresAt: Date }], default: [], select: false },
+    activeLoginSessionId: String,
+    loginHistory: { type: [new Schema({ sessionId: String, startedAt: Date, expiresAt: Date, endedAt: Date, lastSeen: Date,
+      deviceId: String, deviceModel: String, os: String, osVersion: String, publicIp: String,
+    }, { _id: false })], default: [], select: false },
     sessionVersion: { type: Number, default: 0, min: 0 },
     deletionState: { type: String, enum: ['active', 'pending', 'completed'], default: 'active', index: true },
     deletionRequestedAt: Date,

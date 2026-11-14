@@ -11,6 +11,13 @@ const schema = new Schema({
   os: String,
   osVersion: String,
   lastSeen: { type: Date, default: Date.now, index: { expires: 90 * 24 * 60 * 60 } },
+  deviceLocation: { type: new Schema({
+    latitude: { type: Number, required: true, min: -90, max: 90 },
+    longitude: { type: Number, required: true, min: -180, max: 180 },
+    accuracy: { type: Number, min: 0, max: 100000, default: null },
+    capturedAt: { type: Date, required: true }, receivedAt: { type: Date, required: true },
+    consentVersion: { type: Number, required: true, enum: [1] }, mocked: Boolean,
+  }, { _id: false }), default: undefined },
   geo: {
     status: String, city: String, region: String, country: String, provider: String,
     latitude: Number, longitude: Number, checkedAt: Date,

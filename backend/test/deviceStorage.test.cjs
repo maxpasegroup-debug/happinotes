@@ -101,3 +101,30 @@ test('cache payload validation rejects mismatches, local URLs, oversized content
   for (const candidate of [{ ...photo, model: 'Pixel 9' }, { ...photo, imageUrl: 'http://127.0.0.1/a' }, { ...photo, sourceUrl: 'javascript:alert(1)' }, { ...photo, searchTitle: 'x'.repeat(20000) }, { status: 'found', model: photo.model }]) assert.throws(() => validateDeviceReference(candidate, photo.model));
   assert.equal(referenceTtl('not_found'), 3600000); assert.equal(referenceTtl('unavailable'), 60000);
 });
+
+test('device locations require explicit consent, valid coordinates and a recent capture timestamp', () => {
+  const valid = { latitude: 10, longitude: 76, accuracy: 20, capturedAt: new Date().toISOString(), consentVersion: 1, mocked: false };
+  const saved = network.parseDeviceLocation({ ...valid, userId: 'spoofed', receivedAt: '1999-01-01' });
+  assert.equal(saved.latitude, 10); assert.equal(saved.userId, undefined);
+  assert.ok(saved.receivedAt.getTime() > Date.now() - 1000);
+  assert.equal(network.parseDeviceLocation(null), null); assert.equal(network.parseDeviceLocation(undefined), undefined);
+  for (const input of ['location', [], { ...valid, consentVersion: 0 }, { ...valid, latitude: 91 }, { ...valid, longitude: Infinity }, { ...valid, accuracy: -1 }, { ...valid, accuracy: '10' }, { ...valid, capturedAt: new Date(Date.now() - 3600000).toISOString() }, { ...valid, capturedAt: new Date(Date.now() + 3600000).toISOString() }, { ...valid, mocked: 'no' }]) {
+    assert.throws(() => network.parseDeviceLocation(input), { statusCode: 400 });
+  }
+});
+test('latest location is stored per authenticated installation; explicit null clears it and legacy reports leave it alone', async () => {
+  const writes = [];
+  mock.method(UserDevice, 'findOne', () => ({ lean: async () => ({ publicIp: '8.8.8.8', geo: { status: 'approximate', checkedAt: new Date() } }) }));
+  mock.method(UserDevice, 'updateOne', async (filter, update) => { assert.equal(filter.userId, userId); assert.equal(filter.installationId, uuidA); writes.push(update); });
+  const report = async extra => controller.recordNetwork({ ip: '8.8.8.8', user: { _id: userId }, body: { networkType: 'wifi', installationId: uuidA, ...extra } }, response(), next);
+  await report({ deviceLocation: { latitude: 10, longitude: 76, accuracy: null, capturedAt: new Date().toISOString(), consentVersion: 1 } });
+  assert.equal(writes[0].$set.deviceLocation.longitude, 76); assert.equal(writes[0].$set.geo, undefined);
+  await report({ deviceLocation: null }); assert.equal(writes[1].$unset.deviceLocation, 1);
+  await report({}); assert.equal(writes[2].$set.deviceLocation, undefined); assert.equal(writes[2].$unset, undefined);
+});
+test('location cannot be stored in a legacy network snapshot without an installation identity', async () => {
+  mock.method(UserNetwork, 'updateOne', () => assert.fail('no write'));
+  let caught;
+  await controller.recordNetwork({ user: { _id: userId }, body: { networkType: 'wifi', deviceLocation: { latitude: 10, longitude: 76, accuracy: 20, capturedAt: new Date().toISOString(), consentVersion: 1 } } }, response(), error => { caught = error; });
+  assert.equal(caught.statusCode, 400);
+});

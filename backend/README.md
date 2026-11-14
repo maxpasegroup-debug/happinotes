@@ -34,6 +34,7 @@ backend/
 │   │   ├── errorHandler.ts
 │   │   └── index.ts
 │   ├── services/
+│   │   ├── accountSessions.ts
 │   │   └── deviceReferenceCache.ts
 │   ├── utils/
 │   │   ├── errors.ts      # AppError, UnauthorizedError, etc.
@@ -42,6 +43,7 @@ backend/
 │   └── server.ts          # DB connect + listen
 ├── .env.example
 ├── test/
+│   ├── accountSessions.test.cjs
 │   ├── deviceStorage.test.cjs
 │   ├── happyBiteAudioUpload.test.cjs  # Large audio upload regression checks
 │   └── happyBiteCollection.test.cjs   # Saved Happy Bites and access regression checks
@@ -309,13 +311,29 @@ The new admin sends bounded chunks directly to Cloudinary. Existing clients can 
 
 ## Multiple devices per account and model reference cache
 
-- Existing account/login/subscription identities are unchanged; simultaneous logins are supported.
+- Account/subscription identities are unchanged; each successful customer login now revokes earlier sessions. Admin login behavior is unchanged.
 - `GET /auth/me/network/identity` is authenticated and rate limited. It issues a UUID without writing a record; the app persists it before its first report.
 - `POST /auth/me/network` accepts an optional UUID `installationId`. Modern reports upsert the `userdevices` collection under a unique `{userId, installationId}` index. Same model/IP does not merge devices, and repeated login/reporting reuses the installation. The client cannot choose the account ID. Installation IDs are not returned to the admin.
-- Calls without `installationId` keep the existing `UserNetwork` legacy snapshot; no destructive migration/index removal is necessary. The authenticated admin listing remains seven **accounts** per page and returns `devices` newest first, plus compatible `network` latest-record data. Legacy reports appear only when no modern device records exist. Past overwritten devices cannot be recovered.
+- Calls without `installationId` use their signed login session UUID as a fallback device key. Only tokens issued before this rollout without a session ID keep the existing `UserNetwork` legacy snapshot; no destructive migration/index removal is necessary. The authenticated admin listing remains seven **accounts** per page and returns `devices` newest first, plus compatible `network` latest-record data. The admin also receives `legacyNetwork`, keeping the last older snapshot visible alongside modern records. Past overwritten devices cannot be recovered.
 - Device data retains first/last report times and expires after 90 days of inactivity. Account deletion removes both legacy and modern records. Clearing storage/reinstalling may change the ID; it is not a hardware ban mechanism.
 - Admin-only `GET`/`PUT /admin/user-security/:id/device-reference?deviceId=<record ID>` resolve the device model from the account’s saved report. Missing/wrong-account devices are rejected. Omit `deviceId` only for legacy snapshots.
 - `devicereferencecaches` stores validated image/reference metadata by normalized model, shared across accounts. It contains no account IDs, public IPs, installation IDs or provider keys. Successful entries expire after seven days, misses after one hour, errors after one minute. Reads enforce expiry before the Mongo TTL sweep. The admin Next.js server performs Serper searches only on misses or explicit retry and saves the result through these endpoints.
-- Startup waits for the new indexes. The existing `MONGODB_URI` is reused; no new database service/key is required. Keep `SERPER_API_KEY` on the Next.js admin server. Deploy/restart backend, then admin, then run the updated app; no new native dependency is required. Optional reporting must be enabled for new device records.
+- Startup waits for the new indexes. The existing `MONGODB_URI` is reused; no new database service/key is required. Keep `SERPER_API_KEY` on the Next.js admin server. Deploy/restart backend, then admin, then run the updated app. Basic reporting requires no new native dependency; optional foreground location requires the new expo-location native build. Optional reporting must be enabled for new device records.
 
 Verification: `npm run build`, `npm test`; focused tests: `test/deviceStorage.test.cjs`, `test/userSecurity.test.cjs`, and `test/accountDeletion.test.cjs`.
+
+
+### Optional device location
+
+Modern `/auth/me/network` reports may include `deviceLocation` with finite `latitude`/`longitude`, `accuracy` (meters or null), ISO `capturedAt`, `consentVersion: 1`, and optional boolean `mocked`. The client sends this only after a separate location opt-in and foreground OS permission. Validation requires a capture within the previous 15 minutes / next five minutes (clock tolerance), valid coordinates/accuracy and an installation ID. The server adds `receivedAt`, discards unknown location fields and replaces only that authenticated installation’s latest point. Coordinates are client-reported, not verified identity or evidence of abuse. `null` removes the stored point; omitted fields preserve older-client compatibility. Location remains separate from `geo` (IP lookup). Admin authorization, 90-day device inactivity expiry and account-deletion cleanup also cover location. Basic opt-out prevents further reports rather than deleting already received records. There is no location history, background tracking or new ban rule.
+
+
+### Single active customer session and login history
+
+`startAccountSession` runs only after successful credentials/OTP verification (email, phone PIN and sign-up). One atomic User update increments `sessionVersion`, elects `activeLoginSessionId`, and appends a bounded `loginHistory` (latest 50 successful logins). The JWT carries both values; prior tokens fail existing protected API and socket authentication immediately. Password reset, moderation and deletion still revoke sessions. Admin logins keep their existing behavior. Failed credentials never revoke a session. Concurrent logins elect the final committed login; a delayed older response may contain an already-revoked token and must sign in again.
+
+Login records contain start/expiry/end times and receive a device-record link plus model/OS/public-IP snapshot only when optional telemetry is reported. This stores sign-ins even when metadata is off/unavailable, without inventing device identities. Device identity is installation-scoped, not proof of physical hardware. History statuses are current, replaced, signed out, expired or revoked; current means authorized, not necessarily online. Records persist until displaced by 50 newer logins or account deletion; location coordinates are never copied into login history.
+
+`POST /auth/logout` conditionally revokes only the supplied session and records its end. A late old-device logout cannot invalidate a newer login. The mobile client captures the old token before clearing local state. `/account` events request an immediate authorization check, including when background JavaScript is executing; 15-second checks and foreground/reconnect checks provide fallback. OS suspension/offline state delays local UI logout until execution/connectivity resumes; the backend already rejects the revoked token. Already downloaded audio cannot be recalled.
+
+Deploy backend and admin, update both phone installations, then sign in on phone A followed by B. A must stop playback/sign out; B stays authorized; admin → User Security → user → Login & device history retains both entries. Historical single snapshots overwritten before this rollout cannot be recovered. Tests include concurrent login, failed credentials, PIN login, old logout races, expiry and legacy reports.

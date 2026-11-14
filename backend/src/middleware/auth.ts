@@ -13,6 +13,7 @@ declare global {
   namespace Express {
     interface Request {
       user?: IUser;
+      authSessionId?: string;
     }
   }
 }
@@ -21,7 +22,7 @@ const userFromToken = async (req: Request, allowRevokedSession = false): Promise
   const authHeader = req.headers.authorization;
   const token = authHeader?.startsWith('Bearer ') ? authHeader.slice(7) : null;
   if (!token) throw new UnauthorizedError('Access token required');
-  const decoded = jwt.verify(token, env.JWT_SECRET, { algorithms: ['HS256'] }) as { id?: unknown; sessionVersion?: unknown };
+  const decoded = jwt.verify(token, env.JWT_SECRET, { algorithms: ['HS256'] }) as { id?: unknown; sessionVersion?: unknown; loginSessionId?: unknown };
   if (!decoded || typeof decoded !== 'object' || typeof decoded.id !== 'string') {
     throw new UnauthorizedError('Invalid token claims');
   }
@@ -35,8 +36,12 @@ const userFromToken = async (req: Request, allowRevokedSession = false): Promise
     ? currentVersion === 0
     : Number.isSafeInteger(decoded.sessionVersion) && decoded.sessionVersion === currentVersion;
   if (!hasValidVersion || (!tokenVersionMatches && !allowRevokedSession)) {
-    throw new UnauthorizedError('Access token has been revoked');
+    throw new UnauthorizedError('Your session ended. The account may have been signed in on another device. Please sign in again.');
   }
+  if (!allowRevokedSession && decoded.loginSessionId !== undefined && decoded.loginSessionId !== user.activeLoginSessionId) {
+    throw new UnauthorizedError('Your account was signed in on another device. Please sign in again.');
+  }
+  if (typeof decoded.loginSessionId === 'string') req.authSessionId = decoded.loginSessionId;
   return user;
 };
 
@@ -59,7 +64,7 @@ export const authenticate = async (
     next();
   } catch (error) {
     if (error instanceof AppError && error.statusCode === 403) { next(error); return; }
-    next(new UnauthorizedError('Invalid or expired token'));
+    next(error instanceof UnauthorizedError ? error : new UnauthorizedError('Invalid or expired token'));
   }
 };
 

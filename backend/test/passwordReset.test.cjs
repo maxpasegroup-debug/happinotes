@@ -227,11 +227,12 @@ test('a token issued before reset is rejected afterward and a new token works', 
 
   const afterReset = await authenticateToken(oldToken);
   assert.equal(afterReset.error.statusCode, 401);
+  mock.method(User, 'findOneAndUpdate', async (_filter, update) => { Object.assign(state.user, update.$set); state.user.sessionVersion++; return state.user; });
   const login = await invoke(authController.login, {
     email: 'person@example.test', password: 'new-password',
   });
   assert.equal(login.error, undefined);
-  assert.equal(jwt.verify(login.body.token, env.JWT_SECRET).sessionVersion, 1);
+  assert.equal(jwt.verify(login.body.token, env.JWT_SECRET).sessionVersion, 2);
   const afterLogin = await authenticateToken(login.body.token);
   assert.equal(afterLogin.error, undefined);
   assert.equal(afterLogin.req.user, state.user);

@@ -1,3 +1,5 @@
+import { startAccountSession } from '../services/accountSessions';
+import { emitUserSecurityChanged } from '../services/realtime';
 import { releaseExpiredBan, assertNotBanned } from '../services/accountModeration';
 import { Request, Response, NextFunction } from 'express';
 import bcrypt from 'bcryptjs';
@@ -198,13 +200,6 @@ const verifyEmailChallenge = (token: string, email: string, type: 'email-signup'
   } catch { return false; }
 };
 
-const signToken = (id: string, sessionVersion: number): string => {
-  return jwt.sign({ id, sessionVersion }, env.JWT_SECRET, {
-    algorithm: 'HS256',
-    expiresIn: env.JWT_EXPIRES_IN as jwt.SignOptions['expiresIn'],
-  });
-};
-
 export const signup = async (
   req: Request,
   res: Response,
@@ -239,7 +234,7 @@ export const signup = async (
       });
       otpRecord.used = true;
       await otpRecord.save();
-      res.status(201).json({ success: true, token: signToken(user.id, user.sessionVersion ?? 0), user: userResponse(user) });
+      res.status(201).json({ success: true, token: await startAccountSession(user), user: userResponse(user) });
       return;
     }
     const normalizedEmail = email.toLowerCase();
@@ -260,7 +255,7 @@ export const signup = async (
       role: 'user',
     });
 
-    const token = signToken(user._id.toString(), user.sessionVersion ?? 0);
+    const token = await startAccountSession(user);
     res.status(201).json({
       success: true,
       token,
@@ -297,7 +292,7 @@ export const login = async (
       await releaseExpiredBan(phoneUser);
       assertNotBanned(phoneUser);
       if (!(await isAccountWritable(phoneUser._id))) return next(new UnauthorizedError('Account deletion is in progress'));
-      res.json({ success: true, token: signToken(phoneUser.id, phoneUser.sessionVersion ?? 0), user: userResponse(phoneUser) });
+      res.json({ success: true, token: await startAccountSession(phoneUser), user: userResponse(phoneUser) });
       return;
     }
     const normalizedEmail = email.trim().toLowerCase();
@@ -316,7 +311,7 @@ export const login = async (
       return next(new UnauthorizedError('Account deletion is in progress'));
     }
  
-    const token = signToken(user._id.toString(), user.sessionVersion ?? 0);
+    const token = await startAccountSession(user);
     res.json({
       success: true,
       token,
@@ -488,6 +483,8 @@ export const getMe = async (
       u.subscriptionExpiresAt = subscription?.expiresAt ?? null;
       delete u.purchasedBooks;
       delete u.fcmTokens;
+      delete u.activeLoginSessionId;
+      delete u.loginHistory;
     }
     res.json({ success: true, user: u || user });
   } catch (err) {
@@ -634,7 +631,7 @@ export const resetPassword = async (
     // previously issued access token atomically.
     const passwordUpdate = await User.updateOne(
       { _id: user._id },
-      { $set: { password: hashedPassword }, $inc: { sessionVersion: 1 } },
+      { $set: { password: hashedPassword }, $unset: { activeLoginSessionId: 1 }, $inc: { sessionVersion: 1 } },
     );
     if (passwordUpdate.matchedCount !== 1) {
       respondInvalidResetOtp(res);
@@ -648,3 +645,19 @@ export const resetPassword = async (
     next(err);
   }
 };
+
+export async function logout(req: Request, res: Response, next: NextFunction) {
+  try {
+    if (req.user!.role === 'user') {
+      // A delayed logout from an older login must never revoke the new login.
+      const sessionId = req.authSessionId;
+      await User.updateOne({ _id: req.user!._id, sessionVersion: req.user!.sessionVersion,
+        ...(sessionId ? { activeLoginSessionId: sessionId, 'loginHistory.sessionId': sessionId } : {}),
+      }, { $inc: { sessionVersion: 1 }, $unset: { activeLoginSessionId: 1 },
+        ...(sessionId ? { $set: { 'loginHistory.$.endedAt': new Date() } } : {}),
+      });
+      emitUserSecurityChanged(String(req.user!._id));
+    }
+    res.json({ success: true });
+  } catch (error) { next(error); }
+}

@@ -158,12 +158,13 @@ test('registered customer can sign in using email and password without an OTP ch
   };
   mock.method(User, 'findOne', () => ({ select: async () => user }));
   mock.method(deletion, 'isAccountWritable', async () => true);
+  mock.method(User, 'findOneAndUpdate', async (_filter, update) => ({ ...user, sessionVersion: 1, activeLoginSessionId: update.$set.activeLoginSessionId }));
   const login = await invoke(authController.login, { email: EMAIL, password: 'customer-password' });
   assert.equal(login.error, undefined);
   assert.equal(login.body.success, true);
   const accessClaims = jwt.verify(login.body.token, SECRET);
   assert.equal(accessClaims.id, 'customer-id');
-  assert.equal(accessClaims.sessionVersion, 0);
+  assert.equal(accessClaims.sessionVersion, 1);
 });
 
 test('configured administrator email-password login remains compatible', async () => {
