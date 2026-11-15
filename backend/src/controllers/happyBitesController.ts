@@ -71,13 +71,22 @@ export async function listHappyBites(req: Request, res: Response, next: NextFunc
     const category = cleanText(req.query.category, 80);
     const filter: Record<string, unknown> = { published: true };
     if (category && category.toLowerCase() !== 'all') filter.category = category;
-    const [happyBites, total, categories] = await Promise.all([
+    const language = cleanText(req.query.language, 160);
+    if (language && language.toLowerCase() !== 'all') {
+      const aliases = req.query.languageAlias === undefined ? [] : Array.isArray(req.query.languageAlias) ? req.query.languageAlias : [req.query.languageAlias];
+      if (aliases.length > 32 || aliases.some(value => typeof value !== 'string' || value.length > 160)) throw new BadRequestError('Invalid language aliases');
+      const names = [...new Set([language, ...aliases.map(value => cleanText(value, 160))].filter(Boolean))];
+      // Literal, case-insensitive matching; language filtering precedes pagination.
+      filter.language = { $in: names.map(name => new RegExp(`^\\s*${name.replace(/[.*+?^${}()|[\]\\]/g, '\\$&')}\\s*$`, 'i')) };
+    }
+    const [happyBites, total, categories, languages] = await Promise.all([
       HappyBite.find(filter).sort({ displayOrder: 1, createdAt: -1, _id: -1 }).skip((page - 1) * limit).limit(limit).lean(),
       HappyBite.countDocuments(filter),
       HappyBite.distinct('category', { published: true }),
+      HappyBite.distinct('language', { published: true }),
     ]);
     const premiumAccess = canListenPremium(req);
-    res.json({ success: true, happyBites: happyBites.map((bite) => publicBite(bite, premiumAccess)), categories: categories.sort((a, b) => String(a).localeCompare(String(b))), pagination: { page, limit, total, totalPages: Math.ceil(total / limit), hasMore: page * limit < total } });
+    res.json({ success: true, capabilities: { languageFiltering: true }, happyBites: happyBites.map((bite) => publicBite(bite, premiumAccess)), categories: categories.sort((a, b) => String(a).localeCompare(String(b))), languages: languages.filter(value => typeof value === 'string' && value.trim()), pagination: { page, limit, total, totalPages: Math.ceil(total / limit), hasMore: page * limit < total } });
   } catch (error) { next(error); }
 }
 

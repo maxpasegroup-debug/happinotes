@@ -1,3 +1,4 @@
+import { startSystemMetrics } from './services/systemMetrics';
 import { SecurityBlock } from './models/SecurityBlock';
 import app from './app';
 import { UserDevice } from './models/UserDevice';
@@ -58,6 +59,8 @@ const start = async (): Promise<void> => {
   });
   registerAdminRealtime(io);
   registerRealtimeServer(io);
+  const stopMetrics = startSystemMetrics();
+  httpServer.once('close', stopMetrics);
   const stopSecurityWatch = watchUserSecurityChanges();
   httpServer.once('close', stopSecurityWatch);
   io.on('connection', (socket) => {

@@ -100,10 +100,10 @@ export const updateLanguage = async (req: Request, res: Response, next: NextFunc
     if (!req.user) return next(new UnauthorizedError('Not authenticated'));
     await assertAccountWritable(req.user._id);
     const language = req.body?.languagePreference;
-    if (!['all', 'english', 'malayalam', 'hindi'].includes(language)) {
-      return next(new BadRequestError('languagePreference must be all, english, malayalam, or hindi'));
+    if (typeof language !== 'string' || !language.trim() || language.trim().length > 160) {
+      return next(new BadRequestError('languagePreference must be a language name of 160 characters or fewer'));
     }
-    req.user.languagePreference = language;
+    req.user.languagePreference = language.trim().toLowerCase();
     await req.user.save();
     res.json({ success: true, user: userResponse(req.user) });
   } catch (err) { next(err); }

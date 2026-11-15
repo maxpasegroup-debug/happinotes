@@ -1,3 +1,4 @@
+import { recordSystemRequest } from './services/systemMetrics';
 import express from 'express';
 import helmet from 'helmet';
 import cors from 'cors';
@@ -21,6 +22,7 @@ app.use(
 app.use(
   cors(corsConfiguration.httpOptions)
 );
+app.use(recordSystemRequest);
 app.use(express.json());
 app.use(express.urlencoded({ extended: true }));
 

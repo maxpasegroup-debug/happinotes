@@ -7,6 +7,30 @@ import { cloudinary, configureCloudinary, isCloudinaryConfigured } from '../conf
 import { validateAudioFile } from '../utils/mediaValidation';
 import { AppError, BadRequestError } from '../utils/errors';
 
+type AudioLimit = { account: string; bytes: number | null; expires: number };
+let audioLimit: AudioLimit | undefined;
+
+/** A provider allowance, never an application size/duration restriction. */
+async function audioFileLimit(fileSize: number): Promise<number | null> {
+  const account = `${process.env.CLOUDINARY_CLOUD_NAME}:${process.env.CLOUDINARY_API_KEY}`;
+  const cached = audioLimit;
+  // Recheck rejected sizes immediately so Retry sees an account upgrade.
+  if (cached?.account === account && cached.expires > Date.now() &&
+      (cached.bytes === null || fileSize <= cached.bytes)) return cached.bytes;
+  let bytes: number | null = null;
+  try {
+    const usage = await cloudinary.api.usage({ timeout: 8000 });
+    const reported = usage?.media_limits?.video_max_size_bytes;
+    if (typeof reported === 'number' && Number.isSafeInteger(reported) && reported > 0) bytes = reported;
+  } catch {
+    // Restricted Admin API access must not break otherwise valid uploads.
+    // Cloudinary remains authoritative and will enforce its upload limit.
+    console.warn('happy_bite_audio_limit_lookup_unavailable');
+  }
+  audioLimit = { account, bytes, expires: Date.now() + 60_000 };
+  return bytes;
+}
+
 // Return actionable categories without exposing raw provider responses or secrets.
 function audioStorageError(error: unknown): AppError {
   const detail = error && typeof error === 'object' ? error as { message?: unknown; http_code?: unknown; code?: unknown } : {};
@@ -94,6 +118,11 @@ export async function signHappyBiteAudioUpload(req: Request, res: Response, next
     }
     if (!isCloudinaryConfigured()) throw new AppError('Media storage is not configured. Please contact an administrator.', 503);
     configureCloudinary();
+    const maxFileSizeBytes = await audioFileLimit(size);
+    if (maxFileSizeBytes !== null && size > maxFileSizeBytes) {
+      const mib = (bytes: number) => (bytes / 1024 / 1024).toFixed(2);
+      throw new AppError(`This MP3 is ${mib(size)} MiB (${size} bytes). Your Cloudinary audio/video per-file allowance is ${mib(maxFileSizeBytes)} MiB (${maxFileSizeBytes} bytes). Increase that allowance to cover this file, then press Retry upload. No audio was transferred. Happy Bites has no additional audio size or duration cap.`, 413);
+    }
     const params = {
       timestamp: Math.floor(Date.now() / 1000),
       public_id: `happinotes/happy-bites/audio/${randomUUID()}`,
@@ -102,6 +131,6 @@ export async function signHappyBiteAudioUpload(req: Request, res: Response, next
     };
     const signature = cloudinary.utils.api_sign_request(params, process.env.CLOUDINARY_API_SECRET!.trim());
     res.setHeader('Cache-Control', 'private, no-store');
-    res.json({ cloudName: process.env.CLOUDINARY_CLOUD_NAME!.trim(), apiKey: process.env.CLOUDINARY_API_KEY!.trim(), signature, params });
+    res.json({ cloudName: process.env.CLOUDINARY_CLOUD_NAME!.trim(), apiKey: process.env.CLOUDINARY_API_KEY!.trim(), signature, params, ...(maxFileSizeBytes !== null ? { maxFileSizeBytes } : {}) });
   } catch (error) { next(error); }
 }

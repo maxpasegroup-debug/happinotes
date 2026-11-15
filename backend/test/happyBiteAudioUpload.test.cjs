@@ -1,4 +1,4 @@
-const { test, afterEach, mock } = require('node:test');
+const { test, beforeEach, afterEach, mock } = require('node:test');
 const assert = require('node:assert/strict');
 const { mkdtemp, open, writeFile, access, rm } = require('node:fs/promises');
 const { tmpdir } = require('node:os');
@@ -9,6 +9,7 @@ const { uploadHappyBiteAudio } = require('../dist/controllers/happyBiteAudioUplo
 const { happyBiteAudioUpload, upload } = require('../dist/middleware/upload');
 const { validateAudioFile } = require('../dist/utils/mediaValidation');
 
+beforeEach(() => mock.method(config.cloudinary.api, 'usage', async () => ({})));
 afterEach(() => mock.restoreAll());
 
 async function stagedFile(t, size = 16, header = Buffer.from([0xff, 0xfb, 0x90, 0x64])) {
@@ -164,4 +165,56 @@ test('direct-upload signing rejects empty and non-MP3 files without issuing cred
     await signHappyBiteAudioUpload({ body }, { json() { assert.fail('invalid input was signed'); } }, value => { error = value; });
     assert.equal(error.statusCode, 400);
   }
+});
+
+let limitTestAccount = 0;
+function limitAccount(t) {
+  const values = { CLOUDINARY_CLOUD_NAME: `limit-test-${++limitTestAccount}`, CLOUDINARY_API_KEY: 'test-key', CLOUDINARY_API_SECRET: 'test-secret' };
+  for (const [name, value] of Object.entries(values)) {
+    const previous = process.env[name]; process.env[name] = value;
+    t.after(() => { if (previous === undefined) delete process.env[name]; else process.env[name] = previous; });
+  }
+  mock.method(config, 'configureCloudinary', () => {});
+}
+async function signSize(size) {
+  const result = {};
+  await require('../dist/controllers/happyBiteAudioUploadController').signHappyBiteAudioUpload({ body: { name: 'long.mp3', type: 'audio/mpeg', size } }, {
+    setHeader() {}, json(body) { result.body = body; },
+  }, error => { result.error = error; });
+  return result;
+}
+
+test('provider limit rejects before issuing upload authorization and retry immediately sees an upgrade', async t => {
+  limitAccount(t);
+  let limit = 100 * 1024 * 1024, lookups = 0;
+  config.cloudinary.api.usage.mock.mockImplementation(async options => {
+    assert.equal(options.timeout, 8000); lookups++;
+    return { media_limits: { video_max_size_bytes: limit }, privateMetadata: 'never return this' };
+  });
+  const rejected = await signSize(200 * 1024 * 1024);
+  assert.equal(rejected.error.statusCode, 413); assert.equal(rejected.body, undefined);
+  assert.match(rejected.error.message, /200.00 MiB/); assert.match(rejected.error.message, /100.00 MiB/);
+  assert.match(rejected.error.message, /No audio was transferred/);
+  limit = 500 * 1024 * 1024;
+  const retried = await signSize(200 * 1024 * 1024);
+  assert.equal(retried.error, undefined); assert.equal(retried.body.maxFileSizeBytes, limit); assert.equal(lookups, 2);
+  assert.equal(JSON.stringify(retried.body).includes('never return this'), false);
+  const exact = await signSize(limit);
+  assert.equal(exact.error, undefined); assert.equal(lookups, 2, 'compatible sizes reuse the brief allowance cache');
+  const over = await signSize(limit + 1);
+  assert.equal(over.error.statusCode, 413); assert.equal(lookups, 3);
+});
+
+test('missing, invalid or inaccessible account limits do not create a new upload restriction', async t => {
+  limitAccount(t);
+  for (const reported of [undefined, 0, -1, '100', Infinity]) {
+    process.env.CLOUDINARY_CLOUD_NAME = `limit-test-${++limitTestAccount}`;
+    config.cloudinary.api.usage.mock.mockImplementation(async () => ({ media_limits: { video_max_size_bytes: reported } }));
+    const result = await signSize(1000 * 1024 * 1024);
+    assert.equal(result.error, undefined); assert.equal(result.body.maxFileSizeBytes, undefined);
+  }
+  process.env.CLOUDINARY_CLOUD_NAME = `limit-test-${++limitTestAccount}`;
+  config.cloudinary.api.usage.mock.mockImplementation(async () => { throw new Error('private provider response'); });
+  const result = await signSize(1000 * 1024 * 1024);
+  assert.equal(result.error, undefined); assert.equal(result.body.maxFileSizeBytes, undefined);
 });

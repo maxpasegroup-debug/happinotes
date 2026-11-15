@@ -28,6 +28,7 @@ backend/
 │   │   ├── authRoutes.ts
 │   │   ├── booksRoutes.ts
 │   │   ├── collectionRoutes.ts
+│   │   ├── systemStatusRoutes.ts
 │   │   ├── adminRoutes.ts
 │   │   └── index.ts
 │   ├── middleware/
@@ -36,6 +37,8 @@ backend/
 │   │   ├── errorHandler.ts
 │   │   └── index.ts
 │   ├── services/
+│   │   ├── systemMetrics.ts
+│   │   ├── railwayStatus.ts
 │   │   ├── vpnSecurity.ts
 │   │   ├── accountSessions.ts
 │   │   └── deviceReferenceCache.ts
@@ -46,6 +49,7 @@ backend/
 │   └── server.ts          # DB connect + listen
 ├── .env.example
 ├── test/
+│   ├── systemStatus.test.cjs
 │   ├── vpnSecurity.test.cjs
 │   ├── accountSessions.test.cjs
 │   ├── deviceStorage.test.cjs
@@ -367,3 +371,80 @@ on updates. Existing records/older clients without a language remain unspecified
 Existing admin and public responses include the value when stored. Access checks,
 upload handling, publication and realtime invalidations are unchanged. Deploy this
 backend with the admin language dropdown; no migration or new endpoint is needed.
+
+
+Listening preferences now accept any nonempty language name up to 160 characters,
+normalized to lowercase. Public Happy Bites support `language` and up to 32
+repeated `languageAlias` values, escaped for literal case-insensitive matching
+before pagination/counting. The response includes all published `languages` for
+custom picker choices. Omit language or use `all` to include older unlabelled
+content. Category filters, access checks and realtime events are retained.
+
+### Happy Bites storage allowance check
+
+Before signing a direct audio upload, the backend queries Cloudinary's
+`media_limits.video_max_size_bytes` (audio uses the video resource type). If the
+selected MP3 exceeds the reported allowance, the endpoint returns HTTP 413 with
+both sizes before sending any audio. It returns only `maxFileSizeBytes` alongside
+the normal ticket, never the full usage response. Successful/unknown lookups are
+cached for 60 seconds; sizes above a known cached limit recheck immediately so
+Retry recognizes an account upgrade. An unavailable usage API does not block an
+otherwise permitted upload; Cloudinary still enforces its own limits.
+
+There is no new Happy Bites size or duration restriction. Increase the Cloudinary
+product environment's per-file **video/audio** allowance to cover the MP3 size,
+then retry. Chunk size changes cannot raise that allowance. Deploy this backend
+and the admin update together to enable the early check and checking status.
+
+## Admin System Status
+
+The admin-only `/admin/system-status` namespace serves:
+
+- `GET /`: current-process CPU (cores), resident/heap memory, event-loop p95,
+  request throughput, response p95 and 4xx/5xx counts, plus MongoDB ping and
+  allowlisted performance/storage statistics. No request paths, tokens or user
+  identities are retained. Monitoring and media requests are excluded.
+- `GET /deployments`: latest 12 deployments for the configured Railway service.
+- `GET /logs?deploymentId=...&kind=build|runtime`: latest 200 redacted log lines;
+  the deployment must be in that service's recent deployment list.
+- `GET /infrastructure`: one hour of Railway CPU, memory, persistent-disk and
+  received/sent network measurements, in the provider's original units.
+
+All endpoints use existing JWT authentication and `requireAdmin`, no-store
+responses and a monitoring rate limit. Railway access uses read-only GraphQL
+queries with a project token; no SSH session or deployment mutation is executed.
+The provided SSH command's project/environment/service IDs are configured via:
+
+```dotenv
+RAILWAY_TOKEN=<project token; backend only>
+SYSTEM_STATUS_RAILWAY_PROJECT_ID=1dd27917-6b55-47ec-b116-d03c43d201f2
+SYSTEM_STATUS_RAILWAY_ENVIRONMENT_ID=f0ec9237-de58-41b1-81f2-4dcadcb8940d
+SYSTEM_STATUS_RAILWAY_SERVICE_ID=bedf0ec2-e8a7-464d-bf9e-fcacfada0769
+```
+
+Set these in the backend environment (Railway Variables in production), then
+restart/redeploy. Never use a `NEXT_PUBLIC_` variable for the token. Missing tokens
+produce an explicit setup state. Provider failures are safe errors, never fake
+success/empty metrics. Provider queries have an 8-second timeout and short shared
+caches to reduce API usage. Known environment secrets, credential-like fields,
+private-key material and addresses are removed from displayed logs; raw logs
+should still never intentionally contain secrets.
+
+The process sampler starts with the HTTP server and keeps at most 720 samples
+(approximately one hour at 5-second intervals) in memory. History resets on
+restart and is **per process/replica**, not an aggregated or persistent uptime SLA.
+Latency uses a bounded reservoir of up to 2,000 completed requests per interval.
+Mongo ping runs every 5 seconds; `serverStatus` and `dbStats` run every 30 seconds
+with bounded command timeouts. If statistics permissions are absent, ping can
+remain healthy while statistics are unavailable. Mongo operation counters cover
+the database server, including monitoring. No database privileges are changed.
+
+If this backend or MongoDB authentication becomes unavailable, the admin marks
+its last snapshot stale and resumes polling on recovery; this is not an external
+always-on uptime monitor. Railway's own API can also delay resource samples.
+
+Implementation: `src/services/systemMetrics.ts`, `src/services/railwayStatus.ts`,
+`src/routes/systemStatusRoutes.ts`, `test/systemStatus.test.cjs`.
+Validation: `npm run build` and `node --test test/systemStatus.test.cjs`.
+Reference: https://docs.railway.com/integrations/api and
+https://docs.railway.com/observability/metrics .

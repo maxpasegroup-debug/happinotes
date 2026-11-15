@@ -314,3 +314,51 @@ test('Happy Bite language rejects malformed values but older clients may omit it
   assert.equal(new HappyBite(base).language, undefined);
   assert.ok(new HappyBite({ ...base, language: 'a'.repeat(161) }).validateSync().errors.language);
 });
+
+test('language and category filtering happens before pagination and escapes regex syntax', async () => {
+  let filter;
+  const records = [
+    { _id: 'other', language: 'English', category: 'Joy', published: true },
+    ...Array.from({ length: 21 }, (_, i) => ({ _id: String(i), language: 'Malayalam', category: 'Joy', published: true })),
+    { _id: 'draft', language: 'Malayalam', category: 'Joy', published: false },
+  ];
+  const matching = value => records.filter(item => item.published && item.category === value.category && value.language.$in.some(pattern => pattern.test(item.language)));
+  mock.method(HappyBite, 'find', value => {
+    filter = value; let offset = 0, size = 20;
+    return { sort() { return this; }, skip(n) { offset = n; return this; }, limit(n) { size = n; return this; }, lean: async () => matching(value).slice(offset, offset + size) };
+  });
+  mock.method(HappyBite, 'countDocuments', async value => matching(value).length);
+  mock.method(HappyBite, 'distinct', async key => key === 'language' ? ['English', 'Malayalam', 'Valley dialect'] : ['Joy']);
+  const res = response();
+  await controller.listHappyBites({ query: { language: 'malayalam', languageAlias: ['mal', 'മലയാളം'], category: 'Joy', page: '2', limit: '20' } }, res, e => { throw e; });
+  assert.equal(res.payload.happyBites.length, 1);
+  assert.equal(res.payload.pagination.total, 21);
+  assert.equal(res.payload.pagination.hasMore, false);
+  assert.equal(filter.published, true);
+  assert.ok(res.payload.languages.includes('Valley dialect'));
+  assert.equal(res.payload.capabilities.languageFiltering, true);
+  await controller.listHappyBites({ query: { language: 'A.*', category: 'Joy' } }, res, e => { throw e; });
+  assert.equal(filter.language.$in[0].test('A.*'), true);
+  assert.equal(filter.language.$in[0].test('Arabic'), false);
+});
+
+test('listening preferences accept international/custom names and reject malformed input', async () => {
+  const { User } = require('../dist/models');
+  const auth = require('../dist/controllers/authController');
+  mock.method(require('../dist/services/accountDeletion'), 'assertAccountWritable', async () => {});
+  let saved = 0;
+  const user = { _id: id, languagePreference: 'all', save: async () => { saved++; } };
+  for (const languagePreference of ['  Japanese  ', 'Valley dialect', 'മലയാളം', 'all']) {
+    await auth.updateLanguage({ user, body: { languagePreference } }, response(), e => { throw e; });
+    assert.equal(user.languagePreference, languagePreference.trim().toLowerCase());
+  }
+  assert.equal(saved, 4);
+  for (const languagePreference of ['', '  ', null, [], {}, 'a'.repeat(161)]) {
+    let error;
+    await auth.updateLanguage({ user, body: { languagePreference } }, response(), e => { error = e; });
+    assert.equal(error?.statusCode, 400);
+  }
+  assert.equal(saved, 4);
+  const doc = new User({ languagePreference: 'japanese' });
+  assert.equal(doc.validateSync()?.errors.languagePreference, undefined);
+});

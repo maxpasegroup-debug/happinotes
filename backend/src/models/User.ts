@@ -29,7 +29,7 @@ export interface IUser extends Document {
   phoneNumber?: string;
   password?: string;
   role: UserRole;
-  languagePreference: 'all' | 'english' | 'malayalam' | 'hindi';
+  languagePreference: string;
   bookCollection: mongoose.Types.ObjectId[];
   happyBiteCollection: mongoose.Types.ObjectId[];
   purchasedBooks: mongoose.Types.ObjectId[];
@@ -75,7 +75,7 @@ const userSchema = new Schema<IUser>(
       select: false,
     },
     role: { type: String, enum: ['admin', 'user'], default: 'user' },
-    languagePreference: { type: String, enum: ['all', 'english', 'malayalam', 'hindi'], default: 'all' },
+    languagePreference: { type: String, trim: true, maxlength: 160, default: 'all' },
     bookCollection: [{ type: Schema.Types.ObjectId, ref: 'Content', default: [] }],
     happyBiteCollection: { type: [{ type: Schema.Types.ObjectId, ref: 'HappyBite' }], default: [] },
     purchasedBooks: [{ type: Schema.Types.ObjectId, ref: 'Content', default: [] }],
