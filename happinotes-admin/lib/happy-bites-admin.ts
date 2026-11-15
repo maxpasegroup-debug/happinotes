@@ -6,17 +6,18 @@ export type HappyBite = {
   audioUrl: string;
   durationSeconds: number;
   category: string;
+  language?: string;
   accessType: "free" | "premium";
   published: boolean;
   displayOrder: number;
   createdAt?: string;
   updatedAt?: string;
 };
-export type HappyBiteDraft = Omit<HappyBite, '_id' | 'createdAt' | 'updatedAt'> & { _id?: string };
+export type HappyBiteDraft = Omit<HappyBite, '_id' | 'createdAt' | 'updatedAt' | 'language'> & { _id?: string; language: string };
 export type UploadKind = 'thumbnail' | 'audio';
 export const EMPTY_BITE: HappyBiteDraft = {
   title: '', description: '', thumbnailUrl: '', audioUrl: '', durationSeconds: 0,
-  category: 'Mindfulness', accessType: 'free', published: false, displayOrder: 0,
+  category: 'Mindfulness', language: 'English', accessType: 'free', published: false, displayOrder: 0,
 };
 export const BITE_CATEGORIES = ['Mindfulness', 'Personal growth', 'Positivity', 'Wellbeing', 'Relationships'];
 
@@ -36,6 +37,8 @@ export function validateBiteFile(kind: UploadKind, file: Pick<File, 'name' | 'ty
 export function validateBiteDraft(draft: HappyBiteDraft): string | null {
   if (draft.accessType !== "free" && draft.accessType !== "premium") return "Choose Free or Premium access.";
   if (!draft.title.trim() || !draft.description.trim() || !draft.category.trim()) return 'Add a title, description and category.';
+  if (!draft.language?.trim()) return 'Choose or enter a language.';
+  if (draft.language.trim().length > 160) return 'Language must be 160 characters or fewer.';
   if (!draft.thumbnailUrl || !draft.audioUrl) return 'Upload a thumbnail and one audio file before saving.';
   if (!Number.isFinite(draft.durationSeconds) || draft.durationSeconds < 0) return 'Duration must be zero or a positive number.';
   if (!Number.isSafeInteger(draft.displayOrder) || draft.displayOrder < 0) return 'Display order must be a whole number of zero or higher.';

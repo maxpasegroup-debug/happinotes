@@ -55,3 +55,15 @@ test('Happy Bites default to free and accept only free or premium access', () =>
   for (const accessType of ['free', 'premium']) assert.equal(validateBiteDraft({ ...valid, accessType }), null);
   for (const accessType of ['paid', '', undefined, null]) assert.match(validateBiteDraft({ ...valid, accessType }), /Free or Premium/);
 });
+
+
+test('Happy Bites require a language and accept catalog and custom dialect names', () => {
+  const draft = { ...EMPTY_BITE, title: 'Thought', description: 'Description', thumbnailUrl: '/t.jpg', audioUrl: '/a.mp3' };
+  assert.equal(EMPTY_BITE.language, 'English');
+  for (const language of ['Malayalam', 'മലയാളം', 'Zulu', 'Valley dialect', 'Oriya']) {
+    assert.equal(validateBiteDraft({ ...draft, language }), null);
+  }
+  for (const language of ['', '   ', undefined, 'a'.repeat(161)]) {
+    assert.match(validateBiteDraft({ ...draft, language }), /language/i);
+  }
+});

@@ -1,90 +1,82 @@
 'use client';
 
-import { Card, CardBody, Skeleton, Spinner } from '@heroui/react';
+import { useEffect, useId, useMemo, useRef, useState, type ReactNode } from 'react';
+import { Skeleton, Tooltip } from '@heroui/react';
 import { motion, useReducedMotion } from 'framer-motion';
-import { bookStatusCounts, monthlyUserSignups } from '@/lib/admin-dashboard-charts';
+import { applicationCharts, type AnalyticsSnapshot, type ChartGroup } from '@/lib/admin-dashboard-charts';
 
-export type DashboardOverviewState = { status: 'loading' | 'ready' | 'error'; loadedAt: number };
-
-export default function DashboardCharts({ books, users, state }: {
-  books: ReadonlyArray<{ status?: string }>;
-  users: ReadonlyArray<{ createdAt?: string }>;
-  state: DashboardOverviewState;
-}) {
-  const reducedMotion = useReducedMotion();
-  const reveal = { opacity: 1, y: 0 };
-  const initial = reducedMotion ? false : { opacity: 0, y: 6 };
-  if (state.status !== 'ready') return <div className="grid gap-4 md:grid-cols-2" aria-busy={state.status === 'loading'}>
-    {['Story Books', 'Users'].map((title, index) => <Card key={title} shadow="none" className="min-w-0 border border-divider bg-content1"><CardBody className="p-4 sm:p-5">
-      <div className="flex items-center justify-between"><h2 className="!text-sm">{title}</h2>{state.status === 'loading' ? <Spinner aria-hidden="true" size="sm" color="primary" className="motion-reduce:[&_*]:animate-none" /> : null}</div>
-      {state.status === 'loading' ? <div role="status" className="mt-3">
-        <Skeleton className="h-3 w-32 rounded-md motion-reduce:before:animate-none" />
-        {index === 0 ? <div className="mt-4 flex h-32 items-center gap-5">
-          <div className="relative h-28 w-28 shrink-0"><Skeleton className="h-full w-full rounded-full motion-reduce:before:animate-none" /><div className="absolute inset-3 rounded-full bg-content1" /></div>
-          <div className="flex-1 space-y-4">{[0, 1, 2].map((row) => <div key={row} className="flex items-center gap-2"><Skeleton className="h-2 w-2 rounded-full motion-reduce:before:animate-none" /><Skeleton className="h-2 flex-1 rounded-md motion-reduce:before:animate-none" /></div>)}</div>
-        </div> : <svg aria-hidden="true" viewBox="0 0 420 150" className="mt-4 h-32 w-full">
-          {[38, 65, 50, 85, 70, 100].map((height, bar) => <motion.rect key={bar} x={25 + bar * 66} y={125 - height} width="32" height={height} rx="5" fill="currentColor" className="text-primary/25"
-            animate={reducedMotion ? { opacity: 0.5 } : { opacity: [0.3, 0.9, 0.3] }} transition={reducedMotion ? { duration: 0 } : { duration: 1.25, repeat: Infinity, delay: bar * 0.1 }} />)}
-        </svg>}
-        <span className="sr-only">Loading {title.toLowerCase()} chart</span>
-      </div> : <p role="status" className="flex min-h-40 items-center justify-center text-center text-xs text-default-400">Chart unavailable. Refresh to try again.</p>}
-    </CardBody></Card>)}
+const numeric = (n: number) => n.toLocaleString('en');
+const focusStyle = 'focus-visible:outline-2 focus-visible:outline-offset-4 focus-visible:outline-orange-400';
+function Panel({ title, note, index, wide, children, footer, unavailable = false }: { title: string; note: string; index: number; wide?: boolean; children: ReactNode; footer: string; unavailable?: boolean }) {
+  const reduce = useReducedMotion();
+  return <motion.section initial={reduce ? false : { opacity: 0, y: 16 }} animate={{ opacity: 1, y: 0 }} transition={{ duration: reduce ? 0 : .4, delay: reduce ? 0 : Math.min(index, 4) * .06 }} className={`flex min-w-0 flex-col overflow-hidden rounded-2xl border border-white/[.08] bg-[#11151d] shadow-[0_12px_40px_-28px_#000] ${wide ? 'lg:col-span-2' : ''}`}>
+    <div className="flex items-start justify-between gap-4 px-5 pt-6 sm:px-6"><div><h2 className="text-[15px] font-semibold tracking-tight text-slate-100">{title}</h2><p className="mt-1.5 text-xs leading-5 text-slate-400">{note}</p></div><span aria-hidden="true" className="mt-1 flex h-6 w-6 shrink-0 items-center justify-center rounded-md border border-white/5 text-[10px] font-medium tabular-nums text-slate-500">{String(index + 1).padStart(2, '0')}</span></div>
+    <div className="flex min-w-0 flex-1 flex-col px-5 pb-6 pt-5 sm:px-6">{unavailable ? <Empty>Data unavailable. Refresh charts to try again.</Empty> : children}</div>
+    <p className="border-t border-white/[.06] bg-white/[.015] px-5 py-3 text-[10px] leading-5 text-slate-500 sm:px-6">{footer}</p>
+  </motion.section>;
+}
+function Empty({ children }: { children: ReactNode }) {
+  return <div className="flex min-h-56 flex-1 items-center justify-center rounded-xl border border-dashed border-white/10 px-7 text-center text-xs leading-6 text-slate-400">{children}</div>;
+}
+function Donut({ groups, label }: { groups: ChartGroup[]; label: string }) {
+  const reduce = useReducedMotion(), [selected, setSelected] = useState<string | null>(null);
+  const total = groups.reduce((sum, group) => sum + group.count, 0), current = groups.find(group => group.label === selected), length = 2 * Math.PI * 76;
+  return <div className="flex flex-1 flex-col justify-center gap-5"><div className="relative mx-auto h-52 w-52">
+    <svg viewBox="0 0 200 200" role="img" aria-label={groups.map(group => `${group.label}: ${group.count}`).join('. ')} className="h-full w-full"><circle cx="100" cy="100" r="76" stroke="#232b38" strokeWidth="19" fill="none" />{groups.filter(group => group.count > 0).map(group => {
+      const index = groups.indexOf(group), offset = groups.slice(0, index).reduce((sum, row) => sum + row.count, 0);
+      return <motion.circle key={group.label} cx="100" cy="100" r="76" stroke={group.color} strokeWidth={selected === group.label ? 24 : 19} fill="none" transform="rotate(-90 100 100)" strokeDashoffset={-offset / total * length} initial={reduce ? false : { strokeDasharray: `0 ${length}` }} animate={{ strokeDasharray: `${Math.max(0, group.count / total * length - (groups.filter(g => g.count).length > 1 ? 5 : 0))} ${length}`, opacity: selected && selected !== group.label ? .25 : 1 }} transition={{ duration: reduce ? 0 : .7 }} onMouseEnter={() => setSelected(group.label)} onMouseLeave={() => setSelected(null)}><title>{group.label}: {group.count}</title></motion.circle>;
+    })}</svg><div aria-hidden="true" className="pointer-events-none absolute inset-0 flex flex-col items-center justify-center"><strong className="text-4xl font-semibold tracking-tight tabular-nums text-white">{numeric(current?.count ?? total)}</strong><span className="mt-2 max-w-28 text-center text-[10px] text-slate-400">{current?.label || label}</span></div></div>
+    <div className="space-y-1">{groups.map(group => <button key={group.label} type="button" onMouseEnter={() => setSelected(group.label)} onMouseLeave={() => setSelected(null)} onFocus={() => setSelected(group.label)} onBlur={() => setSelected(null)} onClick={() => setSelected(selected === group.label ? null : group.label)} className={`flex w-full items-center gap-2.5 rounded-lg px-2 py-2 text-xs hover:bg-white/5 ${focusStyle}`}><span className="h-2 w-2 rounded-sm" style={{ background: group.color }} /><span className="flex-1 text-left text-slate-300">{group.label}</span><strong className="tabular-nums text-slate-200">{numeric(group.count)}</strong><span className="w-10 text-right tabular-nums text-slate-500">{Math.round(group.count / Math.max(total, 1) * 100)}%</span></button>)}</div>
   </div>;
-
-  const groups = bookStatusCounts(books);
-  const { months, missingDates } = monthlyUserSignups(users, new Date(state.loadedAt));
-  const recentUsers = months.reduce((sum, month) => sum + month.count, 0);
-  const maximum = Math.max(1, ...months.map((month) => month.count));
-  const ringLength = 2 * Math.PI * 58;
-
-  return <motion.div key="charts-ready" initial={initial} animate={reveal} transition={{ duration: reducedMotion ? 0 : 0.25 }} className="grid gap-4 md:grid-cols-2">
-    <Card shadow="none" className="min-w-0 border border-divider bg-content1"><CardBody className="p-4 sm:p-5">
-      <div className="flex items-center justify-between gap-3"><h2 className="!text-sm">Story Books</h2><span className="rounded-md bg-primary/10 px-2 py-1 text-[10px] font-medium text-primary">By status</span></div>
-      <p className="mt-1.5 text-[11px] text-default-400">Your library by publication status</p>
-      <div className="mt-3 flex min-h-32 items-center gap-4">
-        <div className="relative h-28 w-28 shrink-0 sm:h-32 sm:w-32">
-          <svg role="img" aria-label={`${books.length} story books. ${groups.map((group) => `${group.label}: ${group.count}`).join('. ')}.`} viewBox="0 0 160 160" className="h-full w-full">
-            <circle cx="80" cy="80" r="58" fill="none" stroke="currentColor" strokeWidth="12" className="text-default-100" />
-            {groups.map((group, index) => {
-              const offset = groups.slice(0, index).reduce((sum, item) => sum + item.count, 0);
-              return group.count && books.length ? <motion.circle key={group.label} cx="80" cy="80" r="58" fill="none" stroke={group.color} strokeWidth="12"
-                initial={reducedMotion ? false : { strokeDasharray: `0 ${ringLength}` }}
-                animate={{ strokeDasharray: `${group.count / books.length * ringLength} ${ringLength}` }}
-                transition={{ duration: reducedMotion ? 0 : 0.7, ease: 'easeOut', delay: reducedMotion ? 0 : index * 0.06 }}
-                strokeDashoffset={-offset / books.length * ringLength} transform="rotate(-90 80 80)">
-                <title>{group.label}: {group.count} ({Math.round(group.count / books.length * 100)}%)</title>
-              </motion.circle> : null;
-            })}
-          </svg>
-          <div aria-hidden="true" className="pointer-events-none absolute inset-0 flex flex-col items-center justify-center"><span className="text-2xl font-semibold tracking-tight tabular-nums">{books.length}</span><span className="mt-0.5 text-[10px] text-default-400">Total books</span></div>
-        </div>
-        <ul className="min-w-0 flex-1 space-y-3">{groups.map((group) => <li key={group.label} className="flex items-center justify-between gap-2 text-xs">
-          <span className="flex items-center gap-2 text-default-400"><span aria-hidden="true" className="h-2 w-2 shrink-0 rounded-full" style={{ background: group.color }} />{group.label}</span>
-          <span className="font-semibold tabular-nums">{group.count}</span>
-        </li>)}</ul>
-      </div>
-      {!books.length ? <p className="mt-2 text-[11px] text-default-400">Add your first book to start building your library.</p> : null}
-    </CardBody></Card>
-
-    <Card shadow="none" className="min-w-0 border border-divider bg-content1"><CardBody className="p-4 sm:p-5">
-      <div className="flex items-center justify-between gap-3"><h2 className="!text-sm">Users</h2><span className="rounded-md bg-primary/10 px-2 py-1 text-[10px] font-medium text-primary">Last 6 months</span></div>
-      <div className="mt-2 flex flex-wrap items-baseline gap-x-2 gap-y-1"><span className="text-2xl font-semibold tracking-tight tabular-nums">{users.length}</span><span className="text-[11px] text-default-400">accounts · +{recentUsers} in 6 months</span></div>
-      <svg role="img" aria-label={`New user accounts per month. ${months.map((month) => `${month.label} ${month.year}: ${month.count}`).join('. ')}.`} viewBox="0 0 420 170" className="mt-2 h-28 w-full">
-        {[25, 75, 125].map((y) => <line key={y} x1="12" x2="408" y1={y} y2={y} stroke="currentColor" className="text-default-100" strokeDasharray="4 5" />)}
-        {months.map((month, index) => {
-          const height = month.count / maximum * 100;
-          const x = 27 + index * 66;
-          return <g key={`${month.year}-${month.month}`}>
-            <title>{month.label} {month.year}: {month.count} new users</title>
-            <motion.rect x={x} width="32" rx="5"
-              initial={reducedMotion ? false : { y: 125, height: 0 }} animate={{ y: 125 - height, height }}
-              transition={{ duration: reducedMotion ? 0 : 0.55, ease: 'easeOut', delay: reducedMotion ? 0 : index * 0.06 }} fill="currentColor" className={index === months.length - 1 ? 'text-primary' : 'text-primary/45'} />
-            <text x={x + 16} y={115 - height} textAnchor="middle" fill="currentColor" className="text-[16px] font-semibold text-foreground">{month.count}</text>
-            <text x={x + 16} y="150" textAnchor="middle" fill="currentColor" className="text-[16px] text-default-400">{month.label}</text>
-          </g>;
-        })}
+}
+function Bars({ groups }: { groups: ChartGroup[] }) {
+  const reduce = useReducedMotion(), total = groups.reduce((sum, group) => sum + group.count, 0), max = Math.max(1, ...groups.map(group => group.count));
+  if (!total) return <Empty>No records yet. The chart will appear as your library grows.</Empty>;
+  return <div className="space-y-4">{groups.map(group => <Tooltip key={group.label} content={`${group.label} · ${numeric(group.count)} records · ${Math.round(group.count / total * 100)}%`} delay={100}><button type="button" aria-label={`${group.label}: ${group.count}`} className={`group block w-full rounded text-left ${focusStyle}`}><span className="mb-2 flex items-center justify-between gap-3 text-xs"><span className="truncate capitalize text-slate-300">{group.label}</span><strong className="text-slate-200">{numeric(group.count)}</strong></span><span className="block h-4 overflow-hidden rounded bg-white/[.035]"><motion.span initial={reduce ? false : { width: 0 }} animate={{ width: `${group.count / max * 100}%` }} transition={{ duration: reduce ? 0 : .7 }} className="block h-full rounded opacity-80 group-hover:opacity-100" style={{ background: `linear-gradient(90deg, ${group.color}66, ${group.color})` }} /></span></button></Tooltip>)}</div>;
+}
+function Columns({ groups }: { groups: ChartGroup[] }) {
+  const reduce = useReducedMotion();
+  const maximum = Math.max(4, Math.ceil(Math.max(...groups.map(group => group.count)) / 4) * 4);
+  return <div className="relative mt-5 pl-6"><div aria-hidden="true" className="absolute inset-x-0 top-0 h-52">{[0, 1, 2, 3, 4].map(i => <div key={i} className="absolute right-0 left-6 border-t border-dashed border-white/[.08]" style={{ top: `${i * 25}%` }}><span className="absolute -left-6 -top-2 text-[10px] text-slate-500">{maximum - i * maximum / 4}</span></div>)}</div><div className="relative flex gap-2">{groups.map(group => <Tooltip key={group.label} content={`${group.label}: ${group.count} clips`}><button type="button" aria-label={`${group.label}: ${group.count} clips`} className={`min-w-0 flex-1 rounded ${focusStyle}`}><span className="flex h-52 items-end justify-center px-1"><motion.span initial={reduce ? false : { height: 0 }} animate={{ height: `${group.count / maximum * 100}%` }} transition={{ duration: reduce ? 0 : .65 }} className="relative block w-full max-w-12 rounded-t-md" style={{ background: `linear-gradient(0deg, ${group.color}55, ${group.color})` }}><span className="absolute inset-x-0 -top-6 text-center text-[11px] font-medium text-slate-200">{group.count}</span></motion.span></span><span className="mt-3 block min-h-8 text-[9px] leading-4 text-slate-400">{group.label}</span></button></Tooltip>)}</div></div>;
+}
+type Month = { key: string; label: string; year: number; count: number };
+function Trend({ series, headline, description }: { series: { label: string; color: string; rows: Month[] }[]; headline: number; description: string }) {
+  const reduce = useReducedMotion(), id = useId().replaceAll(':', '');
+  const box = useRef<HTMLDivElement>(null), [width, setWidth] = useState(650), [active, setActive] = useState<number | null>(null), [focused, setFocused] = useState<number | null>(null);
+  useEffect(() => { if (!box.current) return; const observer = new ResizeObserver(([entry]) => setWidth(Math.max(240, entry.contentRect.width))); observer.observe(box.current); return () => observer.disconnect(); }, []);
+  const max = Math.max(4, Math.ceil(Math.max(...series.flatMap(s => s.rows.map(row => row.count))) / 4) * 4), right = width - 24, span = right - 35, rows = series[0].rows;
+  const highlighted = active ?? focused;
+  const current = highlighted !== null && highlighted < rows.length ? highlighted : null;
+  const x = (i: number) => 35 + i / (rows.length - 1) * span, y = (value: number) => 220 - value / max * 175;
+  const total = series.reduce((sum, item) => sum + item.rows.reduce((n, row) => n + row.count, 0), 0);
+  return <><div className="mb-6 flex flex-wrap items-end justify-between gap-3"><div><strong className="text-4xl font-semibold tracking-tight tabular-nums text-white">{numeric(headline)}</strong><p className="mt-2 text-[11px] text-slate-400">{description}</p></div><div className="text-right"><strong className="text-xl font-medium tabular-nums text-orange-300">+{numeric(total)}</strong><p className="mt-1 text-[10px] text-slate-500">created in this period</p></div></div>
+    <div className="mb-2 flex flex-wrap gap-4">{series.map(s => <span key={s.label} className="flex items-center gap-2 text-[10px] text-slate-400"><span className="h-1.5 w-4 rounded" style={{ background: s.color }} />{s.label}</span>)}</div>
+    <div ref={box} className="relative mt-auto">
+      {current !== null && <div role="status" className="pointer-events-none absolute top-2 z-10 min-w-32 rounded-lg border border-white/10 bg-[#202938] px-3 py-2 shadow-xl" style={{ left: Math.max(0, Math.min(width - 165, x(current) - 60)) }}><p className="mb-1 text-[10px] text-slate-400">{rows[current].label} {rows[current].year} · UTC</p>{series.map(s => <p key={s.label} className="text-xs leading-5 text-slate-200">{s.label}: <strong>{s.rows[current].count}</strong></p>)}</div>}
+      <svg viewBox={`0 0 ${width} 255`} className="h-[255px] w-full touch-pan-y" preserveAspectRatio="none" role="img" aria-label={series.map(s => `${s.label}: ${s.rows.map(r => `${r.label} ${r.year}, ${r.count}`).join('; ')}`).join('. ')} onPointerMove={e => { const rect = e.currentTarget.getBoundingClientRect(); setActive(Math.max(0, Math.min(rows.length - 1, Math.round(((e.clientX - rect.left) / rect.width * width - 35) / span * (rows.length - 1))))); }} onPointerLeave={() => setActive(null)}>
+        <defs>{series.map((s, i) => <linearGradient key={s.label} id={`${id}-${i}`} x1="0" x2="0" y1="0" y2="1"><stop offset="0%" stopColor={s.color} stopOpacity=".25" /><stop offset="100%" stopColor={s.color} stopOpacity="0" /></linearGradient>)}</defs>
+        {[0, 1, 2, 3, 4].map(i => <g key={i}><line x1="35" x2={right} y1={y(max * i / 4)} y2={y(max * i / 4)} stroke="#ffffff10" strokeDasharray="4 5" /><text x="24" y={y(max * i / 4) + 4} textAnchor="end" fontSize="11" fill="#94a3b8">{max * i / 4}</text></g>)}
+        {series.map((s, si) => { const path = s.rows.map((row, i) => `${i ? 'L' : 'M'} ${x(i)} ${y(row.count)}`).join(' '); return <g key={s.label}><motion.path d={`${path} L ${right} 220 L 35 220 Z`} fill={`url(#${id}-${si})`} initial={reduce ? false : { opacity: 0 }} animate={{ opacity: 1 }} /><motion.path key={rows.length} d={path} fill="none" stroke={s.color} strokeWidth="2.5" strokeLinejoin="round" initial={reduce ? false : { pathLength: 0 }} animate={{ pathLength: 1 }} transition={{ duration: reduce ? 0 : .9 }} /></g>; })}
+        {rows.map((row, i) => i === rows.length - 1 || i % Math.ceil(rows.length / (width < 420 ? 3 : 6)) === 0 ? <text key={row.key} x={x(i)} y="248" textAnchor="middle" fontSize="11" fill="#94a3b8">{row.label}</text> : null)}
+        {current !== null && <g><line x1={x(current)} x2={x(current)} y1="30" y2="220" stroke="#ffffff55" strokeDasharray="3 4" />{series.map(s => <circle key={s.label} cx={x(current)} cy={y(s.rows[current].count)} r="5" fill={s.color} stroke="#11151d" strokeWidth="2" />)}</g>}
       </svg>
-      <p className="mt-auto pt-1 text-[10px] leading-4 text-default-400">{months[0].label} {months[0].year} – {months[5].label} {months[5].year} · Monthly signups{missingDates > 0 ? ` · ${missingDates} without a valid join date excluded from the chart` : ''}</p>
-    </CardBody></Card>
-  </motion.div>;
+    </div><div className="mt-3 flex flex-wrap gap-1" aria-label="Inspect monthly chart values">{rows.map((row, i) => <button type="button" key={row.key} aria-label={`${row.label} ${row.year}: ${series.map(s => `${s.rows[i].count} ${s.label}`).join(', ')}`} onFocus={() => setFocused(i)} onBlur={() => setFocused(null)} onClick={() => setActive(current === i ? null : i)} className={`rounded px-2 py-1 text-[10px] ${focusStyle} ${current === i ? 'bg-orange-400/15 text-orange-300' : 'text-slate-500 hover:bg-white/5 hover:text-slate-300'}`}>{row.label}</button>)}</div>
+  </>;
+}
+export default function DashboardCharts({ data, months }: { data: AnalyticsSnapshot | null; months: 6 | 12 }) {
+  const charts = useMemo(() => data ? applicationCharts(data, months) : null, [data, months]);
+  if (!data || !charts) return <div role="status" aria-label="Loading application charts" aria-busy="true" className="grid gap-5 lg:grid-cols-3">{Array.from({ length: 6 }, (_, i) => <div key={i} className={`rounded-2xl border border-divider bg-[#11151d] p-6 ${i === 0 || i === 2 ? 'lg:col-span-2' : ''}`}><Skeleton className="h-4 w-40 rounded motion-reduce:before:animate-none" /><Skeleton className="mt-4 h-3 w-48 rounded motion-reduce:before:animate-none" /><div className="mt-10 flex h-60 items-end gap-4">{[45, 70, 55, 85, 65, 95].map((height, j) => <Skeleton key={j} style={{ height: `${height}%` }} className="flex-1 rounded-t motion-reduce:before:animate-none" />)}</div></div>)}</div>;
+  const both = data.books !== null && data.bites !== null;
+  return <div className="grid gap-5 lg:grid-cols-3">
+    <Panel index={0} wide title="Community growth" note={`New accounts by month · last ${months} months`} footer={`All account roles · UTC calendar months${charts.signups.excluded ? ` · ${charts.signups.excluded} missing or future dates excluded` : ''}`} unavailable={!data.users}><Trend series={[{ label: 'New accounts', color: '#fb923c', rows: charts.signups.rows }]} headline={charts.users.length} description="registered accounts across the application" /></Panel>
+    <Panel index={1} title="Pro membership" note="Current subscription coverage" footer="Active, unexpired subscriptions from the existing entitlement system." unavailable={!charts.membership}><Donut groups={charts.membership || []} label="accounts" /></Panel>
+    <Panel index={2} wide title="Library growth" note={`Story Books and Happy Bites created · last ${months} months`} footer={`Creation dates across all publish states${charts.bookGrowth.excluded + charts.biteGrowth.excluded ? ` · ${charts.bookGrowth.excluded + charts.biteGrowth.excluded} missing or future dates excluded` : ''}`} unavailable={!both}><Trend series={[{ label: 'Story Books', color: '#fb923c', rows: charts.bookGrowth.rows }, { label: 'Happy Bites', color: '#38bdf8', rows: charts.biteGrowth.rows }]} headline={charts.books.length + charts.bites.length} description="titles in your complete audio library" /></Panel>
+    <Panel index={3} title="Library composition" note="The two sides of your listening experience" footer="All Story Books and Happy Bites, including unpublished content." unavailable={!both}><Donut groups={charts.catalog} label="audio titles" /></Panel>
+    <Panel index={4} title="Publication pipeline" note="Published, upcoming and in progress" footer="Current publication states · all records, not just the selected period." unavailable={!both}><Bars groups={charts.publication} /></Panel>
+    <Panel index={5} title="Content access" note="Free listening and paid content" footer="Paid access includes premium books and Pro Happy Bites." unavailable={!both}><Donut groups={charts.access} label="audio titles" /></Panel>
+    <Panel index={6} title="Story Book languages" note="Language coverage across your catalogue" footer="Largest language groups · smaller groups combined when necessary." unavailable={!data.books}><Bars groups={charts.languages} /></Panel>
+    <Panel index={7} title="Happy Bites categories" note="Discover the themes in your library" footer="All Happy Bites · largest categories and a combined remainder." unavailable={!data.bites}><Bars groups={charts.categories} /></Panel>
+    <Panel index={8} title="Happy Bites duration" note="From short thoughts to longer listening" footer="Saved audio duration · missing and zero durations shown as not measured." unavailable={!data.bites}><Columns groups={charts.durations} /></Panel>
+    <Panel index={9} title="Account access" note="Current account blocking snapshot" footer="Blocked flag across all accounts · not an online presence indicator." unavailable={!data.users}><Donut groups={charts.accounts} label="accounts" /></Panel>
+  </div>;
 }

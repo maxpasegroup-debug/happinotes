@@ -1,6 +1,7 @@
 "use client";
 
 import Image from "next/image";
+import LanguagePicker from "@/components/admin/LanguagePicker";
 
 import { useAdminConfirmation } from "@/components/admin/ConfirmationProvider";
 
@@ -213,7 +214,7 @@ export default function BookEditor({ contentId }: { contentId?: string }) {
         await uploadMultipart("/admin/contents", data, token, setSaveProgress, "POST");
         setSuccess(targetStatus === "live" ? "Book published successfully." : targetStatus === "coming_soon" ? "Book saved as coming soon." : "Draft saved successfully.");
       }
-      window.setTimeout(() => router.push("/admin/dashboard"), 800);
+      window.setTimeout(() => router.push("/admin/story-books"), 800);
     } catch (error) {
       setPageError(cleanFailure(error, "The book could not be saved. Your entries are still here; review the highlighted fields and try again."));
     } finally { setSaving(false); }
@@ -240,7 +241,7 @@ export default function BookEditor({ contentId }: { contentId?: string }) {
     <main className="mx-auto max-w-5xl space-y-5 pb-10 text-slate-100">
       <header className="flex flex-wrap items-end justify-between gap-4">
         <div><p className="text-xs font-semibold uppercase tracking-[.2em] text-orange-300">HappiNotes · Library</p><h1 className="mt-2 text-3xl font-bold tracking-tight">{editing ? "Edit book" : "Create a book"}</h1><p className="mt-2 max-w-2xl text-sm text-slate-400">Add book details, a cover, and ordered MP3 lessons. Nothing is published until you choose Publish.</p></div>
-        <AdminButton type="button" onClick={async () => { if (await confirm({ title: 'Leave book editor?', description: 'Return to the book library? Any unsaved changes will be lost.', confirmLabel: 'Leave editor', tone: 'warning' })) router.push('/admin/dashboard'); }} className="rounded-xl border border-white/10 px-4 py-2.5 text-sm text-slate-300 hover:bg-white/5">Back to books</AdminButton>
+        <AdminButton type="button" onClick={async () => { if (await confirm({ title: 'Leave book editor?', description: 'Return to the book library? Any unsaved changes will be lost.', confirmLabel: 'Leave editor', tone: 'warning' })) router.push('/admin/story-books'); }} className="rounded-xl border border-white/10 px-4 py-2.5 text-sm text-slate-300 hover:bg-white/5">Back to books</AdminButton>
       </header>
 
       {pageError ? <div className="rounded-xl border border-rose-400/20 bg-rose-400/10 p-4 text-sm text-rose-100" role="alert">{pageError}</div> : null}
@@ -253,10 +254,7 @@ export default function BookEditor({ contentId }: { contentId?: string }) {
             <AdminInput className={inputClass} value={title} maxLength={180} onChange={(event) => setTitle(event.target.value)} placeholder="Enter a clear book title" aria-invalid={Boolean(fieldErrors.title)} />
             {fieldErrors.title ? <span className="mt-1 block text-xs text-rose-300">{fieldErrors.title}</span> : null}
           </label>
-          <label className="text-sm font-medium text-slate-300">Language
-            <AdminInput className={inputClass} value={language} maxLength={80} onChange={(event) => setLanguage(event.target.value)} placeholder="English, Malayalam, Hindi…" aria-invalid={Boolean(fieldErrors.language)} />
-            {fieldErrors.language ? <span className="mt-1 block text-xs text-rose-300">{fieldErrors.language}</span> : null}
-          </label>
+          <LanguagePicker value={language} onChange={setLanguage} error={fieldErrors.language} disabled={saving} />
           <label className="text-sm font-medium text-slate-300 md:col-span-2">Description
             <AdminTextarea className={inputClass} value={description} maxLength={4000} onChange={(event) => setDescription(event.target.value)} rows={4} placeholder="A short description listeners can use to choose this book." />
           </label>

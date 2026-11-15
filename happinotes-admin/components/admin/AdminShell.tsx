@@ -23,14 +23,18 @@ const MobileDrawerPanel = forwardRef<HTMLElement, HTMLMotionProps<'section'>>(fu
 
 const menu = [
   { label: 'Dashboard', href: '/admin/dashboard', icon: 'dashboard', group: 'Workspace' },
+  { label: 'Story Books', href: '/admin/story-books', icon: 'book', group: 'Content management' },
   { label: 'Happy Bites', href: '/admin/happy-bites', icon: 'audio', group: 'Content management' },
   { label: 'Featured', href: '/admin/featured', icon: 'star', group: 'Content management' },
   { label: 'Settings', href: '/admin/settings', icon: 'settings', group: 'Management' },
+  { label: 'Users', href: '/admin/users', icon: 'users', group: 'Management' },
   { label: 'User Security', href: '/admin/user-security', icon: 'shield', group: 'Management' },
   { label: 'Deletion requests', href: '/admin/deletion-requests', icon: 'shield', group: 'Management' },
 ];
 const paths: Record<string, string> = {
   dashboard: 'M3 3h7v7H3z M14 3h7v7h-7z M3 14h7v7H3z M14 14h7v7h-7z',
+  book: 'M12 5C8 3 5 3 2 4v15c3-1 6-1 10 1 4-2 7-2 10-1V4c-3-1-6-1-10 1Z M12 5v15',
+  users: 'M16 21v-2a4 4 0 0 0-4-4H6a4 4 0 0 0-4 4v2 M16 3a4 4 0 0 1 0 8 M22 21v-2a4 4 0 0 0-3-3.87 M13 7a4 4 0 1 1-8 0 4 4 0 0 1 8 0',
   audio: 'M5 10v4 M9 6v12 M13 3v18 M17 7v10 M21 10v4',
   star: 'm12 3 2.8 5.7 6.2.9-4.5 4.4 1.1 6.2-5.6-3-5.6 3 1.1-6.2L3 9.6l6.2-.9L12 3Z',
   settings: 'M4 7h16 M4 17h16 M9 4v6 M16 14v6',
@@ -109,7 +113,7 @@ export default function AdminShell({ children }: { children: ReactNode }) {
         </div>
         <div className="flex shrink-0 items-center gap-3"><AdminInstallButton /><Chip size="sm" variant="flat" className="hidden border border-divider text-default-400 sm:inline-flex">HappiNotes Studio</Chip></div>
       </header>
-      <main className={`min-w-0 p-5 sm:p-8 lg:p-10 ${pathname.startsWith('/admin/happy-bites') ? 'w-full' : 'mx-auto max-w-[1600px]'}`}>{children}</main>
+      <main className={`min-w-0 ${pathname === '/admin/users' ? 'w-full py-5 sm:py-8 lg:py-10' : `p-5 sm:p-8 lg:p-10 ${(pathname.startsWith('/admin/happy-bites') || pathname === '/admin/settings') ? 'w-full' : 'mx-auto max-w-[1600px]'}`}`} >{children}</main>
     </div>
     <Drawer
       disableAnimation={Boolean(reducedMotion) || confirming}

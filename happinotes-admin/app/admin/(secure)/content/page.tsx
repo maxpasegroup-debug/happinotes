@@ -1,5 +1,5 @@
 import { redirect } from "next/navigation";
 
 export default function AdminContentPage() {
-  redirect("/admin/dashboard");
+  redirect("/admin/story-books");
 }

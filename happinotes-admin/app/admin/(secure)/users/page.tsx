@@ -1,5 +1,5 @@
-import { redirect } from "next/navigation";
+import ContentManagement from "@/components/admin/ContentManagement";
 
-export default function AdminUsersPage() {
-  redirect("/admin/dashboard");
+export default function UsersPage() {
+  return <ContentManagement activeModule="users" />;
 }

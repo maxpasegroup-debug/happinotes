@@ -4,7 +4,7 @@ import { useAdminConfirmation } from "@/components/admin/ConfirmationProvider";
 
 import { AdminButton } from "@/components/admin/ui";
 
-import { Card, CardBody, Chip, Divider, Spinner } from "@heroui/react";
+import { Card, CardBody, Chip, Divider, Skeleton } from "@heroui/react";
 import { useCallback, useEffect, useRef, useState } from "react";
 import { io } from "socket.io-client";
 import { apiRequest } from "@/lib/api";
@@ -21,6 +21,24 @@ type DeletionRequest = {
   account: { name: string; email: string; phoneNumber: string } | null;
   history: Array<{ status: string; actor: string; at: string }>;
 };
+
+function DeletionRequestsSkeleton() {
+  return <div role="status" aria-label="Loading deletion requests" aria-busy="true" className="grid gap-5">
+    <span className="sr-only">Loading account deletion requests…</span>
+    {Array.from({ length: 3 }, (_, index) => <div key={index} aria-hidden="true" className="space-y-4 rounded-2xl border border-divider bg-content1 p-5 sm:p-6">
+      <div className="flex flex-wrap items-start justify-between gap-4">
+        <div className="min-w-0 flex-1 space-y-3">
+          <div className="flex flex-wrap items-center gap-3"><Skeleton className="h-6 w-44 rounded-md motion-reduce:before:animate-none" /><Skeleton className="h-6 w-28 rounded-full motion-reduce:before:animate-none" /></div>
+          <Skeleton className="h-3 w-48 max-w-full rounded motion-reduce:before:animate-none" />
+        </div>
+        <Skeleton className="h-10 w-40 rounded-xl motion-reduce:before:animate-none" />
+      </div>
+      <Divider />
+      <div className="space-y-3"><Skeleton className="h-4 w-3/4 max-w-md rounded motion-reduce:before:animate-none" /><Skeleton className="h-3 w-2/3 max-w-sm rounded motion-reduce:before:animate-none" /></div>
+      <div className="rounded-xl bg-content2/50 px-4 py-4"><Skeleton className="h-4 w-40 rounded motion-reduce:before:animate-none" /></div>
+    </div>)}
+  </div>;
+}
 
 export default function DeletionRequestsPage() {
   const confirm = useAdminConfirmation();
@@ -111,7 +129,7 @@ export default function DeletionRequestsPage() {
         <details className="rounded-xl bg-content2/50 px-4"><summary>Processing history ({request.history.length})</summary><ol className="pb-4 text-default-400">{request.history.map((entry, index) => <li key={`${request.id}-${index}`}>{entry.status} — {entry.actor} — {new Date(entry.at).toLocaleString()}</li>)}</ol></details>
         {request.internalStatus === "blocked_policy" && <p className="rounded-xl bg-warning/10 p-3 text-sm leading-6 text-warning-200">Paused at the retention-policy gate. Owner/legal approval and a backend implementation are required before processing can continue.</p>}
       </CardBody></Card>)}
-      {loading && <div className="flex justify-center py-12"><Spinner label="Loading deletion requests…" /></div>}
+      {loading && requests.length === 0 && <DeletionRequestsSkeleton />}
       {!loading && !loadError && requests.length === 0 && <Card shadow="none" className="border border-dashed border-divider bg-content1"><CardBody className="p-12 text-center"><p className="font-medium">No deletion requests recorded.</p><p className="mt-2 text-sm text-default-400">Requests from the app and public form will appear here.</p></CardBody></Card>}
     </div>
   </section>;

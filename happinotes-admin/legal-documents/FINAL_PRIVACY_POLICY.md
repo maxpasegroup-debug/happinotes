@@ -2,7 +2,7 @@
 
 This notice describes how HappiNotes handles information when you use our website, Android app, account, library, audio content, purchases, subscriptions, notifications, or privacy-request tools. It applies to personal information handled by the service, subject to the laws that apply where you live.
 
-**Effective date: 6 November 2026.**
+**Effective date: 14 November 2026.**
 
 ## Who operates HappiNotes
 
@@ -35,6 +35,20 @@ Depending on the features you use, HappiNotes may handle:
 When you request a password-recovery or verification email, enable push notifications, or make or restore a purchase, the relevant service may provide information needed for that feature. Resend delivers password-recovery and one-time-code emails using the destination email address and message content. Push services receive a device token and notification content. Google Play provides or verifies Android product and transaction state. Apple purchase and notification support is intended for a future iOS release and is not part of the Android billing path.
 
 Depending on the service and configuration, HappiNotes may use Railway for backend hosting, MongoDB for application data hosted through Railway, Resend for password-recovery and OTP email delivery, Firebase Cloud Messaging for push notifications, Cloudinary for catalogue audio and media, and Google Play Billing for Android purchases, subscriptions and transaction verification. Apple App Store billing and notification services may be used if and when the iOS app launches. These providers process information for the functions described here.
+
+## Optional security reports and network lookups
+
+Basic security reporting is enabled by default for accounts without a saved choice on an installation; an existing OFF choice stays off. You can turn it off or on in Profile → Security reporting without losing access. While it is enabled and the app is in use, authorized administrators can review each device’s latest reported public IP address, device model, operating system and connection type, linked using a random account-scoped installation identifier to investigate misuse and manage account access. Each device report expires after 90 days without a new report and is removed during account deletion. Shared model-image cache entries contain product information, not account IDs, installation IDs or IP addresses, and successful entries expire after seven days. Reporting can be turned off in app settings; this stops future optional reports, while ordinary access logs and previously retained records are handled under the retention practices below.
+
+**Device location is optional.** A small permission explanation appears on first load when you have no saved location choice and basic security reporting is enabled. Accepting it requests operating-system foreground location permission and enables sharing after approval. Not now, denied permission and saved OFF choices keep sharing off. You can reopen this flow using Profile → Share device location. Android may also show a system dialog to enable Location services; we do not switch them on without your approval. With that permission and both toggles enabled, the app shares coordinates, reported accuracy, capture time and an available mock-location flag while it is in use. The OS may provide approximate location. We store only the latest shared point per installation, separately from IP-derived location, for authorized administrators to review account security; it is client-reported, not proof of identity or wrongdoing. No background location tracking is used. The same 90-day inactivity expiry and account-deletion process apply. Turning location off clears the stored point on the next basic report; turning all security reporting off stops reports but does not itself delete already retained records.
+
+**Login history and session protection:** Only one customer session is authorized at a time; a new successful login replaces the previous session. We retain the latest 50 successful login records (start, expiry/end and status) until replaced by newer entries or account deletion. Where optional security reporting is enabled, those entries also receive the reported device model/OS, public IP and a device-record link. They do not contain device location coordinates. This minimal authentication history and session enforcement continue when optional reporting is off. Current session status does not prove a device is online.
+
+**VPN access checks:** On supported Android builds, the app checks the active network connection while running and before login. A reported VPN connection signs the customer out; five separate detections restrict the account and reported app installations until administrator review. VPN use by itself does not establish fraud. These access checks continue when optional security reporting is off. We use a random app-wide installation identifier and detection incident identifiers, and retain the count, server-observed public IP and timestamps. Up to 50 detection records remain until account deletion. Hashed email/installation identifiers supporting active bans remain after deletion until administrator review; hashing does not make them anonymous. A public IP ban requires a separate administrator decision and may affect customers sharing that IP. Contact hello@happinotes.online to appeal. iOS/web and unknown network states do not generate detections. These checks do not collect device coordinates or configure a VPN.
+
+To display an approximate network location, the admin service may send the recorded public IP to **ipapi.co**, or to **ipwho.is (IPWHOIS.io)** when the primary lookup is unavailable. These location requests do not include your account name, email, password or authentication token. IP-based locations can describe a VPN or mobile gateway rather than your device and are not precise GPS locations.
+
+The admin service may send the reported device model to Wikidata/Wikimedia Commons to retrieve an attributed model reference image. It does not send your account details or IP in that model search. OpenStreetMap provides map tiles for the area displayed to administrators. These external services receive the requests necessary to supply those results. When configured, Serper searches Google image results using only the reported device model or its resolved product name. We do not include your account details or IP in that search. The administrator’s browser loads reference photos from the selected image source or Google thumbnail servers. Reference images are not photographs of your physical device.
 
 ## How we use information
 
@@ -102,7 +116,7 @@ Privacy laws differ by country. Depending on where you live and which laws apply
 
 ## Changes to this notice
 
-This version is effective 6 November 2026. If we make a material change, we will update this date and explain how the change will be communicated.
+This version is effective 14 November 2026 and adds information about optional security reporting, IP-location lookup providers device reference images, login history and VPN access checks. If we make a material change, we will update this date and explain how the change will be communicated.
 
 ## Contact and complaints
 

@@ -10,6 +10,7 @@ import { Card, Chip, ModalContent, ModalBody, ModalHeader, ModalFooter, Skeleton
 import { useCallback, useEffect, useRef, useState } from "react";
 import Image from "next/image";
 import AudioPreview from "@/components/admin/AudioPreview";
+import LanguagePicker from "@/components/admin/LanguagePicker";
 import HappyBiteUpload, { type BiteUploadState } from "@/components/admin/HappyBiteUpload";
 import { uploadHappyBiteChunks, type AudioUploadTicket } from "@/lib/happy-bite-upload";
 import { apiRequest, uploadMultipart } from "@/lib/api";
@@ -111,7 +112,7 @@ export default function HappyBitesAdminPage() {
   const visibleItems = items.filter((item) =>
     (filter === 'all' || item.published === (filter === 'published')) &&
     (!categoryFilter || item.category === categoryFilter) &&
-    `${item.title} ${item.description} ${item.category}`.toLowerCase().includes(search.toLowerCase().trim()),
+    `${item.title} ${item.description} ${item.category} ${item.language ?? ''}`.toLowerCase().includes(search.toLowerCase().trim()),
   );
 
   const openEditor = async (item?: HappyBite) => {
@@ -119,7 +120,7 @@ export default function HappyBitesAdminPage() {
     if (!await confirm({ title: item ? 'Edit Happy Bite?' : 'Create Happy Bite?', description: item ? `Open “${item.title}” for editing? You will confirm again before saving changes.` : 'Open a new Happy Bite draft? Nothing is published until you save and publish it.', confirmLabel: item ? 'Edit Happy Bite' : 'Create draft' })) return;
     setError(''); setNotice(''); setPreview(null);
     setUploads({});
-    setDraft(item ? { ...item, accessType: item.accessType ?? 'free' } : { ...EMPTY_BITE });
+    setDraft(item ? { ...item, language: item.language ?? '', accessType: item.accessType ?? 'free' } : { ...EMPTY_BITE });
   };
 
   const upload = async (kind: UploadKind, file?: File) => {
@@ -179,10 +180,10 @@ export default function HappyBitesAdminPage() {
     if (locked.current) return;
     locked.current = true; setOperation('save'); setError(''); setNotice('');
     try {
-      const { title, description, thumbnailUrl, audioUrl, durationSeconds, category, published, displayOrder, accessType } = draft;
+      const { title, description, thumbnailUrl, audioUrl, durationSeconds, category, language, published, displayOrder, accessType } = draft;
       await apiRequest(draft._id ? `/admin/happy-bites/${encodeURIComponent(draft._id)}` : '/admin/happy-bites', draft._id ? 'PUT' : 'POST', {
         title: title.trim(), description: description.trim(), thumbnailUrl, audioUrl,
-        durationSeconds, category: category.trim(), published, displayOrder, accessType,
+        durationSeconds, category: category.trim(), language: language.trim(), published, displayOrder, accessType,
       }, token());
       setDraft(null);
       setNotice(published ? accessType === 'premium' ? 'Premium Happy Bite saved and published for Pro members.' : 'Happy Bite saved and published. It is free for everyone.' : 'Draft saved. It stays hidden from listeners until you publish it.');
@@ -234,6 +235,7 @@ export default function HappyBitesAdminPage() {
             <label className="block text-sm font-medium">Title <span className="text-orange-300">*</span><AdminInput required autoFocus className={inputClass} value={draft.title} onChange={(e) => setDraft({ ...draft, title: e.target.value })} maxLength={160} placeholder="A small step toward a calmer day" /></label>
             <label className="block text-sm font-medium">Short description <span className="text-orange-300">*</span><AdminTextarea required className={`${inputClass} min-h-28 resize-y`} value={draft.description} onChange={(e) => setDraft({ ...draft, description: e.target.value })} maxLength={2000} placeholder="What will listeners take away from this bite?" /><span className="mt-1 block text-right text-xs text-zinc-500">{draft.description.length}/2000</span></label>
             <div className="grid gap-4 sm:grid-cols-2">
+              <div className="sm:col-span-2"><LanguagePicker value={draft.language} onChange={(language) => setDraft((current) => current ? { ...current, language } : current)} disabled={busy} /></div>
               <label className="block text-sm font-medium">Category <span className="text-orange-300">*</span><AdminInput required className={inputClass} list="bite-categories" value={draft.category} onChange={(e) => setDraft({ ...draft, category: e.target.value })} maxLength={80} /><datalist id="bite-categories">{categories.map((category) => <option key={category} value={category} />)}</datalist><span className="mt-2 block text-xs text-zinc-500">Choose a category or enter a new one.</span></label>
               <label className="block text-sm font-medium">Display order<AdminInput required className={inputClass} type="number" min="0" step="1" value={Number.isFinite(draft.displayOrder) ? draft.displayOrder : ''} onChange={(e) => setDraft({ ...draft, displayOrder: e.target.valueAsNumber })} /><span className="mt-2 block text-xs text-zinc-500">Lower numbers appear first. Newest breaks ties.</span></label>
             </div>
@@ -272,7 +274,7 @@ export default function HappyBitesAdminPage() {
       <Card as="div" shadow="none" aria-busy={loading} className="w-full rounded-none border-0 bg-transparent shadow-none">
         {loading ? <HappyBitesSkeleton /> : visibleItems.length === 0 ? <div className="px-5 py-12 text-center"><p className="text-lg font-semibold">{items.length ? 'No matching Happy Bites' : error ? 'Library unavailable' : 'Make someone’s day a little brighter'}</p><p className="mt-2 text-sm text-zinc-400">{items.length ? 'Try a different search or filter.' : error ? 'Check the message above, then refresh to try again.' : 'Upload your first short audio and share it for free.'}</p></div> : visibleItems.map((item) => <article key={item._id} className="border-b border-white/10 py-5 last:border-0">
           <div className="flex flex-wrap items-center justify-between gap-4">
-            <div className="flex min-w-0 flex-1 items-center gap-4"><Thumbnail key={item.thumbnailUrl} src={item.thumbnailUrl} title={item.title} /><div className="min-w-0"><h2 className="truncate font-semibold">{item.title}</h2><p className="mt-1 text-xs text-zinc-400">{item.category} · {formatBiteDuration(item.durationSeconds)}</p><p className="mt-1 text-xs text-zinc-500">Order {item.displayOrder} · Updated {dateLabel(item.updatedAt)}</p></div></div>
+            <div className="flex min-w-0 flex-1 items-center gap-4"><Thumbnail key={item.thumbnailUrl} src={item.thumbnailUrl} title={item.title} /><div className="min-w-0"><h2 className="truncate font-semibold">{item.title}</h2><p className="mt-1 text-xs text-zinc-400">{item.category} · {formatBiteDuration(item.durationSeconds)}{item.language ? ` · ${item.language}` : ''}</p><p className="mt-1 text-xs text-zinc-500">Order {item.displayOrder} · Updated {dateLabel(item.updatedAt)}</p></div></div>
             <div className="flex flex-wrap gap-2"><Chip size="sm" variant="flat" color={item.accessType === "premium" ? "warning" : "default"}>{item.accessType === "premium" ? "Premium" : "Free"}</Chip><Chip size="sm" variant="flat" color={item.published ? 'success' : 'default'}>{item.published ? 'Published' : 'Draft'}</Chip></div>
           </div>
           <div className="mt-4 flex flex-wrap gap-2">

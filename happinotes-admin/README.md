@@ -140,7 +140,7 @@ Check out our [Next.js deployment documentation](https://nextjs.org/docs/app/bui
 
 ## User Security menu
 
-The Management sidebar opens `/admin/user-security` (`app/admin/(secure)/user-security/page.tsx`). It shows seven users per page, search, latest public/device IP, Wi-Fi/mobile icons, provider initials, SIM carrier and OS/model. Device-reported values are labeled; unknown values are not guessed. OpenStreetMap embeds display approximate IP locations with attribution after backend IP lookup is configured.
+The Management sidebar opens `/admin/user-security` (`app/admin/(secure)/user-security/page.tsx`). It shows seven compact user cards per page with search, public IP, connection type and moderation status. Selecting a card opens a scrollable details dialog with IP fields, device information, a Leaflet/OpenStreetMap view and the existing moderation controls. Device-reported values are labeled; unknown values are not guessed.
 
 Temporary/permanent ban, unban and account deletion use confirmation dialogs with required reasons. Temporary bans require a future local expiry; deletion requires typing DELETE and queues the existing deletion workflow. The page receives admin socket invalidations and refreshes every 15 seconds. Do not confuse a queued deletion with completed cleanup or subscription cancellation. Deploy the backend endpoints before this admin page.
 
@@ -153,3 +153,117 @@ Deploy the backend's authenticated `/admin/contents/sign-happy-bite-audio` endpo
 Cloudinary account limits still apply to the complete asset regardless of chunking. Size, quota, authorization, timeout and network failures have actionable messages. No provider account settings or quotas are changed by this code. The existing multipart endpoint remains available for current mobile/admin clients.
 
 Validation: `npm run lint`, `npx tsc --noEmit`, `npm run test:auth`, `npm run build -- --webpack`. Upload transport regression tests are in `test/happy-bite-upload.test.mjs` and `test/upload-progress.test.mjs`.
+
+
+### User network details and Leaflet map
+
+This update lives directly in the admin application. The Next.js lookup uses the existing authenticated listing plus the new backend device-reference cache endpoints: `GET /api/admin/user-network` first calls the existing protected backend `GET /admin/user-security` with the administrator's token. It selects the requested record from the current page/search and obtains the IP/model from that record, never from client-supplied IP/model parameters. Every request, including cache hits, rechecks backend admin authorization. Tokens are sent only to the configured backend, never to lookup providers. Responses use `private, no-store`; the route limits each token to 30 requests/minute per process and bounds provider concurrency/cache sizes.
+
+Opening a user dialog performs a server-side lookup of the stored public IP through **ipapi.co**, with **ipwho.is** as a fallback for quota, authorization, network or invalid-response failures. The UI identifies the source that actually supplied the coordinates. Public-IP city/region/country, country ISO, postal code, latitude/longitude, timezone, ASN and organization are shown when returned. The admin route can work even when the Express backend's `SECURITY_GEOIP_PROVIDER` is unset. It does not change the backend's configuration or saved network record. It reuses successful IP lookups for 24 hours and failures for one minute. Provider-wide cooldowns honor `Retry-After`; without a header, quota responses pause ipapi.co for 15 minutes and ipwho.is for 24 hours. Other provider failures pause that source for one minute. **Refresh lookup** respects these windows. During an outage, a same-IP success less than seven days old can remain visible with a cached label and its original lookup time; otherwise a valid saved backend location is labeled as a fallback. API-key changes invalidate old ipapi.co failure/cache state. Private/local IPs are not sent to the provider.
+
+For a provider plan requiring credentials, configure `SECURITY_GEOIP_API_KEY` **on the Next.js admin server** (never with a `NEXT_PUBLIC_` prefix). Set `ADMIN_IP_LOOKUP_ENABLED=false` there to disable all admin IP lookups, or `ADMIN_IP_LOOKUP_FALLBACK=false` to disable only ipwho.is. Both sources have independent quotas; the fallback is not unlimited. ipwho.is documents a free commercial-use endpoint with 1,000 requests/day per client IP and no SLA; use an appropriate provider plan for production traffic. No key or paid account is provisioned by this code. The app must report a public IP while basic security reporting is enabled; this UI cannot discover an unreported device.
+
+Leaflet 1.9.4 JS/CSS load client-side from pinned `unpkg.com` URLs with official integrity hashes. OpenStreetMap tiles retain attribution and normal browser caching. A world map without a marker is shown when coordinates are missing. Map failures have a retry control, and instances/resize observers are removed when dialogs close. Browser access is required to `unpkg.com`, `tile.openstreetmap.org` and Wikimedia image hosts. Map tiles are not downloaded for closed cards. Public OSM tiles are best-effort; review their usage policy for deployment volume.
+
+When `SERPER_API_KEY` is configured on the **Next.js server**, device photos are searched first through Serper's `POST https://google.serper.dev/images`. Store the key in ignored `.env.local` locally and the hosting environment in production; never use a `NEXT_PUBLIC_` variable. Restart the admin server after changing it. Only the validated device model or its Google Play catalog name is sent, with autocorrection disabled. Results must have a matching product heading or complete hardware-code token. Manufacturer/device-catalog sources are preferred, followed by other public HTTPS source pages. Images use approved image hosts or Google thumbnails. The result title appears in the UI; Serper source URLs remain in the server result but are not shown as links. Required Wikimedia attribution remains visible. Variant mismatches, accessories, comparisons and unsafe URLs are rejected. These results are labeled **Model search reference**, with the result title; search results do not establish image licensing or prove the user's physical hardware. Image rights remain with the source. A Google thumbnail is tried if the original fails. Requests time out after five seconds; quota responses honor Retry-After (15-minute default), other provider failures pause for one minute. Failed or unmatched searches fall back to the existing Wikimedia lookup. Cache keys change when the Serper key changes. Browser access is also needed to the selected source image host and `*.gstatic.com`.
+
+The admin server searches Wikidata/Commons using only the reported **device model**, not the user's name, IP, email or a personal device name. A matched, freely licensed reference photo includes source, creator and license attribution. For Android hardware codes, the admin first downloads Google Play’s public supported-device CSV (cached for 24 hours, bounded to 16 MB, with a five-second timeout) and resolves the exact Model column to a unique manufacturer/product name. It never sends a user IP or model in that public catalog request. Ambiguous catalog rows now search the raw model code through Serper and show a labeled search reference when a relevant result is found. They remain ambiguous for the exact Wikimedia fallback. For example, Google Play lists STK-L21 as Huawei Y9 Prime 2019, Y9s and P smart Pro; the UI explicitly says its search reference cannot establish which one the user owns. For the Wikimedia fallback, only a unique Wikidata entity whose model label matches that resolved name exactly, or explicitly lists the complete hardware code as an alias, can supply an image. Variant suffixes (including Plus/Pro/Ultra/5G) are preserved; family/series entries and ambiguous matches are rejected. The image comes from that entity’s non-deprecated P18 claim and must carry valid attribution. Generic illustrations and snippet-based guesses are not used. Missing or failed images show the reported code and **Exact image unavailable**; Retry device image can re-run a cached lookup after a one-minute cooldown. Valid original image URLs are accepted when Commons has no thumbnail, and known Creative Commons license links are upgraded to HTTPS. Missing model, unsupported model, missing exact catalog record, missing photo, missing metadata, catalog outage and browser image failures have distinct messages. A **Model match** link makes the catalog identity inspectable. This still depends on catalog coverage and correct device reporting; it cannot establish a device’s physical color or condition. Photo results are reused for seven days; no match for one hour; failures for one minute. A reference photo is not an image of the user's physical device.
+
+IP2Location, DB-IP, IPinfo and Criminal IP are **not integrated**. VPN, proxy, Tor, hosting/cloud/mobile classification, crawler/scanner/Snort, AS name and threat/inbound/outbound scores remain **Not provided**. Missing data never appears as a negative check or a safety judgment. ipapi.co's organization field is not represented as a verified SIM carrier. ipwho.is's `connection.isp` appears separately as the ISP supplied by the location provider. Existing account ban/delete confirmations and backend workflows are unchanged.
+
+Files: `app/api/admin/user-network/route.ts`, `lib/user-security.ts`, `lib/user-security-lookup.ts`, `components/admin/SecurityLocationMap.tsx`, `components/admin/UserNetworkDetails.tsx`, `app/admin/(secure)/user-security/page.tsx`; tests: `test/user-security.test.mjs`.
+
+References: [Leaflet setup](https://leafletjs.com/examples-v1/quick-start/), [OSM tile policy](https://operations.osmfoundation.org/policies/tiles/), [ipapi.co fields](https://ipapi.co/api/), [ipapi.co plans](https://ipapi.co/pricing/), [ipwho.is fields, limits and usage](https://ipwhois.io/documentation), [Wikimedia image metadata](https://www.mediawiki.org/wiki/API:Imageinfo), [Google Play supported devices](https://support.google.com/googleplay/answer/1727131).
+
+The website privacy notice and mobile disclosure name both IP lookup providers, the random account-scoped installation ID and device-reference image providers. Store submission declarations remain a release task.
+
+### Device details modal and cache status
+
+**View device details** opens a dedicated modal with the already-loaded photo, model, OS/version, connection type, carrier, device/public IP, last report and available catalog/search details. Opening this modal does not issue a new lookup. General IP lookup refreshes reuse the device cache; only **Retry device image** requests its explicit refresh (subject to the existing one-minute cooldown).
+
+Device references are persisted in the backend MongoDB `devicereferencecaches` collection, shared by normalized model name. Successful results expire after seven days, misses after one hour and failures after one minute. Each authorized lookup first reuses the in-process cache, then checks MongoDB before contacting providers. Database hits survive Next.js restarts. During backend rollout/outages, the UI remains usable with memory caching and the device modal labels that fallback; later views retry persistence. The device modal shows the image fetch time and storage state. Deploy the backend before the admin so the protected GET/PUT `/admin/user-security/:id/device-reference?deviceId=...` routes are available. `SERPER_API_KEY` stays on the Next.js server, never in the database or mobile app.
+
+Moto G-series image matching treats `moto g45 5G`, `Motorola G45 5G` and `Motorola Moto G45 5G` as equivalent headings and accepts recognized retail color/RAM/storage suffixes. Model numbers, 4G/5G and Plus/Pro variants remain distinct. `motorola.in` is an approved manufacturer source. Build fingerprints are not used as product names in image searches.
+
+The device selector lists **all registered installations under one existing account**; the newest customer login replaces earlier sessions. Updated app builds save a random ID per account in existing secure storage before reporting. The backend upserts `UserDevice` by user ID plus installation ID and retains each latest report for 90 days of inactivity. First-seen/last-seen and selected-device IP/map/model details are available in the modal. Older builds that sign in again use a server-issued login-session fallback when they cannot supply an installation ID. The last pre-rollout `UserNetwork` snapshot remains selectable alongside modern records. Legacy snapshots cannot reconstruct past devices. Clearing app storage/reinstalling may create a new installation record; this is not a permanent hardware identity or proof of fraud. Existing account deletion removes all device records.
+
+
+Device location appears as a separate section/map in each selected device’s details, independently of the IP lookup. It displays the latest consented coordinates, reported accuracy, captured/received times and mock-location flag if provided. Missing location never substitutes an IP pin. The mobile switch defaults OFF and requires foreground OS permission; basic IP/device reporting defaults ON only without an existing preference. Saved OFF choices remain OFF. No location-provider quota is used for device coordinates; OpenStreetMap still supplies map tiles. Publish the revised privacy text and update store declarations before release.
+
+
+**Login & device history** in each user dialog retains the latest 50 successful sign-ins, including entries that have not yet supplied optional device metadata. Status labels distinguish the current authorized session from replaced, signed-out, expired and revoked sessions. Current is not an online-presence assertion. Each reported login links to its device details; earlier devices remain selectable. Backend atomic session rotation makes only the latest customer login valid. Restart/deploy the backend and admin and update the app to enable the complete flow. Earlier overwritten legacy snapshots cannot be reconstructed.
+
+
+The User Security page checks backend capability flags and displays a deployment warning if location storage or newest-login session enforcement is not confirmed. GPS collection failures no longer erase a last-known location; its original capture/receipt timestamps remain visible. This map cannot fetch GPS directly from a phone: the installed app must opt in, have OS location permission and upload a valid fix to the updated backend.
+
+
+### Current session, location status and VPN review
+
+Login history pins the current authorized session above a keyboard-scrollable previous-login list. With no current session, it pins the newest record and shows “No active session.” Selecting a login selects that device's report. The separate device-location section shows the app's last collection status and check time, distinguishing OFF, denied permission, disabled services, missing native support and timeouts. Existing coordinates keep their capture time after transient failures.
+
+User Security displays a red VPN detection count and an alert when a loaded account's count increases. Five separate detections revoke access and ban the account plus recorded app installations; VPN detection is Android client-reported and is not proof of fraud. IP blocking requires the administrator's separate review/reason/confirmation, and can affect unrelated customers sharing that IP. Unbanning the account resets strikes and releases installation/email restrictions; use the separate IP action to lift an IP restriction. Backend capability checks include VPN support. These features require the updated backend and rebuilt mobile app; editing this repository does not deploy them.
+
+### User Security chart view
+
+User Security opens on **Details**. **Charts** presents ten interactive charts across Access & Activity, Patterns & Policy, and Device Reporting: login activity, account access, connection mix, session outcomes, device platforms, weekday/hour login heatmap, VPN detection distribution, devices per account, location coverage and report freshness. The 7/30-day activity window applies to the timeline and UTC heatmap; the other charts show the current fetched snapshot. Responsive SVG sizing, semantic colors, hover tooltips and aligned chart cards keep the dashboard readable across screen sizes. Summary cards show accounts, device reports, authorized sessions and recorded VPN detections. Select a bar, legend, heatmap cell or daily total to inspect matching accounts and open their existing security dialog. Search and pagination are shared between views; charts explicitly cover the fetched page (up to seven users), not all matching accounts. Retained login history is capped at 50 per account, and authorized sessions are not an online-presence indicator. Missing reports are not invented.
+
+The existing Framer Motion dependency supplies the moving tab indicator, panel transitions, staggered card reveals and animated SVG/bar drawing; loading uses chart-shaped skeletons. Reduced-motion preferences disable entrance/drawing motion. Existing live invalidations and refreshes supply both tabs; no additional API endpoint or moderation workflow is introduced.
+
+Files: `components/admin/UserSecurityCharts.tsx`, `lib/user-security-charts.ts`, `test/user-security-charts.test.mjs`, and the existing `app/admin/(secure)/user-security/page.tsx`.
+
+User Security IP and device maps now support zoom levels 0–19 (the configured OpenStreetMap tile range), mouse-wheel/pinch zoom, double-click, keyboard controls and Shift-drag area zoom. The toolbar shows the current zoom, resets the view and expands the map using browser fullscreen where available, with a taller in-panel fallback. Resize handling keeps the existing map/marker and zoom intact. The external OpenStreetMap link uses the selected zoom. Increasing zoom does not increase the accuracy of a saved IP or device coordinate.
+
+### Application analytics and management navigation
+
+`/admin/dashboard` is now a dedicated chart dashboard. Story Books (`/admin/story-books`) and Users (`/admin/users`) are separate sidebar menus using `components/admin/ContentManagement.tsx`; existing book creation/editing, upload and publication confirmations, user blocking and seven-user pagination are retained. Book editor return links and the older content/upload routes lead to Story Books.
+
+Dashboard reads the complete existing `/admin/contents`, `/admin/happy-bites`, `/admin/users` and `/admin/stats` responses. Ten charts show community growth, current Pro coverage, library growth/composition, publication states, content access, book languages, bite categories/durations and account blocking. The 6/12-month control applies to creation-date trends in UTC; the other charts show current snapshots. Account totals include all roles, and blocked flags are not online activity. No revenue or listening metrics are inferred. Data refreshes every minute while visible, on focus and after local catalogue changes. Failed sources show unavailable panels instead of zero counts, with manual retry. Framer Motion honors reduced-motion preferences; charts support keyboard values and mobile layouts.
+
+New paths: `app/admin/(secure)/story-books/page.tsx`, `components/admin/ContentManagement.tsx`. Existing dashboard chart components/helpers and tests contain the new analytics; no backend endpoint, dependency or subscription workflow was changed.
+
+
+### Audiobook language selection
+
+Story Books → Create a book / Edit book now uses a searchable language dropdown.
+The shared picker also covers the older content editor. Its local catalog contains
+8,046 choices: all 7,867 entries in the bundled ISO 639-3 snapshot plus additional
+Indian Census names, covering all 121 Census language groups and every published
+named mother-tongue row. Search accepts names, common Indian aliases, native names
+for all 22 scheduled languages, and ISO codes. The list is virtualized with no
+result cap. Custom language/dialect names remain supported, and old language
+strings are retained unchanged unless the administrator selects a replacement.
+
+This is audiobook metadata, not translation of the app or narration. The catalog
+includes historical/ancient languages and language groups as well as living
+languages; it does not claim to enumerate 19,569 distinct languages or match a
+fixed 7,170 living-language count. See [sources, scope and update instructions](lib/data/LANGUAGE_SOURCES.md).
+Save, publication, pricing and upload workflows keep the existing backend string
+field; no backend migration, new dependency or external search call is needed.
+
+Added files:
+
+```text
+components/admin/LanguagePicker.tsx
+lib/content-languages.ts
+lib/data/india-census-languages.json
+lib/data/iso-languages.json
+lib/data/iso-languages.LICENSE
+lib/data/LANGUAGE_SOURCES.md
+test/content-languages.test.mjs
+```
+
+
+### Happy Bites language selection
+
+Happy Bites → Create/Edit now reuses the audiobook language picker and its full
+8,046-entry catalog, native-name/ISO search, and custom dialect entry. New drafts
+start with English; older items without language metadata open with a blank
+selection so the administrator can choose the correct language. Saving the editor
+requires a language. The list displays it and includes it in text search.
+
+The backend HappyBite model and create/update controller now store the optional
+`language` string (trimmed, at most 160 characters) and return it in existing admin
+and public responses. Restart/deploy **both backend and admin** for persistence;
+no database backfill is needed. Status-only updates preserve existing language,
+and older API clients can omit it. Existing upload, access and publish workflows
+are unchanged. No new files or dependencies were introduced for this extension.
