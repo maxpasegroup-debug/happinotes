@@ -121,10 +121,46 @@ test('latest location is stored per authenticated installation; explicit null cl
   assert.equal(writes[0].$set.deviceLocation.longitude, 76); assert.equal(writes[0].$set.geo, undefined);
   await report({ deviceLocation: null }); assert.equal(writes[1].$unset.deviceLocation, 1);
   await report({}); assert.equal(writes[2].$set.deviceLocation, undefined); assert.equal(writes[2].$unset, undefined);
+  await report({ locationState: 'timeout' });
+  assert.equal(writes[3].$set.locationStatus.state, 'timeout');
+  assert.ok(writes[3].$set.locationStatus.checkedAt instanceof Date);
+  assert.equal(writes[3].$set.deviceLocation, undefined);
+  assert.equal(writes[3].$unset, undefined, 'a timeout preserves the previous device point');
+  let invalid;
+  await controller.recordNetwork({ user: { _id: userId }, body: { installationId: uuidA, locationState: 'invented' } }, response(), error => { invalid = error; });
+  assert.equal(invalid.statusCode, 400);
+  assert.equal(writes.length, 4);
 });
 test('location cannot be stored in a legacy network snapshot without an installation identity', async () => {
   mock.method(UserNetwork, 'updateOne', () => assert.fail('no write'));
   let caught;
   await controller.recordNetwork({ user: { _id: userId }, body: { networkType: 'wifi', deviceLocation: { latitude: 10, longitude: 76, accuracy: 20, capturedAt: new Date().toISOString(), consentVersion: 1 } } }, response(), error => { caught = error; });
   assert.equal(caught.statusCode, 400);
+});
+
+
+test('a later location replaces the installation point and notifies admin; intermediate reports preserve it', async () => {
+  const realtime = require('../dist/services/realtime');
+  let events = 0;
+  const record = { publicIp: '8.8.8.8', geo: { status: 'approximate', checkedAt: new Date() } };
+  mock.method(realtime, 'emitUserDevicesChanged', () => { events++; });
+  mock.method(UserDevice, 'findOne', () => ({ lean: async () => ({ ...record }) }));
+  mock.method(UserDevice, 'updateOne', async (filter, update) => {
+    assert.equal(filter.userId, userId); assert.equal(filter.installationId, uuidA);
+    Object.assign(record, update.$set);
+  });
+  const report = async extra => {
+    const res = response();
+    await controller.recordNetwork({ ip: '8.8.8.8', user: { _id: userId }, body: { networkType: 'wifi', installationId: uuidA, ...extra } }, res, next);
+    return res.body;
+  };
+  const point = { latitude: 10, longitude: 76, accuracy: 20, capturedAt: new Date().toISOString(), consentVersion: 1 };
+  assert.equal((await report({ deviceLocation: point, locationState: 'ready' })).deviceLocationStored, true);
+  const checkTime = record.locationStatus.checkedAt;
+  await report({});
+  assert.equal(record.deviceLocation.latitude, 10);
+  assert.equal(record.locationStatus.checkedAt, checkTime);
+  assert.equal((await report({ deviceLocation: { ...point, latitude: 11, longitude: 77 }, locationState: 'ready' })).deviceLocationStored, true);
+  assert.equal(record.deviceLocation.latitude, 11); assert.equal(record.deviceLocation.longitude, 77);
+  assert.equal(events, 2, 'each saved location invalidates the admin data');
 });

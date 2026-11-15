@@ -16,6 +16,12 @@ function normalizePayload(body: Record<string, unknown>, partial = false) {
     if (!value) throw new BadRequestError(`${key} is required`);
     payload[key] = value;
   }
+  if (Object.prototype.hasOwnProperty.call(body, 'language')) {
+    if (typeof body.language !== 'string' || !body.language.trim() || body.language.trim().length > 160) {
+      throw new BadRequestError('language must be a non-empty string of 160 characters or fewer');
+    }
+    payload.language = body.language.trim();
+  }
   if (!partial || Object.prototype.hasOwnProperty.call(body, 'durationSeconds')) {
     const duration = Number(body.durationSeconds ?? 0);
     if (!Number.isFinite(duration) || duration < 0) throw new BadRequestError('durationSeconds must be a non-negative number');

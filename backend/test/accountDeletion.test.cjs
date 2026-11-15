@@ -1,4 +1,3 @@
-const { VpnIncident } = require('../dist/models/VpnIncident');
 const { UserDevice } = require('../dist/models/UserDevice');
 const { UserNetwork } = require('../dist/models/UserNetwork');
 const { test, afterEach, mock } = require('node:test');
@@ -206,7 +205,6 @@ test('competing workers receive at most one claim for the same request', async (
 });
 
 test('worker performs only policy-independent cleanup and blocks at the policy gate', async () => {
-  mock.method(VpnIncident, 'deleteMany', async () => ({ deletedCount: 0 }));
   mock.method(UserDevice, 'deleteMany', async () => ({}));
   mock.method(UserNetwork, 'deleteMany', async () => ({}));
   mock.method(AccountDeletionReauth, 'deleteMany', async () => ({}));
@@ -258,7 +256,6 @@ test('worker performs only policy-independent cleanup and blocks at the policy g
 });
 
 test('worker retries a partial cleanup failure without recording provider text', async () => {
-  mock.method(VpnIncident, 'deleteMany', async () => ({ deletedCount: 0 }));
   mock.method(UserDevice, 'deleteMany', async () => ({}));
   mock.method(UserNetwork, 'deleteMany', async () => ({}));
   mock.method(AccountDeletionReauth, 'deleteMany', async () => ({}));

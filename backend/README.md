@@ -13,10 +13,12 @@ backend/
 │   ├── models/
 │   │   ├── Book.ts        # Book schema
 │   │   ├── User.ts        # User schema
+│   │   ├── SecurityBlock.ts
 │   │   ├── UserDevice.ts
 │   │   ├── DeviceReferenceCache.ts
 │   │   └── index.ts
 │   ├── controllers/
+│   │   ├── vpnSecurityController.ts
 │   │   ├── authController.ts
 │   │   ├── booksController.ts
 │   │   ├── collectionController.ts
@@ -34,6 +36,7 @@ backend/
 │   │   ├── errorHandler.ts
 │   │   └── index.ts
 │   ├── services/
+│   │   ├── vpnSecurity.ts
 │   │   ├── accountSessions.ts
 │   │   └── deviceReferenceCache.ts
 │   ├── utils/
@@ -43,6 +46,7 @@ backend/
 │   └── server.ts          # DB connect + listen
 ├── .env.example
 ├── test/
+│   ├── vpnSecurity.test.cjs
 │   ├── accountSessions.test.cjs
 │   ├── deviceStorage.test.cjs
 │   ├── happyBiteAudioUpload.test.cjs  # Large audio upload regression checks
@@ -340,3 +344,26 @@ Deploy backend and admin, update both phone installations, then sign in on phone
 
 
 Rollout diagnostics: authenticated `/admin/user-security` and successful `/auth/me/network` responses now include `capabilities: { deviceLocation: true, singleActiveSession: true }`. The report response also confirms `deviceLocationStored`. The admin displays a backend-update warning when capabilities are missing; the app does not claim a location is saved without acknowledgement. GPS failures omit `deviceLocation` to preserve the last fix; explicit opt-out or permission denial sends null to remove it. An unauthenticated POST to `/auth/logout` must return 401 on the updated server; a 404 means this route is absent on the connected deployment. On 2026-11-14 the configured Railway URL returned 404, while the local source includes the route. Local edits do not deploy Railway.
+
+
+## VPN access policy and installation restrictions
+
+Updated Android clients report explicit VPN network transport through authenticated `POST /auth/vpn-detected`, or with verified login credentials. Unknown states, iOS and web do not generate detections. The payload uses a random app installation UUID and persistent incident UUID; it contains no hardware identifier. A repeated incident does not increment the counter, and a server-side one-minute cooldown prevents rapid reconnections from creating additional strikes. Five separate counted detections block the customer account and all installation keys recorded in those incidents. Administrator accounts are excluded.
+
+The counter, bounded incident history, installation keys and session revocation are committed in one compare-and-set User update, so standalone MongoDB works without transactions. Account invalidation events notify connected clients and administrators. Client polling covers missed events; suspended/offline apps act when they resume. Authentication checks enforce account, installation and manually configured IP restrictions. Old or modified clients that omit installation identity cannot be treated as device-attested; reinstalling/clearing secure storage can change the ID. This is not an immutable physical-device ban or proof of fraud.
+
+Public IPs are **not automatically banned**. Existing admin authorization protects `PUT /admin/user-security/:id/ip-ban`; the IP must match a stored report and a reason is required. Shared IP restrictions affect other customers on that network. Unbanning an account resets its VPN count and releases associated installation/email blocks; manual IP restrictions remain separate. Before deletion clears identifiers, active VPN restrictions are copied into the persistent SecurityBlock collection; a failed write retries the deletion checkpoint. Hashed identifiers are still sensitive security data and remain until administrator review. The latest 50 incident records are removed during account deletion.
+
+Deploy backend and admin, then rebuild the mobile binary with Expo Network/Crypto before rollout. No VPN geolocation provider is used. Tests in `test/vpnSecurity.test.cjs` cover duplicate/concurrent incidents, the five-strike boundary, atomic-write failure, block checks, administrator exceptions, manual IP validation, unbanning and deletion retention.
+
+Device reports also store `locationStatus` (state and server check time) per installation. It explains why coordinates are missing without treating an IP lookup as device GPS; transient failures retain the previous shared point.
+
+
+### Happy Bites language metadata
+
+HappyBite now stores optional `language` text. Admin create/update accepts nonempty
+strings up to 160 characters and trims whitespace; omitted fields remain unchanged
+on updates. Existing records/older clients without a language remain unspecified.
+Existing admin and public responses include the value when stored. Access checks,
+upload handling, publication and realtime invalidations are unchanged. Deploy this
+backend with the admin language dropdown; no migration or new endpoint is needed.

@@ -1,5 +1,5 @@
 const { SecurityBlock } = require('../dist/models/SecurityBlock');
-require('node:test').beforeEach(() => mock.method(SecurityBlock, 'exists', async () => null));
+require('node:test').beforeEach(() => { mock.method(SecurityBlock, 'exists', async () => null); mock.method(User, 'exists', async () => null); });
 const { test, afterEach, mock } = require('node:test');
 const assert = require('node:assert/strict');
 const crypto = require('node:crypto');

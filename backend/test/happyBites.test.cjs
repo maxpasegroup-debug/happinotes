@@ -259,3 +259,58 @@ test('invalid, revoked, blocked, and deleting accounts do not receive premium au
   await controller.getHappyBite(req, res, (e) => { throw e; });
   assert.equal(res.payload.happyBite.audioUrl, premium.audioUrl);
 });
+
+
+test('Happy Bite language persists through create, update and admin/public serialization', async () => {
+  const base = { title: 'Thought', description: 'Description', thumbnailUrl: '/t.jpg', audioUrl: '/a.mp3', category: 'Joy' };
+  let stored;
+  mock.method(HappyBite, 'create', async (value) => {
+    const document = new HappyBite(value);
+    assert.equal(document.validateSync(), undefined);
+    stored = document.toObject();
+    return stored;
+  });
+  const res = response();
+  const next = (error) => { throw error; };
+  await controller.createHappyBite({ body: { ...base, language: '  മലയാളം  ' } }, res, next);
+  assert.equal(res.payload.happyBite.language, 'മലയാളം');
+  mock.method(HappyBite, 'findByIdAndUpdate', async (_id, update, options) => {
+    assert.equal(options.runValidators, true);
+    stored = { ...stored, ...update.$set };
+    return stored;
+  });
+  for (const language of ['Zulu', 'Valley dialect', 'Oriya']) {
+    await controller.updateHappyBite({ params: { id }, body: { language } }, res, next);
+    assert.equal(res.payload.happyBite.language, language);
+  }
+  await controller.updateHappyBite({ params: { id }, body: { published: true } }, res, next);
+  assert.equal(stored.language, 'Oriya');
+  mock.method(HappyBite, 'find', () => ({ sort() { return this; }, lean: async () => [stored, { ...base }] }));
+  await controller.listAdminHappyBites({}, res, next);
+  assert.equal(res.payload.happyBites[0].language, 'Oriya');
+  assert.equal(res.payload.happyBites[1].language, undefined);
+  assert.equal(controller.publicBite(stored, false).language, 'Oriya');
+  assert.equal(controller.publicBite({ ...stored, accessType: 'premium' }, false).audioUrl, undefined);
+});
+
+test('Happy Bite language rejects malformed values but older clients may omit it', async () => {
+  const base = { title: 'Thought', description: 'Description', thumbnailUrl: '/t.jpg', audioUrl: '/a.mp3', category: 'Joy' };
+  const create = mock.method(HappyBite, 'create', async (value) => value);
+  const update = mock.method(HappyBite, 'findByIdAndUpdate', async () => assert.fail('must not update'));
+  for (const language of ['', '   ', null, 123, [], {}, 'a'.repeat(161)]) {
+    for (const action of ['create', 'update']) {
+      let error;
+      if (action === 'create') await controller.createHappyBite({ body: { ...base, language } }, response(), e => { error = e; });
+      else await controller.updateHappyBite({ params: { id }, body: { language } }, response(), e => { error = e; });
+      assert.equal(error?.statusCode, 400);
+      assert.match(error.message, /language/);
+    }
+  }
+  assert.equal(create.mock.callCount(), 0);
+  assert.equal(update.mock.callCount(), 0);
+  const res = response();
+  await controller.createHappyBite({ body: base }, res, e => { throw e; });
+  assert.equal(res.payload.happyBite.language, undefined);
+  assert.equal(new HappyBite(base).language, undefined);
+  assert.ok(new HappyBite({ ...base, language: 'a'.repeat(161) }).validateSync().errors.language);
+});

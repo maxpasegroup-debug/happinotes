@@ -1,9 +1,7 @@
 import { createHash } from 'crypto';
-import mongoose from 'mongoose';
 import { User, type IUser } from '../models/User';
-import { VpnIncident } from '../models/VpnIncident';
 import { SecurityBlock } from '../models/SecurityBlock';
-import { BadRequestError, ForbiddenError } from '../utils/errors';
+import { AppError, BadRequestError, ForbiddenError } from '../utils/errors';
 import { publicAddress } from './userNetwork';
 import { emitUserSecurityChanged } from './realtime';
 
@@ -28,40 +26,52 @@ export async function assertNoSecurityBlock(installationKey?: string, ip?: strin
     ...(address ? [{ kind: 'ip', key: securityKey('ip', address) }] : []),
     ...(email ? [{ kind: 'email', key: securityKey('email', email) }] : []),
   ];
+  // The account document is the authoritative atomic ban record; the shared
+  // block index also preserves restrictions after account-deletion cleanup.
+  const accountFilters = [
+    ...(installationKey ? [{ vpnInstallationKeys: installationKey }] : []),
+    ...(email ? [{ email: email.trim().toLowerCase() }] : []),
+  ];
+  if (accountFilters.length && await User.exists({ blocked: true, vpnDetectionCount: { $gte: VPN_BAN_THRESHOLD }, $or: accountFilters })) throw new ForbiddenError('Access is blocked. Contact support to appeal this restriction.');
   if (filters.length && await SecurityBlock.exists({ active: true, $or: filters })) throw new ForbiddenError('Access is blocked. Contact support to appeal this restriction.');
 }
-/** Client-reported VPN policy incidents, never represented as proven fraud.
- * Transaction makes deduplication, count, revocation and threshold blocks atomic. */
+/** Counters, incident deduplication, revocation and the installation ban are
+ * committed in ONE account update, including on standalone MongoDB. */
 export async function recordVpnDetection(userId: string, report: DeviceSecurity, ip?: string) {
   if (report.vpn !== true || !report.incidentId || report.source !== 'android_network') throw new BadRequestError('A detected Android VPN is required.');
   const installationKey = securityKey('installation', report.installationId);
-  let result = { count: 0, banned: false, counted: false };
-  await mongoose.connection.transaction(async session => {
-    const user = await User.findById(userId).session(session);
+  for (let attempt = 0; attempt < 8; attempt++) {
+    const user = await User.findById(userId).select('+vpnHistory +vpnInstallationKeys');
     if (!user || user.role !== 'user') throw new ForbiddenError('Customer account required.');
-    const duplicate = await VpnIncident.exists({ userId, incidentId: report.incidentId }).session(session);
-    // Network handovers/retries cannot accumulate strikes in quick succession.
+    const duplicate = user.vpnHistory?.some(item => item.incidentId === report.incidentId);
     const coolingDown = !!user.vpnLastDetectedAt && Date.now() - new Date(user.vpnLastDetectedAt).getTime() < 60000;
     const counted = !duplicate && !coolingDown && !user.blocked;
     const count = (user.vpnDetectionCount || 0) + (counted ? 1 : 0);
     const banned = count >= VPN_BAN_THRESHOLD;
     const now = new Date();
-    if (counted) await VpnIncident.create([{ userId, incidentId: report.incidentId, installationKey, publicIp: publicAddress(ip), detectedAt: now, source: report.source }], { session });
-    await User.updateOne({ _id: userId }, {
+    const updated = await User.findOneAndUpdate({ _id: userId, $or: [{ sessionVersion: user.sessionVersion ?? 0 }, ...((user.sessionVersion ?? 0) === 0 ? [{ sessionVersion: { $exists: false } }] : [])] }, {
       $inc: { sessionVersion: 1, ...(counted ? { vpnDetectionCount: 1 } : {}) },
       $unset: { activeLoginSessionId: 1 },
       $set: { ...(counted ? { vpnLastDetectedAt: now, vpnLastIp: publicAddress(ip) || '' } : {}), ...(banned ? { blocked: true, banExpiresAt: null, banReason: 'VPN policy: five separate detections.' } : {}) },
-      ...(banned && counted ? { $push: { moderationHistory: { $each: [{ action: 'permanent', reason: 'VPN policy: five separate detections.', actorId: 'system:vpn', at: now }], $slice: -50 } } } : {}),
-    }, { session });
-    if (banned) {
-      for (const [kind, key] of [['installation', installationKey], ...(user.email ? [['email', securityKey('email', user.email)]] : [])]) {
-        await SecurityBlock.updateOne({ kind, key }, { $set: { active: true, userId, reason: 'VPN policy: five separate detections.', actor: 'system:vpn' } }, { upsert: true, session });
-      }
-    }
-    result = { count, banned, counted };
-  });
-  emitUserSecurityChanged(userId);
-  return result;
+      ...(counted ? { $addToSet: { vpnInstallationKeys: installationKey }, $push: {
+        vpnHistory: { $each: [{ incidentId: report.incidentId, installationKey, publicIp: publicAddress(ip), detectedAt: now }], $slice: -50 },
+        ...(banned ? { moderationHistory: { $each: [{ action: 'permanent', reason: 'VPN policy: five separate detections.', actorId: 'system:vpn', at: now }], $slice: -50 } } : {}),
+      } } : {}),
+    }, { new: true, runValidators: true });
+    if (!updated) continue; // A simultaneous login/report changed the version.
+    emitUserSecurityChanged(userId);
+    return { count, banned, counted };
+  }
+  throw new AppError('Security state changed. Please retry.', 409);
+}
+
+/** Called by deletion cleanup before identifiers are removed. Failure retries
+ * the existing deletion checkpoint rather than dropping a permanent block. */
+export async function preserveVpnBlocks(user: IUser) {
+  if (!user.blocked || (user.vpnDetectionCount || 0) < VPN_BAN_THRESHOLD) return;
+  const keys = (user.vpnInstallationKeys || []).map(key => ['installation', key]);
+  if (user.email) keys.push(['email', securityKey('email', user.email)]);
+  for (const [kind, key] of keys) await SecurityBlock.updateOne({ kind, key }, { $set: { active: true, userId: user._id, reason: 'VPN policy: five separate detections.', actor: 'system:vpn' } }, { upsert: true });
 }
 export async function checkVpnLogin(user: IUser, input: unknown, ip?: string): Promise<string | undefined> {
   if (user.role === 'admin') return undefined;

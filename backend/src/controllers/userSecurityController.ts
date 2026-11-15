@@ -102,7 +102,7 @@ export async function moderateUser(req: Request, res: Response, next: NextFuncti
     if (user.role === 'admin' || String(user._id) === String(req.user!._id)) throw new ForbiddenError('Administrators cannot be moderated here.');
     if (user.deletionState && user.deletionState !== 'active') throw new BadRequestError('Deletion is already in progress.');
     const updated = await User.findOneAndUpdate({ _id: user._id, role: 'user', $and: [{ $or: [{ sessionVersion: user.sessionVersion ?? 0 }, ...(user.sessionVersion ? [] : [{ sessionVersion: { $exists: false } }])] }, { $or: [{ deletionState: 'active' }, { deletionState: { $exists: false } }] }] }, {
-      $set: { ...(action === 'unban' ? { vpnDetectionCount: 0 } : {}), blocked: action !== 'unban', banReason: action === 'unban' ? '' : reason, banExpiresAt: expiry },
+      $set: { ...(action === 'unban' ? { vpnDetectionCount: 0, vpnInstallationKeys: [] } : {}), blocked: action !== 'unban', banReason: action === 'unban' ? '' : reason, banExpiresAt: expiry },
       $inc: { sessionVersion: 1 },
       $unset: { activeLoginSessionId: 1 },
       $push: { moderationHistory: { $each: [{ action, reason, actorId: String(req.user!._id), at: new Date(), ...(expiry ? { expiresAt: expiry } : {}) }], $slice: -50 } },

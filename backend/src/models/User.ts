@@ -43,6 +43,8 @@ export interface IUser extends Document {
   /** Incremented atomically with password changes to revoke prior access tokens. */
   sessionVersion: number;
   vpnDetectionCount: number;
+  vpnInstallationKeys: string[];
+  vpnHistory: { incidentId: string; installationKey: string; publicIp?: string; detectedAt: Date }[];
   vpnLastDetectedAt?: Date;
   vpnLastIp?: string;
   activeLoginSessionId?: string;
@@ -107,6 +109,8 @@ const userSchema = new Schema<IUser>(
     loginHistory: { type: [new Schema({ sessionId: String, startedAt: Date, expiresAt: Date, endedAt: Date, lastSeen: Date,
       deviceId: String, deviceModel: String, os: String, osVersion: String, publicIp: String,
     }, { _id: false })], default: [], select: false },
+    vpnInstallationKeys: { type: [String], default: [], select: false, index: true },
+    vpnHistory: { type: [new Schema({ incidentId: String, installationKey: String, publicIp: String, detectedAt: Date }, { _id: false })], default: [], select: false },
     vpnDetectionCount: { type: Number, default: 0, min: 0 },
     vpnLastDetectedAt: Date,
     vpnLastIp: String,

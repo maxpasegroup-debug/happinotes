@@ -1,4 +1,4 @@
-import { VpnIncident } from '../models/VpnIncident';
+import { preserveVpnBlocks } from './vpnSecurity';
 import { UserDevice } from '../models/UserDevice';
 import { UserNetwork } from '../models/UserNetwork';
 import { emitAccountDeletionsChanged } from './realtime';
@@ -58,7 +58,6 @@ async function ensurePendingAccount(request: IAccountDeletionRequest): Promise<v
 }
 
 async function cleanupAuthArtifacts(request: IAccountDeletionRequest): Promise<void> {
-  await VpnIncident.deleteMany({ userId: request.userId });
   await UserDevice.deleteMany({ userId: request.userId });
   await UserNetwork.deleteMany({ userId: request.userId });
   await PasswordResetToken.deleteMany({ userId: request.userId });
@@ -67,16 +66,17 @@ async function cleanupAuthArtifacts(request: IAccountDeletionRequest): Promise<v
   // Otp predates userId and is keyed by the normalized email/phone identifier.
   // The User document remains present and pending throughout this stage, so a
   // unique identifier cannot be reassigned to a new account concurrently.
-  const user = await User.findById(request.userId).select('email phoneNumber deletionState');
+  const user = await User.findById(request.userId).select('email phoneNumber deletionState blocked vpnDetectionCount +vpnInstallationKeys');
   if (!user || user.deletionState !== 'pending') {
     throw Object.assign(new Error('Account deletion marker is no longer pending'), {
       code: 'ACCOUNT_NOT_PENDING',
       retryable: false,
     });
   }
+  await preserveVpnBlocks(user);
   const credentialCleanup = await User.updateOne(
     { _id: request.userId, deletionState: 'pending', password: { $exists: true } },
-    { $unset: { password: 1, activeLoginSessionId: 1, loginHistory: 1 }, $inc: { sessionVersion: 1 } },
+    { $unset: { password: 1, activeLoginSessionId: 1, loginHistory: 1, vpnHistory: 1, vpnLastIp: 1 }, $inc: { sessionVersion: 1 } },
   );
   if (!matchedCount(credentialCleanup) && !(await User.exists({
     _id: request.userId,
