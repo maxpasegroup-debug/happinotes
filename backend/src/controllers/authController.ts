@@ -1,3 +1,4 @@
+import { verifyGoogleIdentity } from '../services/googleIdentity';
 import { checkVpnLogin, parseDeviceSecurity, assertNoSecurityBlock, securityKey } from '../services/vpnSecurity';
 import { startAccountSession } from '../services/accountSessions';
 import { emitUserSecurityChanged } from '../services/realtime';
@@ -7,7 +8,7 @@ import bcrypt from 'bcryptjs';
 import jwt from 'jsonwebtoken';
 import crypto from 'crypto';
 import { validationResult } from 'express-validator';
-import { Otp, User } from '../models';
+import { Otp, User, type IUser } from '../models';
 import { PasswordResetToken } from '../models/passwordResetToken';
 import { env } from '../config/env';
 import { sendOTPEmail } from '../services/emailService';
@@ -77,6 +78,8 @@ const userResponse = (user: typeof User.prototype) => ({
   name: user.name,
   email: user.email,
   phoneNumber: user.phoneNumber,
+  googleLinked: user.googleLinked === true,
+  profileImageUrl: user.profileImageUrl,
   role: user.role,
   purchasedBookIds: (user.purchasedBooks ?? []).map((id: unknown) => String(id)),
   subscription: user.subscription ? {
@@ -263,13 +266,7 @@ export const signup = async (
     res.status(201).json({
       success: true,
       token,
-      user: {
-        id: user._id,
-        name: user.name,
-        email: user.email,
-        role: user.role,
-        purchasedBookIds: (user.purchasedBooks ?? []).map((id) => id.toString()),
-      },
+      user: userResponse(user),
     });
   } catch (err) {
     next(err);
@@ -319,17 +316,63 @@ export const login = async (
     res.json({
       success: true,
       token,
-      user: {
-        id: user._id,
-        name: user.name,
-        email: user.email,
-        role: user.role,
-        purchasedBookIds: (user.purchasedBooks ?? []).map((id) => id.toString()),
-      },
+      user: userResponse(user),
     });
   } catch (err) {
     next(err);
   }
+};
+
+/** A Google identity becomes the same application account and session as email sign-in. */
+export const googleLogin = async (req: Request, res: Response, next: NextFunction): Promise<void> => {
+  try {
+    const errors = validationResult(req);
+    if (!errors.isEmpty()) throw new BadRequestError('A valid Google sign-in token is required');
+    const identity = await verifyGoogleIdentity(req.body.idToken);
+    const device = parseDeviceSecurity(req.body.deviceSecurity);
+    await assertNoSecurityBlock(device ? securityKey('installation', device.installationId) : undefined, req.ip, identity.email);
+    let user: IUser | null = await User.findOne<IUser>({ googleId: identity.subject }).select('+googleId +password');
+    let created = false;
+    if (!user) {
+      user = await User.findOne<IUser>({ email: identity.email }).select('+googleId +password');
+      if (user) {
+        // Email matching alone never links credentials or elevates an administrator.
+        if (user.role !== 'user' || user.googleId) throw new UnauthorizedError('Use your existing sign-in method for this account.');
+        await releaseExpiredBan(user); assertNotBanned(user);
+        if (!(await isAccountWritable(user._id))) throw new UnauthorizedError('Account deletion is in progress');
+        if (typeof req.body.password !== 'string' || !req.body.password) throw new AppError('Enter your existing HappiNotes password to connect this Google account.', 409);
+        if (!user.password || !(await bcrypt.compare(req.body.password, user.password))) throw new UnauthorizedError('The existing account password is incorrect.');
+        // Check the existing security policy before modifying the linked account.
+        await checkVpnLogin(user, req.body.deviceSecurity, req.ip);
+        const linked = await User.findOneAndUpdate<IUser>({ _id: user._id, password: user.password, googleId: { $exists: false }, blocked: { $ne: true }, $or: [{ deletionState: 'active' }, { deletionState: { $exists: false } }] },
+          { $set: { googleId: identity.subject, googleLinked: true, ...(identity.photoUrl ? { profileImageUrl: identity.photoUrl } : {}) } }, { new: true }).select('+googleId +password');
+        if (!linked) throw new UnauthorizedError('Account access changed. Please sign in again.');
+        user = linked;
+      } else {
+        if (device?.vpn) throw new AppError('Turn off VPN before creating an account.', 403);
+        try {
+          user = await User.create({ name: identity.name, email: identity.email, googleId: identity.subject, googleLinked: true, profileImageUrl: identity.photoUrl, role: 'user' });
+          created = true;
+        } catch (error) {
+          if ((error as { code?: number }).code !== 11000) throw error;
+          // A concurrent Google sign-up can only reuse the same verified subject.
+          user = await User.findOne<IUser>({ googleId: identity.subject }).select('+googleId +password');
+          if (!user) throw new AppError('An account already exists. Please try signing in again.', 409);
+        }
+      }
+    }
+    if (user.role !== 'user') throw new UnauthorizedError('Use your existing sign-in method for this account.');
+    await releaseExpiredBan(user); assertNotBanned(user);
+    if (!(await isAccountWritable(user._id))) throw new UnauthorizedError('Account deletion is in progress');
+    const installationKey = await checkVpnLogin(user, req.body.deviceSecurity, req.ip);
+    // Profile updates never replace purchases, subscriptions, passwords or account email.
+    if (identity.photoUrl !== user.profileImageUrl) {
+      await User.updateOne({ _id: user._id, googleId: identity.subject, blocked: { $ne: true }, $or: [{ deletionState: 'active' }, { deletionState: { $exists: false } }] }, identity.photoUrl ? { $set: { profileImageUrl: identity.photoUrl } } : { $unset: { profileImageUrl: 1 } });
+      user.profileImageUrl = identity.photoUrl;
+    }
+    const token = await startAccountSession(user, installationKey);
+    res.status(created ? 201 : 200).json({ success: true, token, user: userResponse(user) });
+  } catch (error) { next(error); }
 };
 
 export const requestSignupOtp = async (req: Request, res: Response, next: NextFunction) => {

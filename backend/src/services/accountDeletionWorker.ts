@@ -127,7 +127,7 @@ async function anonymizeProfile(request: IAccountDeletionRequest): Promise<void>
 async function eraseContactFields(request: IAccountDeletionRequest): Promise<void> {
   const result = await User.updateOne(
     { _id: request.userId, deletionState: 'pending' },
-    { $unset: { email: 1, phoneNumber: 1 } },
+    { $unset: { email: 1, phoneNumber: 1, googleId: 1, googleLinked: 1, profileImageUrl: 1 } },
   );
   if (!matchedCount(result)) {
     throw Object.assign(new Error('Account deletion marker is no longer pending'), {

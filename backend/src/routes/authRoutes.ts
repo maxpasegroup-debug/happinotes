@@ -5,6 +5,7 @@ import rateLimit from 'express-rate-limit';
 import { body } from 'express-validator';
 import {
   signup,
+  googleLogin,
   login,
   logout,
   getMe,
@@ -100,6 +101,7 @@ const resetPasswordValidation = [
 
 const deletionReauthValidation = [
   body().custom((value) => {
+    if (typeof value?.googleIdToken === 'string' && value.googleIdToken.length >= 100 && value.googleIdToken.length <= 12000) return true;
     const credential = typeof value?.password === 'string' ? value.password : value?.pin;
     if (typeof credential !== 'string' || credential.length < 6 || credential.length > 256) {
       throw new Error('A valid password or PIN is required');
@@ -114,6 +116,7 @@ const deletionRequestValidation = [
 ];
 
 router.post('/signup', authRateLimiter, signupValidation, signup);
+router.post('/google', authRateLimiter, [body('idToken').isString().isLength({ min: 100, max: 12000 }), body('password').optional().isString().isLength({ max: 256 })], googleLogin);
 router.post('/login', authRateLimiter, loginValidation, login);
 router.post('/request-email-otp', authRateLimiter, emailOtpValidation, requestEmailOtp);
 router.post('/verify-email-otp', authRateLimiter, emailVerifyOtpValidation, verifyEmailOtp);

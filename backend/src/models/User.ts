@@ -28,6 +28,9 @@ export interface IUser extends Document {
   email?: string;
   phoneNumber?: string;
   password?: string;
+  googleId?: string;
+  googleLinked?: boolean;
+  profileImageUrl?: string;
   role: UserRole;
   languagePreference: string;
   bookCollection: mongoose.Types.ObjectId[];
@@ -65,12 +68,15 @@ const userSchema = new Schema<IUser>(
     name: { type: String, required: true, trim: true },
     email: { type: String, unique: true, sparse: true, lowercase: true, trim: true },
     phoneNumber: { type: String, unique: true, sparse: true, trim: true },
+    googleId: { type: String, unique: true, sparse: true, select: false },
+    googleLinked: { type: Boolean, default: false },
+    profileImageUrl: { type: String, maxlength: 2048 },
     // Deletion cleanup removes credentials and later minimizes the pending
     // account tombstone at the policy gate. New/active accounts require one.
     password: {
       type: String,
       required: function (this: IUser) {
-        return this.deletionState !== 'pending' && this.deletionState !== 'completed';
+        return !this.googleLinked && this.deletionState !== 'pending' && this.deletionState !== 'completed';
       },
       select: false,
     },

@@ -1,3 +1,4 @@
+import { verifyGoogleIdentity } from '../services/googleIdentity';
 import { emitAccountDeletionsChanged } from '../services/realtime';
 import bcrypt from 'bcryptjs';
 import crypto from 'crypto';
@@ -209,15 +210,18 @@ export async function requestDeletionReauth(
     const credential = typeof req.body?.password === 'string'
       ? req.body.password
       : typeof req.body?.pin === 'string' ? req.body.pin : '';
-    if (credential.length < 6 || credential.length > 256) {
+    if (!req.body?.googleIdToken && (credential.length < 6 || credential.length > 256)) {
       return next(new BadRequestError('A valid account credential is required'));
     }
 
-    const user = await User.findById(req.user._id).select('+password blocked deletionState');
+    const user = await User.findById(req.user._id).select('+password +googleId blocked deletionState');
     if (!user || !(await isAccountWritable(req.user._id))) {
       return next(new UnauthorizedError('Account deletion is not available'));
     }
-    if (!user.password || !(await bcrypt.compare(credential, user.password))) {
+    if (req.body?.googleIdToken) {
+      const identity = await verifyGoogleIdentity(req.body.googleIdToken, true);
+      if (!user.googleId || user.googleId !== identity.subject) throw new UnauthorizedError('Choose the Google account connected to this HappiNotes account.');
+    } else if (!user.password || !(await bcrypt.compare(credential, user.password))) {
       return next(new UnauthorizedError('Credential verification failed'));
     }
 

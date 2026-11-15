@@ -448,3 +448,13 @@ Implementation: `src/services/systemMetrics.ts`, `src/services/railwayStatus.ts`
 Validation: `npm run build` and `node --test test/systemStatus.test.cjs`.
 Reference: https://docs.railway.com/integrations/api and
 https://docs.railway.com/observability/metrics .
+
+## Google sign-in (Android client)
+
+`POST /auth/google` accepts `{ idToken, password?, deviceSecurity? }` under the existing authentication rate limiter. Set `GOOGLE_SIGN_IN_WEB_CLIENT_ID` to the same Web OAuth client ID used by the mobile build's `EXPO_PUBLIC_GOOGLE_WEB_CLIENT_ID`, then deploy the backend. The local value is configured; Railway must be configured separately. No client secret is needed.
+
+`src/services/googleIdentity.ts` verifies the Google signature, issuer, audience, expiry and verified email with the installed `google-auth-library`. The user is identified by a unique, non-public `googleId`. Existing email accounts require password verification before linking; admin accounts cannot use this customer route. New Google accounts have no password until they use the existing email password-reset flow. Account/session, ban, VPN, subscription and purchase policies remain shared with email login. The user indexes are initialized before the server accepts requests.
+
+Public user responses include `googleLinked` and an optional verified `profileImageUrl`. Account deletion reauthentication accepts `googleIdToken` issued within five minutes and requires the same linked subject. Deletion contact cleanup removes the Google subject/link/photo fields. Tokens are not stored in MongoDB or exposed in diagnostics. Firebase project OAuth clients are reused, but the backend continues to manage users and sessions itself, without creating Firebase Auth records.
+
+New files: `src/services/googleIdentity.ts` and `test/googleAuth.test.cjs`. Tests cover token claims, freshness, safe errors, photo hosts, new and existing accounts, password-protected linking, bans, VPN/deletion restrictions and deletion reauthentication. Deploy the route before using the rebuilt Android client; validate native sign-in with the actual installed signing certificate.
