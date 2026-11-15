@@ -133,7 +133,7 @@ export default function HappyBitesAdminPage() {
     locked.current = true; setOperation(kind); setError(''); setNotice('');
     const controller = new AbortController();
     uploadController.current = controller;
-    setUploads((current) => ({ ...current, [kind]: { name: file.name, percent: 0, phase: 'uploading' } }));
+    setUploads((current) => ({ ...current, [kind]: { name: file.name, percent: 0, phase: kind === 'audio' ? 'checking' : 'uploading' } }));
     try {
       const form = new FormData();
       form.append('scope', kind === 'thumbnail' ? 'happy-bite-thumbnail' : 'happy-bite-audio');
@@ -148,6 +148,8 @@ export default function HappyBitesAdminPage() {
             if (errorMessage(error) === 'Request failed with status 404') throw new Error('The connected backend does not support the updated audio uploader yet. Deploy the backend update, then press Retry upload.');
             throw error;
           });
+          if (controller.signal.aborted) throw new DOMException('Upload cancelled', 'AbortError');
+          progress(0);
           return uploadHappyBiteChunks(file, ticket, progress, controller.signal);
         })() : uploadMultipart<{ url?: string; durationSeconds?: number }>('/admin/contents/upload-media', form, token(), progress),
         kind === 'audio' ? detectAudioDuration(file) : Promise.resolve(0),

@@ -26,12 +26,15 @@ const menu = [
   { label: 'Story Books', href: '/admin/story-books', icon: 'book', group: 'Content management' },
   { label: 'Happy Bites', href: '/admin/happy-bites', icon: 'audio', group: 'Content management' },
   { label: 'Featured', href: '/admin/featured', icon: 'star', group: 'Content management' },
-  { label: 'Settings', href: '/admin/settings', icon: 'settings', group: 'Management' },
   { label: 'Users', href: '/admin/users', icon: 'users', group: 'Management' },
   { label: 'User Security', href: '/admin/user-security', icon: 'shield', group: 'Management' },
-  { label: 'Deletion requests', href: '/admin/deletion-requests', icon: 'shield', group: 'Management' },
+  { label: 'Settings', href: '/admin/settings', icon: 'settings', group: 'Management' },
+  { label: 'System Status', href: '/admin/system-status', icon: 'status', group: 'Management' },
+  { label: 'Deletion requests', href: '/admin/deletion-requests', icon: 'trash', group: 'Management' },
 ];
 const paths: Record<string, string> = {
+  trash: 'M3 6h18 M9 6V3h6v3 M5 6l1 15h12l1-15 M10 10v7 M14 10v7',
+  status: 'M3 12h4l3-8 4 16 3-8h4 M3 3h18 M3 21h18',
   dashboard: 'M3 3h7v7H3z M14 3h7v7h-7z M3 14h7v7H3z M14 14h7v7h-7z',
   book: 'M12 5C8 3 5 3 2 4v15c3-1 6-1 10 1 4-2 7-2 10-1V4c-3-1-6-1-10 1Z M12 5v15',
   users: 'M16 21v-2a4 4 0 0 0-4-4H6a4 4 0 0 0-4 4v2 M16 3a4 4 0 0 1 0 8 M22 21v-2a4 4 0 0 0-3-3.87 M13 7a4 4 0 1 1-8 0 4 4 0 0 1 8 0',
@@ -78,7 +81,7 @@ export default function AdminShell({ children }: { children: ReactNode }) {
   const navigation = <nav aria-label="Admin navigation" className="space-y-7">
     {['Workspace', 'Content management', 'Management'].map((group) => <div key={group}><p className="mb-3 px-3 text-[10px] font-semibold uppercase tracking-[.16em] text-default-400">{group}</p><div className="space-y-1">{menu.filter((item) => item.group === group).map((item) => {
       const active = pathname === item.href;
-      return <Button key={item.href} as={Link} href={item.href} onPress={() => setMenuOpen(false)} aria-current={active ? 'page' : undefined} fullWidth startContent={<Icon name={item.icon} />} variant={active ? 'flat' : 'light'} color={active ? 'primary' : 'default'} className={`h-11 justify-start gap-3 rounded-xl px-3 text-sm font-medium ${active ? 'bg-primary/10 text-primary' : 'text-default-500'}`}>{item.label}</Button>;
+      return <Button key={item.href} as={Link} href={item.href} onPress={() => setMenuOpen(false)} aria-current={active ? 'page' : undefined} fullWidth startContent={<Icon name={item.icon} />} variant={active ? 'flat' : 'light'} color={active ? 'primary' : 'default'} className={`h-11 justify-start gap-3 rounded-xl px-3 text-sm font-medium ${active ? 'bg-primary/15 text-primary ring-1 ring-primary/20 shadow-sm shadow-primary/5' : 'text-default-500 hover:text-foreground'}`}>{item.label}</Button>;
     })}</div></div>)}
   </nav>;
   return <div className="min-h-screen lg:flex">
@@ -113,7 +116,7 @@ export default function AdminShell({ children }: { children: ReactNode }) {
         </div>
         <div className="flex shrink-0 items-center gap-3"><AdminInstallButton /><Chip size="sm" variant="flat" className="hidden border border-divider text-default-400 sm:inline-flex">HappiNotes Studio</Chip></div>
       </header>
-      <main className={`min-w-0 ${pathname === '/admin/users' ? 'w-full py-5 sm:py-8 lg:py-10' : `p-5 sm:p-8 lg:p-10 ${(pathname.startsWith('/admin/happy-bites') || pathname === '/admin/settings') ? 'w-full' : 'mx-auto max-w-[1600px]'}`}`} >{children}</main>
+      <main className={`min-w-0 ${pathname === '/admin/users' ? 'w-full py-5 sm:py-8 lg:py-10' : `p-5 sm:p-8 lg:p-10 ${(pathname.startsWith('/admin/happy-bites') || pathname === '/admin/settings' || pathname === '/admin/system-status') ? 'w-full' : 'mx-auto max-w-[1600px]'}`}`} >{children}</main>
     </div>
     <Drawer
       disableAnimation={Boolean(reducedMotion) || confirming}

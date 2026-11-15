@@ -1,4 +1,5 @@
 export type AudioUploadTicket = {
+  maxFileSizeBytes?: number;
   cloudName: string;
   apiKey: string;
   signature: string;
@@ -25,6 +26,9 @@ function providerError(status: number, detail = '') {
 export async function uploadHappyBiteChunks(file: File, ticket: AudioUploadTicket, onProgress: (percent: number) => void, signal?: AbortSignal) {
   if (!file.size) throw new AudioUploadError('This file is empty. Choose another MP3.');
   if (!/^[a-zA-Z0-9_-]+$/.test(ticket.cloudName) || !ticket.apiKey || !ticket.signature || !ticket.params?.public_id?.startsWith('happinotes/happy-bites/audio/')) throw new AudioUploadError('The server returned invalid upload authorization. Update the backend and retry.');
+  if (typeof ticket.maxFileSizeBytes === 'number' && Number.isSafeInteger(ticket.maxFileSizeBytes) && ticket.maxFileSizeBytes > 0 && file.size > ticket.maxFileSizeBytes) {
+    throw new AudioUploadError(`This MP3 is ${(file.size / 1024 / 1024).toFixed(2)} MiB. Cloudinary's current per-file audio/video allowance is ${(ticket.maxFileSizeBytes / 1024 / 1024).toFixed(2)} MiB. Increase the allowance, then press Retry upload. No audio was transferred.`);
+  }
   const uploadId = crypto.randomUUID();
   const endpoint = `https://api.cloudinary.com/v1_1/${ticket.cloudName}/video/upload`;
   let result: ChunkResponse | undefined;

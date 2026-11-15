@@ -6,7 +6,7 @@ import { useEffect, useRef, useState } from 'react';
 import AudioPreview from './AudioPreview';
 import { validateBiteFile, type UploadKind } from '@/lib/happy-bites-admin';
 
-export type BiteUploadState = { name: string; percent: number; phase: 'selected' | 'uploading' | 'processing' | 'complete' | 'error'; error?: string };
+export type BiteUploadState = { name: string; percent: number; phase: 'selected' | 'checking' | 'uploading' | 'processing' | 'complete' | 'error'; error?: string };
 type Props = {
   kind: UploadKind; url: string; title: string; durationSeconds?: number; disabled: boolean;
   state?: BiteUploadState;
@@ -24,7 +24,7 @@ export default function HappyBiteUpload({ kind, url, title, durationSeconds, dis
   useEffect(() => () => { if (localUrl) URL.revokeObjectURL(localUrl); }, [localUrl]);
   const audio = kind === 'audio';
   const previewUrl = localUrl || url;
-  const transferring = state?.phase === 'uploading' || state?.phase === 'processing';
+  const transferring = state?.phase === 'checking' || state?.phase === 'uploading' || state?.phase === 'processing';
   const select = (files: FileList | null) => {
     if (disabled || !files?.length) return;
     if (files.length !== 1) { setError('Choose one file at a time.'); return; }
@@ -38,7 +38,8 @@ export default function HappyBiteUpload({ kind, url, title, durationSeconds, dis
     if (await onUpload(selection.file)) setSelection(null);
   };
   const message = state?.phase === 'error' ? state.error || 'Upload failed. Retry the selected file.'
-    : state?.phase === 'processing' ? '100% transferred · finishing upload…'
+    : state?.phase === 'checking' ? 'Checking storage allowance…'
+      : state?.phase === 'processing' ? '100% transferred · finishing upload…'
       : state?.phase === 'complete' ? 'Upload complete · save your Happy Bite to keep the change.'
         : state?.phase === 'uploading' ? 'Uploading…' : '';
   return <div className={`min-w-0 border-2 border-dashed p-4 transition-colors sm:p-5 ${dragging ? 'border-primary bg-primary/10' : 'border-default-200 bg-transparent'}`}

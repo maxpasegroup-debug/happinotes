@@ -79,3 +79,11 @@ test('only a completed MP3 matching the signed asset is accepted', async t => {
   setup(t, [{ body: { ...complete, public_id: 'another-asset' } }, { body: { ...complete, format: 'mp4' } }, { body: { ...complete, done: false } }]);
   for (let i = 0; i < 3; i++) await assert.rejects(uploadHappyBiteChunks(file(), ticket, () => {}), /did not confirm/);
 });
+
+test('known provider allowance prevents any transfer and accepts the exact boundary', async t => {
+  const requests = setup(t, [{ body: complete }]);
+  await assert.rejects(uploadHappyBiteChunks(file(101), { ...ticket, maxFileSizeBytes: 100 }, () => {}), /No audio was transferred/);
+  assert.equal(requests.length, 0);
+  await uploadHappyBiteChunks(file(100), { ...ticket, maxFileSizeBytes: 100 }, () => {});
+  assert.equal(requests.length, 1);
+});

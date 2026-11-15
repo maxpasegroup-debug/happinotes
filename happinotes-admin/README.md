@@ -267,3 +267,63 @@ and public responses. Restart/deploy **both backend and admin** for persistence;
 no database backfill is needed. Status-only updates preserve existing language,
 and older API clients can omit it. Existing upload, access and publish workflows
 are unchanged. No new files or dependencies were introduced for this extension.
+
+### Happy Bites large-audio allowance check
+
+The audio uploader first displays **Checking storage allowance…**. The backend
+reads the Cloudinary audio/video per-file allowance and rejects an oversized MP3
+before transfer, reporting both the file size and allowance. The selected file
+and its preview remain available. After increasing the allowance in Cloudinary,
+press **Retry upload**; a previously exceeded allowance is fetched again immediately.
+The browser also checks `maxFileSizeBytes` on new upload tickets; tickets from
+older backends still work. Deploy both backend and admin changes. No Cloudinary
+plan or account setting is changed automatically, and no new app size cap is added.
+
+## System Status
+
+The header uses the supplied hosting animation, bundled as
+`public/admin/system-status.lottie` and rendered by
+`components/admin/SystemStatusAnimation.tsx`. Source:
+https://lottie.host/7b1887b6-769c-4a16-bb8a-fa9cc86570fd/ouG86ZbyBT.lottie .
+It has a transparent canvas, a static reduced-motion frame, an icon fallback,
+and offscreen freezing. The decorative animation does not indicate server health.
+
+The sidebar order is Dashboard, Story Books, Happy Bites, Featured, Users, User
+Security, Settings, System Status, Deletion requests. The monitoring page uses
+HeroUI v2 cards, keyboard-accessible tabs, selects, progress bars, switches,
+inputs, alerts and skeletons, with reduced-motion support.
+
+Open **Management → System Status** at `/admin/system-status`.
+
+- **Server overview:** six interactive time-series charts, live health cards and
+  5/15/60-minute ranges. Hover or use arrow keys to inspect samples; unavailable
+  data is not replaced with zeroes.
+- **Database:** dedicated MongoDB storage, indexes, documents, collections,
+  connection capacity, uptime and resident memory, plus three performance charts.
+  Small sizes use bytes/KiB instead of rounding down to zero MiB. Storage bars
+  compare measured sizes and do not imply a known disk limit.
+- **Builds & live logs:** latest 12 Railway deployments, automatic following of new
+  builds, actual build stage, build/runtime log selection, search and auto-scroll.
+  Only actual stage states are shown; there is no invented completion percentage.
+- **Railway metrics:** CPU, memory, persistent disk and network usage over one hour.
+
+Health/logs poll every 5 seconds, deployment discovery every 10 seconds, and
+infrastructure every 30 seconds. Polls never overlap within a channel, cancel on
+navigation, pause in hidden tabs and refresh on focus. Pause/Resume and manual
+Refresh are provided. Motion respects reduced-motion preferences, and initial
+metric loading uses skeletons. Failed connections mark snapshots as stale.
+
+Deploy the backend monitoring routes with this UI. Configure `RAILWAY_TOKEN` only
+on the backend, along with the three `SYSTEM_STATUS_RAILWAY_*_ID` variables from
+its README. No Railway token is included in the browser. Application monitoring
+works without the Railway integration, and the page explains missing setup.
+Current-process history resets on restart; it is not a durable uptime monitor.
+
+New files:
+
+```text
+app/admin/(secure)/system-status/page.tsx
+components/admin/SystemMetricChart.tsx
+lib/system-status.ts
+test/system-status.test.mjs
+```
