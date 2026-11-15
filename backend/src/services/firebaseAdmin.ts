@@ -1,5 +1,6 @@
 import { cert, getApps, initializeApp, type App } from 'firebase-admin/app';
 import { getMessaging, type Messaging } from 'firebase-admin/messaging';
+import { getAuth, type Auth } from 'firebase-admin/auth';
 import { env } from '../config/env';
 
 type ServiceAccountJson = {
@@ -26,6 +27,7 @@ function getFirebaseApp(): App | null {
     }
 
     firebaseApp = getApps()[0] ?? initializeApp({
+      projectId: account.project_id,
       credential: cert({
         projectId: account.project_id,
         clientEmail: account.client_email,
@@ -45,4 +47,9 @@ function getFirebaseApp(): App | null {
 export function getFirebaseMessaging(): Messaging | null {
   const app = getFirebaseApp();
   return app ? getMessaging(app) : null;
+}
+
+export function getFirebaseAuth(): Auth | null {
+  const app = getFirebaseApp();
+  return app ? getAuth(app) : null;
 }

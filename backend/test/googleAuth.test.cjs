@@ -112,3 +112,23 @@ test('Google deletion reauthentication requires a fresh token for the same subje
   await requestDeletionReauth(req, res, e => { error = e; });
   assert.equal(error, undefined); assert.equal(proofs, 1); assert.ok(res.body.proof.length > 20);
 });
+test('Firebase browser sign-in reuses the same Google-linked account and existing session policy', async () => {
+  const firebaseIdentity = require('../dist/services/firebaseGoogleIdentity');
+  const calls = setup({ _id: 'original', googleId: google.subject, googleLinked: true, email: google.email, name: 'Person', role: 'user', purchasedBooks: ['book'] });
+  mock.method(firebaseIdentity, 'verifyFirebaseGoogleIdentity', async token => { assert.equal(token, idToken); return google; });
+  const { res, error } = await login({ idToken: undefined, firebaseIdToken: idToken });
+  assert.equal(error, undefined); assert.equal(res.body.user.id, 'original'); assert.equal(calls.created.length, 0); assert.equal(calls.started.length, 1);
+  assert.deepEqual(res.body.user.purchasedBookIds, ['book']);
+});
+test('Firebase deletion reauthentication requires recent Google sign-in for the same linked subject', async () => {
+  const firebaseIdentity = require('../dist/services/firebaseGoogleIdentity');
+  mock.method(User, 'findById', () => ({ select: async () => ({ googleId: google.subject }) }));
+  mock.method(deletion, 'isAccountWritable', async () => true);
+  let subject = 'other', proofs = 0;
+  mock.method(firebaseIdentity, 'verifyFirebaseGoogleIdentity', async (_, recent) => { assert.equal(recent, true); return { ...google, subject }; });
+  mock.method(AccountDeletionReauth, 'create', async () => { proofs++; });
+  const req = { user: { _id: 'account' }, body: { firebaseIdToken: idToken } }; let error;
+  await requestDeletionReauth(req, response(), e => { error = e; }); assert.equal(error.statusCode, 401); assert.equal(proofs, 0);
+  subject = google.subject; error = undefined; await requestDeletionReauth(req, response(), e => { error = e; });
+  assert.equal(error, undefined); assert.equal(proofs, 1);
+});

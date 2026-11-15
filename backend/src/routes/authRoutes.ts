@@ -23,6 +23,7 @@ import {
 } from '../controllers/authController';
 import { getDeletionStatus, requestDeletion, requestDeletionReauth } from '../controllers/accountDeletionController';
 import { authenticate, authenticateDeletionFlow } from '../middleware';
+import googleBrowserRoutes from './googleBrowserRoutes';
 
 const router = Router();
 
@@ -102,6 +103,7 @@ const resetPasswordValidation = [
 const deletionReauthValidation = [
   body().custom((value) => {
     if (typeof value?.googleIdToken === 'string' && value.googleIdToken.length >= 100 && value.googleIdToken.length <= 12000) return true;
+    if (typeof value?.firebaseIdToken === 'string' && value.firebaseIdToken.length >= 100 && value.firebaseIdToken.length <= 12000) return true;
     const credential = typeof value?.password === 'string' ? value.password : value?.pin;
     if (typeof credential !== 'string' || credential.length < 6 || credential.length > 256) {
       throw new Error('A valid password or PIN is required');
@@ -116,7 +118,12 @@ const deletionRequestValidation = [
 ];
 
 router.post('/signup', authRateLimiter, signupValidation, signup);
-router.post('/google', authRateLimiter, [body('idToken').isString().isLength({ min: 100, max: 12000 }), body('password').optional().isString().isLength({ max: 256 })], googleLogin);
+router.use('/google/browser', googleBrowserRoutes);
+router.post('/google', authRateLimiter, [body().custom(value => {
+  const token = value?.firebaseIdToken ?? value?.idToken;
+  if ((value?.firebaseIdToken && value?.idToken) || typeof token !== 'string' || token.length < 100 || token.length > 12000) throw new Error('A valid Google sign-in token is required');
+  return true;
+}), body('password').optional().isString().isLength({ max: 256 })], googleLogin);
 router.post('/login', authRateLimiter, loginValidation, login);
 router.post('/request-email-otp', authRateLimiter, emailOtpValidation, requestEmailOtp);
 router.post('/verify-email-otp', authRateLimiter, emailVerifyOtpValidation, verifyEmailOtp);

@@ -1,4 +1,5 @@
 import { verifyGoogleIdentity } from '../services/googleIdentity';
+import { verifyFirebaseGoogleIdentity } from '../services/firebaseGoogleIdentity';
 import { checkVpnLogin, parseDeviceSecurity, assertNoSecurityBlock, securityKey } from '../services/vpnSecurity';
 import { startAccountSession } from '../services/accountSessions';
 import { emitUserSecurityChanged } from '../services/realtime';
@@ -328,7 +329,7 @@ export const googleLogin = async (req: Request, res: Response, next: NextFunctio
   try {
     const errors = validationResult(req);
     if (!errors.isEmpty()) throw new BadRequestError('A valid Google sign-in token is required');
-    const identity = await verifyGoogleIdentity(req.body.idToken);
+    const identity = req.body.firebaseIdToken ? await verifyFirebaseGoogleIdentity(req.body.firebaseIdToken) : await verifyGoogleIdentity(req.body.idToken);
     const device = parseDeviceSecurity(req.body.deviceSecurity);
     await assertNoSecurityBlock(device ? securityKey('installation', device.installationId) : undefined, req.ip, identity.email);
     let user: IUser | null = await User.findOne<IUser>({ googleId: identity.subject }).select('+googleId +password');

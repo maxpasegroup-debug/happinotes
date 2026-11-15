@@ -2,6 +2,7 @@ import { startSystemMetrics } from './services/systemMetrics';
 import { SecurityBlock } from './models/SecurityBlock';
 import app from './app';
 import { User } from './models/User';
+import { GoogleBrowserSession } from './models/GoogleBrowserSession';
 import { UserDevice } from './models/UserDevice';
 import { DeviceReferenceCache } from './models/DeviceReferenceCache';
 import { connectDB } from './config/database';
@@ -41,7 +42,7 @@ const start = async (): Promise<void> => {
 
   await connectDB();
   await ensureAdminUser();
-  await Promise.all([User.init(), UserDevice.init(), DeviceReferenceCache.init(), SecurityBlock.init()]);
+  await Promise.all([User.init(), GoogleBrowserSession.init(), UserDevice.init(), DeviceReferenceCache.init(), SecurityBlock.init()]);
   // Do not accept provider events until the inbox collection and required
   // indexes are ready. Mongoose autoIndex remains enabled in this app.
   await StoreNotificationInbox.init();
