@@ -100,3 +100,29 @@ test('HTTP handoff routes require browser origin and expose restrictive, non-cac
     assert.equal(bad.status, 403);
   } finally { await new Promise(r => server.close(r)); }
 });
+
+test('Firebase browser can complete through global production CORS middleware', async () => {
+  setup(); store();
+  const express = require('express'), cors = require('cors');
+  const { buildCorsConfiguration } = require('../dist/config/cors');
+  const router = require('../dist/routes/googleBrowserRoutes').default;
+  const app = express();
+  app.use(cors(buildCorsConfiguration('production', 'https://happinotes.online', 'https://happi.example').httpOptions));
+  app.use(express.json()); app.use('/auth/google/browser', router);
+  app.use((error, _req, res, _next) => res.status(error.statusCode || 500).json({ message: 'failed' }));
+  const server = app.listen(0, '127.0.0.1'); await new Promise(r => server.once('listening', r));
+  const base = `http://127.0.0.1:${server.address().port}/auth/google/browser`;
+  const verifier = 'e'.repeat(64);
+  try {
+    const start = await fetch(base+'/start', { method:'POST', headers:{'Content-Type':'application/json'}, body:JSON.stringify({challenge:service.digest(verifier)}) });
+    const {sessionId} = await start.json();
+    const page = await fetch(base+'/page?session='+sessionId);
+    const cookie = page.headers.get('set-cookie').split(';')[0];
+    mock.method(identity, 'verifyFirebaseGoogleIdentity', async () => ({subject:'verified-google'}));
+    const completed = await fetch(base+'/complete', { method:'POST', headers:{'Content-Type':'application/json',Origin:'https://happi.example',Cookie:cookie}, body:JSON.stringify({sessionId,firebaseIdToken:'firebase-token'}) });
+    assert.equal(completed.status,200); assert.equal(completed.headers.get('access-control-allow-origin'),'https://happi.example');
+    const poll = await service.pollBrowserSession(sessionId,verifier); assert.equal(poll.firebaseIdToken,'firebase-token');
+    const attacker = await fetch(base+'/complete', { method:'POST', headers:{'Content-Type':'application/json',Origin:'https://attacker.example'}, body:'{}' });
+    assert.notEqual(attacker.status,200);
+  } finally { await new Promise(r => server.close(r)); }
+});

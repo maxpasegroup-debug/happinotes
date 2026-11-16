@@ -1,4 +1,4 @@
-import { Router, type Request, type Response } from 'express';
+import { Router, type Request } from 'express';
 import rateLimit from 'express-rate-limit';
 import { browserConfiguration, completeBrowserSession, openBrowserSession, pollBrowserSession, randomSecret, SESSION_SECONDS, startBrowserSession, validSecret } from '../services/googleBrowserSession';
 import { googleBrowserPage } from '../services/googleBrowserPage';

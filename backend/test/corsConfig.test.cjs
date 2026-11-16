@@ -62,3 +62,18 @@ test('development preserves local browser origins while production excludes them
   assert.deepEqual(production.allowedOrigins, [adminOrigin]);
   assert.ok(!production.allowedOrigins.includes('http://localhost:3000'));
 });
+
+test('Firebase browser origin is allowed explicitly while unrelated origins remain blocked', () => {
+  const browser = 'https://backend.example.com';
+  const config = buildCorsConfiguration('production', adminOrigin, browser);
+  config.httpOptions.origin(browser, (error, allowed) => { assert.equal(error, null); assert.equal(allowed, true); });
+  assert.deepEqual(config.allowedOrigins, [adminOrigin, browser]);
+  config.httpOptions.origin('https://backend.example.com.attacker.test', error => assert.equal(error.message, 'Not allowed by CORS'));
+  assert.equal(buildCorsConfiguration('production', `${adminOrigin},${browser}`, browser).allowedOrigins.length, 2);
+});
+
+test('Firebase browser configuration cannot add wildcard, insecure or multiple origins', () => {
+  for (const origin of ['*', 'http://localhost:3000', 'https://backend.example.com/path', 'https://backend.example.com,https://other.example.com', 'https://user:password@backend.example.com']) {
+    assert.throws(() => buildCorsConfiguration('production', adminOrigin, origin));
+  }
+});

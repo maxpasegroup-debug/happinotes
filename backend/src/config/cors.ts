@@ -62,6 +62,7 @@ function parseConfiguredOrigins(rawOrigins: string | undefined, isProduction: bo
 export function buildCorsConfiguration(
   nodeEnv: string | undefined,
   rawOrigins: string | undefined,
+  googleBrowserOrigin?: string,
 ): CorsConfiguration {
   const isProduction = nodeEnv === 'production';
   const configuredOrigins = parseConfiguredOrigins(rawOrigins, isProduction);
@@ -69,9 +70,17 @@ export function buildCorsConfiguration(
     throw new Error('CORS_ORIGINS must include the required production origin https://happinotes.online.');
   }
 
-  const allowedOrigins = isProduction
+  // The Firebase browser completion POST carries the page's Origin, including
+  // through the public website proxy, so the global CORS callback must accept it.
+  // Trust only the explicit canonical HTTPS setting, never Host/forwarded headers.
+  const browserOrigins = googleBrowserOrigin?.trim()
+    ? parseConfiguredOrigins(googleBrowserOrigin, true)
+    : [];
+  if (browserOrigins.length > 1) throw new Error('GOOGLE_SIGN_IN_BROWSER_ORIGIN must contain one canonical HTTPS origin.');
+  const baseOrigins = isProduction
     ? configuredOrigins
     : [...new Set([...DEVELOPMENT_ORIGINS, ...configuredOrigins])];
+  const allowedOrigins = [...new Set([...baseOrigins, ...browserOrigins])];
   const allowedOriginSet = new Set(allowedOrigins);
 
   return {
@@ -95,4 +104,5 @@ export function buildCorsConfiguration(
 export const corsConfiguration = buildCorsConfiguration(
   process.env.NODE_ENV || 'development',
   process.env.CORS_ORIGINS,
+  process.env.GOOGLE_SIGN_IN_BROWSER_ORIGIN,
 );
