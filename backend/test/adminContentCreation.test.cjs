@@ -194,3 +194,81 @@ test('public book listing asks MongoDB only for live and coming-soon content', a
   assert.deepEqual(query.status, { $in: ['live', 'coming_soon'] });
   assert.deepEqual(res.payload.contents.map((book) => book.id.toString()), ['live', 'soon']);
 });
+
+test('mixed lesson access and custom images survive creation with nonsequential ordering', async () => {
+  commonMocks(); let saved;
+  mock.method(Content, 'create', async (value) => { saved = value; return { ...value, id: 'mixed' }; });
+  const req = request({ lessons: [
+    { title: 'Paid', accessType: 'premium', mediaType: 'audio', order: 1 },
+    { title: 'Free', accessType: 'free', mediaType: 'audio', order: 0 },
+  ], lessonFiles: [mp3File('paid.mp3'), mp3File('free.mp3')], indexes: [0, 1] });
+  req.files.lessonThumbnail = [coverFile()]; req.body.lessonThumbnailIndexes = '[1]';
+  const { error } = await callCreate(req);
+  assert.equal(error, undefined);
+  assert.equal(saved.lessons[0].title, 'Free');
+  assert.equal(saved.lessons[0].mediaUrl, 'https://media.example/3');
+  assert.equal(saved.lessons[0].thumbnailUrl, 'https://media.example/4');
+  assert.equal(saved.lessons[0].accessType, 'free');
+  assert.equal(saved.lessons[1].mediaUrl, 'https://media.example/2');
+  assert.equal(saved.lessons[1].accessType, 'premium');
+});
+
+test('rejects invalid lesson images and mismatched thumbnail indexes before uploading', async () => {
+  const assets = commonMocks();
+  const req = request({ lessons: [{ title: 'One', mediaUrl: 'https://media.example/audio.mp3', mediaType: 'audio' }] });
+  req.files.lessonThumbnail = [{ ...coverFile(), buffer: Buffer.from('not-an-image') }];
+  req.body.lessonThumbnailIndexes = '[0]';
+  assert.equal((await callCreate(req)).error.statusCode, 400);
+  req.files.lessonThumbnail = [coverFile()]; req.body.lessonThumbnailIndexes = '[2]';
+  assert.equal((await callCreate(req)).error.statusCode, 400);
+  assert.equal(assets.uploaded.length, 0);
+});
+
+test('editing access and resetting a thumbnail preserves saved audio', async () => {
+  commonMocks();
+  const existing = { _id: 'edit', id: 'edit', contentType: 'lifebook', type: 'premium', priceInr: 0, status: 'draft', lessons: [
+    { title: 'One', mediaUrl: 'https://media.example/audio.mp3', mediaType: 'audio', order: 0, accessType: 'premium', thumbnailUrl: 'https://media.example/old.jpg' },
+  ] };
+  mock.method(Content, 'findById', async () => existing);
+  let saved; mock.method(Content, 'findByIdAndUpdate', async (_id, payload) => { saved = payload; return { ...existing, ...payload }; });
+  const req = { params: { id: 'edit' }, files: {}, body: { lessons: JSON.stringify([{ ...existing.lessons[0], accessType: 'free', thumbnailUrl: '' }]) }, protocol: 'https', get: () => 'happinotes.online' };
+  let error; await controller.updateContent(req, response(), e => { error = e; });
+  assert.equal(error, undefined);
+  assert.equal(saved.lessons[0].accessType, 'free');
+  assert.equal(saved.lessons[0].thumbnailUrl, '');
+  assert.equal(saved.lessons[0].mediaUrl, existing.lessons[0].mediaUrl);
+});
+
+test('public API gates each lesson independently, including legacy and purchased books', async () => {
+  const publicController = require('../dist/controllers/contentController');
+  const doc = { _id: 'mixed', status: 'live', type: 'premium', contentType: 'lifebook', thumbnailUrl: 'book.jpg', conclusion: { mediaUrl: 'conclusion.mp3' }, lessons: [
+    { title: 'Free', accessType: 'free', mediaUrl: 'free.mp3', thumbnailUrl: 'free.jpg' },
+    { title: 'Paid', accessType: 'premium', mediaUrl: 'paid.mp3' },
+    { title: 'Legacy', mediaUrl: 'legacy.mp3' },
+  ] };
+  mock.method(Content, 'findById', () => ({ lean: async () => doc }));
+  async function read(user) { const res = response(); await publicController.getContentById({ params: { id: 'mixed' }, user }, res, e => { throw e; }); return res.payload.content; }
+  const guest = await read();
+  assert.deepEqual(guest.lessons.map(x => x.mediaUrl), ['free.mp3', '', '']);
+  assert.deepEqual(guest.lessons.map(x => x.locked), [false, true, true]);
+  assert.equal(guest.lessons[0].thumbnailUrl, 'free.jpg');
+  assert.equal(guest.lessons[1].thumbnailUrl, 'book.jpg');
+  assert.equal(guest.conclusion, undefined);
+  for (const user of [{ role: 'admin' }, { subscription: { active: true, expiresAt: new Date('2099-01-01') } }, { purchasedBooks: ['mixed'] }]) {
+    assert.deepEqual((await read(user)).lessons.map(x => x.mediaUrl), ['free.mp3', 'paid.mp3', 'legacy.mp3']);
+  }
+  assert.equal((await read({ subscription: { active: true, expiresAt: new Date('2000-01-01') } })).lessons[1].mediaUrl, '');
+  doc.type = 'free';
+  assert.deepEqual((await read()).lessons.map(x => x.mediaUrl), ['free.mp3', '', 'legacy.mp3']);
+  doc.status = 'coming_soon'; assert.equal((await read()).lessons, undefined);
+  doc.status = 'draft'; const res = response(); let error;
+  await publicController.getContentById({ params: { id: 'mixed' } }, res, e => { error = e; });
+  assert.equal(error.statusCode, 404);
+});
+
+test('invalid access cannot silently downgrade a paid lesson', async () => {
+  commonMocks();
+  const { error } = await callCreate(request({ lessons: [{ title: 'One', accessType: 'invalid', mediaType: 'audio', mediaUrl: 'https://media.example/audio.mp3' }] }));
+  assert.equal(error.statusCode, 400);
+  assert.match(error.message, /access/);
+});

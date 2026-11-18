@@ -169,7 +169,18 @@ function normalizeLessons(v: unknown): ILesson[] {
     const order = typeof (item as Record<string, unknown>).order === 'number'
       ? (item as Record<string, unknown>).order as number
       : index;
-    out.push({ ...section, order });
+    const record = item as Record<string, unknown>;
+    if (record.accessType !== undefined && record.accessType !== 'free' && record.accessType !== 'premium') {
+      throw new BadRequestError('Lesson access must be free or premium.');
+    }
+    if (record.thumbnailUrl !== undefined && (typeof record.thumbnailUrl !== 'string' ||
+      (record.thumbnailUrl.trim() && !/^https?:\/\//i.test(record.thumbnailUrl.trim()) && !record.thumbnailUrl.startsWith('/uploads/')))) {
+      throw new BadRequestError('Lesson thumbnail must be a valid image URL.');
+    }
+    out.push({ ...section, order,
+      ...(record.accessType !== undefined ? { accessType: record.accessType as 'free' | 'premium' } : {}),
+      ...(record.thumbnailUrl !== undefined ? { thumbnailUrl: String(record.thumbnailUrl).trim() } : {}),
+    });
   });
   return out.sort((a, b) => a.order - b.order);
 }

@@ -67,33 +67,25 @@ function shapeContentForPublic(
   const isPremium = type === 'premium' || priceInr > 0;
   const hasFullAccess = !isPremium || canAccessPremium;
 
-  if (hasFullAccess) {
-    const full = { ...doc };
-    if (full._id && !full.id) {
-      full.id = full._id;
-    }
-    return full;
-  }
-
-  // Premium without an individual purchase
   const out = { ...doc };
-  if (out._id && !out.id) {
-    out.id = out._id;
-  }
+  if (out._id && !out.id) out.id = out._id;
 
   if (contentType === 'lifebook') {
     if (Array.isArray(out.lessons)) {
-      out.lessons = (out.lessons as Record<string, unknown>[]).map((lesson) => ({
-        title: lesson.title,
-        description: lesson.description,
-        order: lesson.order,
-        mediaType: lesson.mediaType,
-        mediaUrl: '',
-      }));
+      out.lessons = (out.lessons as Record<string, unknown>[]).map((lesson) => {
+        const accessType = lesson.accessType === 'free' || lesson.accessType === 'premium'
+          ? lesson.accessType : isPremium ? 'premium' : 'free';
+        const locked = accessType === 'premium' && !canAccessPremium;
+        return { ...lesson, accessType, locked,
+          thumbnailUrl: lesson.thumbnailUrl || doc.thumbnailUrl || '',
+          mediaUrl: locked ? '' : lesson.mediaUrl,
+        };
+      });
     }
-    delete out.conclusion;
+    if (!hasFullAccess) delete out.conclusion;
     return out;
   }
+  if (hasFullAccess) return out;
 
   // note / silence: hide mediaUrl
   delete out.mediaUrl;

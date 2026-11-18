@@ -15,6 +15,8 @@ export interface ILifebookSection {
 }
 
 export interface ILesson extends ILifebookSection {
+  accessType?: ContentType; // Missing on legacy lessons: inherit the book access.
+  thumbnailUrl?: string;
   order: number;
 }
 
@@ -60,6 +62,8 @@ const lessonSchema = new Schema<ILesson>(
     description: { type: String, default: '', trim: true },
     mediaUrl: { type: String, required: true, trim: true },
     mediaType: { type: String, enum: ['audio', 'video'], required: true },
+    accessType: { type: String, enum: ['free', 'premium'], required: false },
+    thumbnailUrl: { type: String, trim: true },
     order: { type: Number, required: true },
   },
   { _id: false }

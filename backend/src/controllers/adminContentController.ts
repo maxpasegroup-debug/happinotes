@@ -60,9 +60,20 @@ function normalizeLessons(v: unknown): ILesson[] {
       typeof (item as Record<string, unknown>).order === 'number'
         ? ((item as Record<string, unknown>).order as number)
         : index;
-    out.push({ ...section, order });
+    const record = item as Record<string, unknown>;
+    if (record.accessType !== undefined && record.accessType !== 'free' && record.accessType !== 'premium') {
+      throw new BadRequestError('Lesson access must be free or premium.');
+    }
+    if (record.thumbnailUrl !== undefined && (typeof record.thumbnailUrl !== 'string' ||
+      (record.thumbnailUrl.trim() && !/^https?:\/\//i.test(record.thumbnailUrl.trim()) && !record.thumbnailUrl.startsWith('/uploads/')))) {
+      throw new BadRequestError('Lesson thumbnail must be a valid image URL.');
+    }
+    out.push({ ...section, order,
+      ...(record.accessType !== undefined ? { accessType: record.accessType as 'free' | 'premium' } : {}),
+      ...(record.thumbnailUrl !== undefined ? { thumbnailUrl: String(record.thumbnailUrl).trim() } : {}),
+    });
   });
-  return out.sort((a, b) => a.order - b.order);
+  return out; // Keep submitted indexes aligned with multipart uploads; sort after upload.
 }
 
 function normalizeDisplayOrder(value: unknown): number {
@@ -98,7 +109,7 @@ function indexLessonFiles(
 ): Map<number, UploadedFile> {
   const indexes = rawIndexes === undefined ? files.map((_file, index) => index) : parseJsonField(rawIndexes, 'Lesson file mapping');
   if (!Array.isArray(indexes) || indexes.length !== files.length || indexes.some((index) => !Number.isInteger(index) || index < 0 || index >= lessonCount) || new Set(indexes).size !== indexes.length) {
-    throw new BadRequestError('Lesson audio files could not be matched to their lesson cards. Please review the lessons and try again.');
+    throw new BadRequestError('Lesson files could not be matched to their lesson cards. Please review the lessons and try again.');
   }
   return new Map(indexes.map((index, fileIndex) => [index as number, files[fileIndex]]));
 }
@@ -305,6 +316,7 @@ export const createContent = async (
     const introFile = files?.introMedia?.[0];
     const conclusionFile = files?.conclusionMedia?.[0];
     const lessonFiles = files?.lessonMedia ?? [];
+    const lessonThumbnails = files?.lessonThumbnail ?? [];
     const mediaFile = files?.media?.[0];
 
     const uploadChecks: Array<[UploadedFile | undefined, string]> = [
@@ -313,6 +325,10 @@ export const createContent = async (
     for (const [file, scope] of uploadChecks) {
       if (!file) continue;
       const message = scope === 'thumbnail' ? validateImageUpload(file) : validateMediaUpload(file, scope);
+      if (message) return next(new BadRequestError(message));
+    }
+    for (const file of lessonThumbnails) {
+      const message = validateImageUpload(file);
       if (message) return next(new BadRequestError(message));
     }
     for (const file of lessonFiles) {
@@ -332,6 +348,7 @@ export const createContent = async (
     const rawLessons = parseJsonField(body.lessons, 'Lesson');
     const lessonsInput = Array.isArray(rawLessons) ? rawLessons : [];
     const lessonFileByIndex = indexLessonFiles(lessonFiles, body.lessonMediaIndexes, lessonsInput.length);
+    const thumbnailByIndex = indexLessonFiles(lessonThumbnails, body.lessonThumbnailIndexes, lessonsInput.length);
     const submittedLessons = lessonsInput as Record<string, unknown>[];
     for (let index = 0; index < submittedLessons.length; index += 1) {
       const lesson = submittedLessons[index];
@@ -429,6 +446,11 @@ export const createContent = async (
         const uploaded = await uploadToCloudinary(file, 'happinotes/lessons', uploadedAssets);
         lessonsWithMedia[i].mediaUrl = uploaded.url;
       }
+
+      for (const [index, file] of thumbnailByIndex) {
+        lessonsWithMedia[index].thumbnailUrl = (await uploadToCloudinary(file, 'happinotes/lesson-thumbnails', uploadedAssets)).url;
+      }
+      lessonsWithMedia.sort((a, b) => a.order - b.order);
 
       const createPayload: Record<string, unknown> = {
         contentType: 'lifebook',
@@ -545,11 +567,16 @@ export const updateContent = async (
     const introFile = files?.introMedia?.[0];
     const conclusionFile = files?.conclusionMedia?.[0];
     const lessonFiles = files?.lessonMedia ?? [];
+    const lessonThumbnails = files?.lessonThumbnail ?? [];
     const mediaFile = files?.media?.[0];
 
     for (const [file, scope] of [[thumbnailFile, 'thumbnail'], [introFile, 'intro'], [conclusionFile, 'conclusion'], [mediaFile, 'media']] as const) {
       if (!file) continue;
       const message = scope === 'thumbnail' ? validateImageUpload(file) : validateMediaUpload(file, scope);
+      if (message) return next(new BadRequestError(message));
+    }
+    for (const file of lessonThumbnails) {
+      const message = validateImageUpload(file);
       if (message) return next(new BadRequestError(message));
     }
     for (const file of lessonFiles) {
@@ -562,6 +589,7 @@ export const updateContent = async (
     const rawLessonsValue = payload.lessons !== undefined ? parseJsonField(body.lessons, 'Lesson') : undefined;
     const lessonsInput = Array.isArray(rawLessonsValue) ? rawLessonsValue as Record<string, unknown>[] : [];
     const lessonFileByIndex = indexLessonFiles(lessonFiles, body.lessonMediaIndexes, lessonsInput.length);
+    const thumbnailByIndex = indexLessonFiles(lessonThumbnails, body.lessonThumbnailIndexes, lessonsInput.length);
     if (payload.lessons !== undefined) {
       for (let index = 0; index < lessonsInput.length; index += 1) {
         const lesson = lessonsInput[index];
@@ -686,7 +714,10 @@ export const updateContent = async (
         normalized[i].mediaUrl = uploaded.url;
       }
 
-      payload.lessons = normalized;
+      for (const [index, file] of thumbnailByIndex) {
+        normalized[index].thumbnailUrl = (await uploadToCloudinary(file, 'happinotes/lesson-thumbnails', uploadedAssets)).url;
+      }
+      payload.lessons = normalized.sort((a, b) => a.order - b.order);
     }
 
     if (finalContentType !== 'lifebook') {
