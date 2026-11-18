@@ -116,7 +116,7 @@ export default function AdminShell({ children }: { children: ReactNode }) {
         </div>
         <div className="flex shrink-0 items-center gap-3"><AdminInstallButton /><Chip size="sm" variant="flat" className="hidden border border-divider text-default-400 sm:inline-flex">HappiNotes Studio</Chip></div>
       </header>
-      <main className={`min-w-0 ${pathname === '/admin/users' ? 'w-full py-5 sm:py-8 lg:py-10' : `p-5 sm:p-8 lg:p-10 ${(pathname.startsWith('/admin/happy-bites') || pathname === '/admin/settings' || pathname === '/admin/system-status') ? 'w-full' : 'mx-auto max-w-[1600px]'}`}`} >{children}</main>
+      <main className={`min-w-0 ${pathname === '/admin/users' ? 'w-full py-5 sm:py-8 lg:py-10' : `p-5 sm:p-8 lg:p-10 ${(pathname.startsWith('/admin/happy-bites') || pathname.startsWith('/admin/content/') || pathname === '/admin/story-books' || pathname === '/admin/settings' || pathname === '/admin/system-status') ? 'w-full' : 'mx-auto max-w-[1600px]'}`}`} >{children}</main>
     </div>
     <Drawer
       disableAnimation={Boolean(reducedMotion) || confirming}

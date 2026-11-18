@@ -327,3 +327,11 @@ components/admin/SystemMetricChart.tsx
 lib/system-status.ts
 test/system-status.test.mjs
 ```
+
+## Public Firebase sign-in page
+
+`app/auth/google/browser/[action]/route.ts` and `lib/google-auth-proxy.ts` serve the Expo Go Firebase handoff at `https://happinotes.online/auth/google/browser/page`. They proxy only GET `page` and POST `complete` to the existing backend. The server-only `AUTH_BACKEND_ORIGIN` can override the production backend address. An HTTPS backend is required. This proxy intentionally does not read `NEXT_PUBLIC_API_BASE_URL`, which can be a relative browser proxy path.
+
+The proxy validates session IDs, caps completion payloads, requires the exact public origin for POST, forwards only the session-bound Google cookie, disables caching and redirects, preserves CSP/security headers, and replaces backend diagnostics with safe messages. It never sends website/admin credentials upstream. Tests are in `test/google-auth-proxy.test.mjs`.
+
+Deploy this website route before setting backend `GOOGLE_SIGN_IN_BROWSER_ORIGIN=https://happinotes.online`. Add `happinotes.online` to Firebase Authentication authorized domains. Keep this origin in backend `CORS_ORIGINS` for older backend builds. The mobile browser destination allowlist must match. Actual Google authentication still uses Google's own visible domain.
