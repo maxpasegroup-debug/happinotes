@@ -109,8 +109,12 @@ export async function sendPushNotification(input: {
         android: {
           priority: 'high',
           notification: {
-            sound: 'default',
+            channelId: 'happinotes_alerts_v3',
+            sound: 'push_notification',
           },
+        },
+        apns: {
+          payload: { aps: { sound: 'push_notification.wav' } },
         },
       });
 

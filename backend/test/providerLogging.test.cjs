@@ -121,3 +121,20 @@ test('unknown Firebase error codes are reduced to a safe category', async () => 
   assert.deepEqual(result.failureCodes, { provider_error: 1 });
   assertNoSensitiveValues(output);
 });
+
+test('push messages select the bundled sound and the versioned Android channel', async () => {
+  captureLogs();
+  let payload;
+  mock.method(firebaseAdmin, 'getFirebaseMessaging', () => ({
+    sendEachForMulticast: async message => {
+      payload = message;
+      return { successCount: 1, failureCount: 0, responses: [{ success: true }] };
+    },
+  }));
+  const result = await sendPushNotification({ tokens: ['test-token'], title: 'New story', message: 'Ready to listen', target: 'all', data: { bookId: 'book-1' } });
+  assert.equal(result.sent, 1);
+  assert.equal(payload.android.notification.channelId, 'happinotes_alerts_v3');
+  assert.equal(payload.android.notification.sound, 'push_notification');
+  assert.equal(payload.apns.payload.aps.sound, 'push_notification.wav');
+  assert.equal(payload.data.bookId, 'book-1');
+});
