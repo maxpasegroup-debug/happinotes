@@ -8,6 +8,7 @@ import { forwardRef, useEffect, useState, type ReactNode } from 'react';
 import { motion, useReducedMotion, type HTMLMotionProps } from 'framer-motion';
 import { Avatar, BreadcrumbItem, Breadcrumbs, Button, Chip, Divider, Drawer, DrawerBody, DrawerContent, DrawerHeader } from '@heroui/react';
 import { AdminInstallButton } from './AdminPwaProvider';
+import AdminSleepScreen from './AdminSleepScreen';
 
 // Animate the actual panel, whose width is smaller than the overlay on mobile.
 // Using motion.section also loads the animation features before the first open.
@@ -33,6 +34,7 @@ const menu = [
   { label: 'Deletion requests', href: '/admin/deletion-requests', icon: 'trash', group: 'Management' },
 ];
 const paths: Record<string, string> = {
+  sleep: 'M20.5 13.3A8.5 8.5 0 0 1 10.7 3.5 8.5 8.5 0 1 0 20.5 13.3Z',
   trash: 'M3 6h18 M9 6V3h6v3 M5 6l1 15h12l1-15 M10 10v7 M14 10v7',
   status: 'M3 12h4l3-8 4 16 3-8h4 M3 3h18 M3 21h18',
   dashboard: 'M3 3h7v7H3z M14 3h7v7h-7z M3 14h7v7H3z M14 14h7v7h-7z',
@@ -59,6 +61,7 @@ export default function AdminShell({ children }: { children: ReactNode }) {
   const pathname = usePathname();
   const router = useRouter();
   const [menuOpen, setMenuOpen] = useState(false);
+  const [sleeping, setSleeping] = useState(false);
   const [sidebarOpen, setSidebarOpen] = useState(true);
   useEffect(() => {
     const desktop = window.matchMedia('(min-width: 1024px)');
@@ -109,15 +112,18 @@ export default function AdminShell({ children }: { children: ReactNode }) {
     </motion.aside>
     <div className="min-w-0 flex-1">
       <header className="sticky top-0 z-30 flex min-h-[76px] items-center justify-between gap-4 border-b border-divider bg-background/90 px-5 backdrop-blur-xl sm:px-8">
-        <div className="flex items-center gap-3">
+        <div className="flex min-w-0 items-center gap-2 sm:gap-3">
           <Button isIconOnly variant="light" className="lg:hidden" aria-label="Open navigation" aria-haspopup="dialog" aria-expanded={menuOpen && !confirming} onPress={() => setMenuOpen(true)}><Icon name="menu" /></Button>
           <Button isIconOnly variant="light" className="hidden lg:inline-flex" aria-label={sidebarOpen ? 'Close sidebar' : 'Open sidebar'} aria-expanded={sidebarOpen} aria-controls="admin-desktop-sidebar" onPress={() => setSidebarOpen((open) => !open)}><Icon name={sidebarOpen ? 'collapse' : 'menu'} /></Button>
-          <Breadcrumbs size="sm"><BreadcrumbItem href="/admin/dashboard">Admin</BreadcrumbItem><BreadcrumbItem>{current}</BreadcrumbItem></Breadcrumbs>
+          <Breadcrumbs size="sm" className="min-w-0" classNames={{ list: 'flex-nowrap overflow-hidden' }}><BreadcrumbItem href="/admin/dashboard">Admin</BreadcrumbItem><BreadcrumbItem>{current}</BreadcrumbItem></Breadcrumbs>
         </div>
-        <div className="flex shrink-0 items-center gap-3"><AdminInstallButton /><Chip size="sm" variant="flat" className="hidden border border-divider text-default-400 sm:inline-flex">HappiNotes Studio</Chip></div>
+        <div className="flex shrink-0 items-center gap-2 sm:gap-3">
+          <Button variant="flat" size="sm" radius="full" startContent={<Icon name="sleep" />} isDisabled={confirming} aria-label="Put admin workspace to sleep" aria-haspopup="dialog" onPress={() => { setMenuOpen(false); setSleeping(true); }} className="min-w-10 border border-orange-400/15 bg-orange-500/10 px-2 text-orange-200 transition-colors hover:bg-orange-500/20 sm:px-3"><span className="hidden sm:inline">Sleep</span></Button>
+          <AdminInstallButton /><Chip size="sm" variant="flat" className="hidden border border-divider text-default-400 sm:inline-flex">HappiNotes Studio</Chip></div>
       </header>
       <main className={`min-w-0 ${pathname === '/admin/users' ? 'w-full py-5 sm:py-8 lg:py-10' : `p-5 sm:p-8 lg:p-10 ${(pathname.startsWith('/admin/happy-bites') || pathname.startsWith('/admin/content/') || pathname === '/admin/story-books' || pathname === '/admin/settings' || pathname === '/admin/system-status') ? 'w-full' : 'mx-auto max-w-[1600px]'}`}`} >{children}</main>
     </div>
+    <AdminSleepScreen isOpen={sleeping} onWake={() => setSleeping(false)} />
     <Drawer
       disableAnimation={Boolean(reducedMotion) || confirming}
       isOpen={menuOpen && !confirming}

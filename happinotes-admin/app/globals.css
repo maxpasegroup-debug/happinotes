@@ -155,3 +155,33 @@ html:has(.admin-ui) {
 @keyframes admin-dialog-enter { from { opacity: 0; transform: translateY(6px); } to { opacity: 1; transform: translateY(0); } }
 @media (prefers-reduced-motion: reduce) { .admin-modal-panel { animation: none; } }
 @media (prefers-reduced-motion: reduce) { .admin-ui *, .admin-ui *::before, .admin-ui *::after { scroll-behavior: auto !important; } }
+
+/* The main HH:MM digits use SVG lighting for rounded, translucent edges. */
+.admin-clock-glass { filter: drop-shadow(0 8px 12px rgb(0 0 0 / 18%)); }
+.admin-clock-glass-shine { animation: admin-clock-glass-shine 7s ease-in-out infinite alternate; }
+@keyframes admin-clock-glass-shine { from { opacity: .25; } to { opacity: .9; } }
+@media (prefers-reduced-motion: reduce) {
+  .admin-clock-glass-shine { animation: none; opacity: .55; }
+}
+@media (forced-colors: active) {
+  .admin-clock-glass { filter: none; }
+  .admin-clock-glass-body { fill: CanvasText; stroke: none; }
+  .admin-clock-glass-light, .admin-clock-glass-shine { display: none; }
+}
+
+.admin-check-glass-title {
+  color: #ffead8;
+  text-shadow: 0 2px 24px rgb(253 186 116 / 8%);
+}
+@supports ((background-clip: text) or (-webkit-background-clip: text)) {
+  .admin-check-glass-title {
+    background: linear-gradient(175deg, #fffaf3 8%, #f8dcc7 38%, #c38e77 52%, #ffe7d3 60%, #eab697 95%);
+    -webkit-background-clip: text;
+    background-clip: text;
+    color: transparent;
+    -webkit-text-stroke: .35px rgb(255 239 219 / 25%);
+  }
+}
+@media (forced-colors: active) {
+  .admin-check-glass-title { color: CanvasText; background: none; -webkit-text-stroke: 0; text-shadow: none; }
+}

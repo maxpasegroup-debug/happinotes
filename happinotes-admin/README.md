@@ -335,3 +335,7 @@ test/system-status.test.mjs
 The proxy validates session IDs, caps completion payloads, requires the exact public origin for POST, forwards only the session-bound Google cookie, disables caching and redirects, preserves CSP/security headers, and replaces backend diagnostics with safe messages. It never sends website/admin credentials upstream. Tests are in `test/google-auth-proxy.test.mjs`.
 
 Deploy this website route before setting backend `GOOGLE_SIGN_IN_BROWSER_ORIGIN=https://happinotes.online`. Add `happinotes.online` to Firebase Authentication authorized domains. Keep this origin in backend `CORS_ORIGINS` for older backend builds. The mobile browser destination allowlist must match. Actual Google authentication still uses Google's own visible domain.
+
+### Admin sleep screen
+
+The header’s Sleep button opens `components/admin/AdminSleepScreen.tsx`: a full-screen local clock, orange/red ambient animation, 12/24-hour clock toggle, and Wake up button. Escape also wakes the workspace. The current page stays mounted, so unsaved form values are retained. This is a visual screen cover, not a logout or authentication lock; existing uploads and background work continue. Reduced-motion preferences are respected, and the clock timer is cleared on wake.
