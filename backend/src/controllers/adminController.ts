@@ -177,7 +177,10 @@ function normalizeLessons(v: unknown): ILesson[] {
       (record.thumbnailUrl.trim() && !/^https?:\/\//i.test(record.thumbnailUrl.trim()) && !record.thumbnailUrl.startsWith('/uploads/')))) {
       throw new BadRequestError('Lesson thumbnail must be a valid image URL.');
     }
+    const createdAt = record.createdAt === undefined ? undefined : new Date(String(record.createdAt));
+    if (createdAt && !Number.isFinite(createdAt.getTime())) throw new BadRequestError('Lesson added date must be a valid date.');
     out.push({ ...section, order,
+      ...(createdAt ? { createdAt } : {}),
       ...(record.accessType !== undefined ? { accessType: record.accessType as 'free' | 'premium' } : {}),
       ...(record.thumbnailUrl !== undefined ? { thumbnailUrl: String(record.thumbnailUrl).trim() } : {}),
     });

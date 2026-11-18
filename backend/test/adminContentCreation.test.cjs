@@ -226,6 +226,7 @@ test('rejects invalid lesson images and mismatched thumbnail indexes before uplo
 
 test('editing access and resetting a thumbnail preserves saved audio', async () => {
   commonMocks();
+  const changed = mock.method(realtime, 'emitCatalogChanged');
   const existing = { _id: 'edit', id: 'edit', contentType: 'lifebook', type: 'premium', priceInr: 0, status: 'draft', lessons: [
     { title: 'One', mediaUrl: 'https://media.example/audio.mp3', mediaType: 'audio', order: 0, accessType: 'premium', thumbnailUrl: 'https://media.example/old.jpg' },
   ] };
@@ -237,6 +238,7 @@ test('editing access and resetting a thumbnail preserves saved audio', async () 
   assert.equal(saved.lessons[0].accessType, 'free');
   assert.equal(saved.lessons[0].thumbnailUrl, '');
   assert.equal(saved.lessons[0].mediaUrl, existing.lessons[0].mediaUrl);
+  assert.deepEqual(changed.mock.calls[0].arguments, ['updated', 'edit', 'lifebook']);
 });
 
 test('public API gates each lesson independently, including legacy and purchased books', async () => {
@@ -271,4 +273,37 @@ test('invalid access cannot silently downgrade a paid lesson', async () => {
   const { error } = await callCreate(request({ lessons: [{ title: 'One', accessType: 'invalid', mediaType: 'audio', mediaUrl: 'https://media.example/audio.mp3' }] }));
   assert.equal(error.statusCode, 400);
   assert.match(error.message, /access/);
+});
+
+
+test('lesson added dates survive creation, reordering and subsequent saves', async () => {
+  commonMocks();
+  let saved;
+  mock.method(Content, 'create', async payload => { saved = payload; return { ...payload, id: 'dated', _id: 'dated' }; });
+  const req = request({ lessons: [
+    { title: 'Newer', mediaType: 'audio', mediaUrl: 'https://media.example/new.mp3', order: 0, createdAt: '2026-11-18T10:00:00.000Z' },
+    { title: 'Older', mediaType: 'audio', mediaUrl: 'https://media.example/old.mp3', order: 1, createdAt: '2026-11-01T10:00:00.000Z' },
+  ] });
+  const result = await callCreate(req);
+  assert.equal(result.error, undefined);
+  const stored = new Content(saved).toObject();
+  assert.equal(stored.lessons[0].createdAt.toISOString(), '2026-11-18T10:00:00.000Z');
+  assert.equal(stored.lessons[1].createdAt.toISOString(), '2026-11-01T10:00:00.000Z');
+  mock.method(Content, 'findById', async () => stored);
+  let updated;
+  mock.method(Content, 'findByIdAndUpdate', async (_id, payload) => { updated = payload; return { ...stored, ...payload, id: 'dated' }; });
+  const reordered = [...stored.lessons].reverse().map((lesson, order) => ({ ...lesson, order }));
+  let error;
+  await controller.updateContent({ params: { id: 'dated' }, files: {}, body: { lessons: JSON.stringify(reordered) } }, response(), e => { error = e; });
+  assert.equal(error, undefined);
+  assert.equal(updated.lessons[0].title, 'Older');
+  assert.equal(updated.lessons[0].createdAt.toISOString(), '2026-11-01T10:00:00.000Z');
+});
+
+test('invalid lesson added dates are rejected', async () => {
+  commonMocks();
+  const { error } = await callCreate(request({ lessons: [
+    { title: 'Invalid date', mediaType: 'audio', mediaUrl: 'https://media.example/audio.mp3', createdAt: 'not-a-date' },
+  ] }));
+  assert.equal(error.statusCode, 400);
 });

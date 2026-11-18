@@ -18,6 +18,7 @@ export interface ILesson extends ILifebookSection {
   accessType?: ContentType; // Missing on legacy lessons: inherit the book access.
   thumbnailUrl?: string;
   order: number;
+  createdAt?: Date;
 }
 
 // --- Content document ---
@@ -65,6 +66,7 @@ const lessonSchema = new Schema<ILesson>(
     accessType: { type: String, enum: ['free', 'premium'], required: false },
     thumbnailUrl: { type: String, trim: true },
     order: { type: Number, required: true },
+    createdAt: { type: Date, required: false },
   },
   { _id: false }
 );
