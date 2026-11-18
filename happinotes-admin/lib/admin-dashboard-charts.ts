@@ -68,7 +68,7 @@ export function applicationCharts(data: AnalyticsSnapshot, months: 6 | 12) {
   return {
     books, bites, users,
     signups: analyticsMonths(users, months, now), bookGrowth: analyticsMonths(books, months, now), biteGrowth: analyticsMonths(bites, months, now),
-    catalog: [{ label: 'Story Books', count: books.length, color: '#fb923c' }, { label: 'Happy Bites', count: bites.length, color: '#38bdf8' }],
+    catalog: [{ label: 'Life Books', count: books.length, color: '#fb923c' }, { label: 'Happy Bites', count: bites.length, color: '#38bdf8' }],
     publication: [...bookStatusCounts(books).map(group => ({ ...group, label: `Books · ${group.label}` })), { label: 'Bites · Published', count: bites.filter(item => item.published === true).length, color: '#38bdf8' }, { label: 'Bites · Drafts', count: bites.filter(item => item.published !== true).length, color: '#64748b' }],
     access: distribution(access), membership,
     languages: distribution(books.map(item => item.language?.trim().toLowerCase() || 'Not specified')),

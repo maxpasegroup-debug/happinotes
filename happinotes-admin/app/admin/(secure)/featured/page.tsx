@@ -3,7 +3,7 @@
 import Image from "next/image";
 import { useRouter } from "next/navigation";
 import { useCallback, useEffect, useMemo, useState } from "react";
-import { Button, Skeleton } from "@heroui/react";
+import { Button, Skeleton, Table, TableHeader, TableColumn, TableBody, TableRow, TableCell, Chip, Pagination } from "@heroui/react";
 import { motion, useReducedMotion } from "framer-motion";
 import { useAdminConfirmation } from "@/components/admin/ConfirmationProvider";
 import { AdminButton, AdminInput } from "@/components/admin/ui";
@@ -18,6 +18,7 @@ type Content = {
   coverImageUrl?: string;
   createdAt?: string;
 };
+const FEATURED_PER_PAGE = 6;
 
 function Icon({ name, className = "h-5 w-5" }: { name: "star" | "book" | "search" | "refresh" | "plus"; className?: string }) {
   const paths = {
@@ -34,26 +35,25 @@ function typeLabel(type: Content["contentType"]) {
   return type === "silence" ? "Happiness" : type === "lifebook" ? "Lifebook" : "Note";
 }
 
-function Cover({ item }: { item: Content }) {
+function Cover({ item, compact = false }: { item: Content; compact?: boolean }) {
   const [failedSource, setFailedSource] = useState<string | null>(null);
   const source = item.thumbnailUrl || item.coverImageUrl;
   const src = source?.startsWith("//") ? `https:${source}` : source?.startsWith("/") ? `${BASE_URL}${source}` : source?.startsWith("uploads/") ? `${BASE_URL}/${source}` : source;
-  return <div className="relative flex h-24 w-18 shrink-0 items-center justify-center overflow-hidden rounded-xl border border-white/10 bg-gradient-to-br from-orange-400/15 to-slate-800 text-orange-300/70 shadow-sm">
-    {src && failedSource !== src ? <Image unoptimized fill sizes="72px" src={src} alt={item.title} className="object-cover" onError={() => setFailedSource(src)} /> : <Icon name="book" className="h-7 w-7" />}
+  return <div className={`relative flex shrink-0 items-center justify-center overflow-hidden border border-white/10 bg-gradient-to-br from-orange-400/15 to-slate-800 text-orange-300/70 shadow-sm ${compact ? 'h-12 w-9 rounded-md' : 'h-24 w-18 rounded-xl'}`}>
+    {src && failedSource !== src ? <Image unoptimized fill sizes={compact ? "36px" : "72px"} src={src} alt={item.title} className="object-cover" onError={() => setFailedSource(src)} /> : <Icon name="book" className={compact ? 'h-5 w-5' : 'h-7 w-7'} />}
   </div>;
 }
 
 function FeaturedSkeleton() {
-  return <div role="status" aria-label="Loading featured content" className="space-y-8">
+  const columns = ['Priority', 'Content', 'Type', 'Featured', 'Created', 'Actions'];
+  return <div role="status" aria-label="Loading featured content" aria-busy="true" className="space-y-8">
     <span className="sr-only">Loading featured content…</span>
     <div aria-hidden="true" className="space-y-8">
-      <div className="grid grid-cols-3 gap-3">{[0, 1, 2].map(i => <Skeleton key={i} className="h-24 rounded-2xl motion-reduce:before:animate-none" />)}</div>
-      <div className="overflow-hidden rounded-2xl border border-white/10 bg-content1 p-5 sm:p-6">
-        <Skeleton className="mb-6 h-6 w-44 rounded-lg motion-reduce:before:animate-none" />
-        {[0, 1, 2].map(i => <div key={i} className="flex items-center gap-4 border-t border-white/5 py-5"><Skeleton className="h-5 w-6 shrink-0 rounded-md motion-reduce:before:animate-none" /><Skeleton className="h-24 w-18 shrink-0 rounded-xl motion-reduce:before:animate-none" /><div className="flex-1 space-y-3"><Skeleton className="h-5 w-3/4 max-w-sm rounded-md motion-reduce:before:animate-none" /><Skeleton className="h-3 w-20 rounded-md motion-reduce:before:animate-none" /></div></div>)}
-      </div>
-      <Skeleton className="h-6 w-44 rounded-lg motion-reduce:before:animate-none" />
-      <div className="grid gap-4 md:grid-cols-2 xl:grid-cols-3">{[0, 1, 2].map(i => <Skeleton key={i} className="h-44 rounded-2xl motion-reduce:before:animate-none" />)}</div>
+      <div className="grid grid-cols-3 gap-3 sm:gap-4">{[0, 1, 2].map(i => <div key={i} className="rounded-2xl border border-white/10 bg-content1 px-4 py-4 sm:px-5"><Skeleton className="h-8 w-12 rounded-lg motion-reduce:before:animate-none" /><Skeleton className="mt-2 h-3 w-20 rounded motion-reduce:before:animate-none" /></div>)}</div>
+      <section className="min-w-0 space-y-4">
+        <div className="flex flex-wrap items-center justify-between gap-4"><div className="space-y-2"><Skeleton className="h-5 w-40 rounded-lg motion-reduce:before:animate-none" /><Skeleton className="h-3 w-72 max-w-full rounded motion-reduce:before:animate-none" /></div><Skeleton className="h-10 w-full rounded-xl sm:w-64 motion-reduce:before:animate-none" /></div>
+        <div className="overflow-hidden rounded-2xl border border-white/10 bg-content1"><div className="overflow-x-auto"><Table aria-label="Loading featured content table" removeWrapper className="min-w-[900px]" classNames={{ table: 'w-full', th: 'h-12 bg-content2 px-4 first:pl-5 last:pr-5', td: 'border-b border-divider/60 px-4 py-4 first:pl-5 last:pr-5 last:border-0' }}><TableHeader>{columns.map(column => <TableColumn key={column}><Skeleton className="h-3 w-20 rounded motion-reduce:before:animate-none" /></TableColumn>)}</TableHeader><TableBody>{[0, 1, 2, 3, 4, 5].map(row => <TableRow key={row}><TableCell><Skeleton className="h-4 w-5 rounded motion-reduce:before:animate-none" /></TableCell><TableCell><div className="flex min-w-[280px] items-center gap-3"><Skeleton className="h-12 w-9 shrink-0 rounded-md motion-reduce:before:animate-none" /><div className="space-y-2"><Skeleton className="h-3.5 w-44 rounded motion-reduce:before:animate-none" /><Skeleton className="h-2.5 w-24 rounded motion-reduce:before:animate-none" /></div></div></TableCell><TableCell><Skeleton className="h-3 w-16 rounded motion-reduce:before:animate-none" /></TableCell><TableCell><Skeleton className="h-6 w-20 rounded-full motion-reduce:before:animate-none" /></TableCell><TableCell><Skeleton className="h-3 w-20 rounded motion-reduce:before:animate-none" /></TableCell><TableCell><div className="flex justify-end gap-2"><Skeleton className="h-8 w-14 rounded-lg motion-reduce:before:animate-none" /><Skeleton className="h-8 w-20 rounded-lg motion-reduce:before:animate-none" /></div></TableCell></TableRow>)}</TableBody></Table></div><div className="flex items-center justify-between border-t border-divider px-5 py-3"><Skeleton className="h-3 w-48 rounded motion-reduce:before:animate-none" /><Skeleton className="h-8 w-28 rounded-lg motion-reduce:before:animate-none" /></div></div>
+      </section>
     </div>
   </div>;
 }
@@ -67,6 +67,7 @@ export default function FeaturedPage() {
   const [pending, setPending] = useState<string | null>(null);
   const [error, setError] = useState("");
   const [search, setSearch] = useState("");
+  const [page, setPage] = useState(1);
 
   const load = useCallback(async (isActive: () => boolean = () => true) => {
     setLoading(true);
@@ -110,7 +111,18 @@ export default function FeaturedPage() {
 
   const featured = useMemo(() => items.filter(x => x.featured).sort((a, b) => Date.parse(b.createdAt || "") - Date.parse(a.createdAt || "")), [items]);
   const unfeatured = useMemo(() => items.filter(x => !x.featured), [items]);
-  const available = useMemo(() => unfeatured.filter(item => `${item.title} ${typeLabel(item.contentType)}`.toLowerCase().includes(search.trim().toLowerCase())), [unfeatured, search]);
+  const filteredItems = useMemo(() => {
+    const query = search.trim().toLowerCase();
+    return [...items].filter(item => !query || `${item.title} ${typeLabel(item.contentType)}`.toLowerCase().includes(query)).sort((a, b) => {
+      if (Boolean(a.featured) !== Boolean(b.featured)) return a.featured ? -1 : 1;
+      return a.featured ? Date.parse(b.createdAt || "") - Date.parse(a.createdAt || "") : a.title.localeCompare(b.title);
+    });
+  }, [items, search]);
+  const pageCount = Math.max(1, Math.ceil(filteredItems.length / FEATURED_PER_PAGE));
+  const currentPage = Math.min(page, pageCount);
+  const pageStart = (currentPage - 1) * FEATURED_PER_PAGE;
+  const paginatedItems = filteredItems.slice(pageStart, pageStart + FEATURED_PER_PAGE);
+  useEffect(() => { setPage(1); }, [search]);
   const busy = loading || pending !== null;
 
   return <section className="w-full min-w-0 space-y-7" aria-busy={loading}>
@@ -123,26 +135,9 @@ export default function FeaturedPage() {
       <div className="grid grid-cols-3 gap-3 sm:gap-4">
         {[{ label: "Featured", value: featured.length, accent: true }, { label: "Available", value: unfeatured.length }, { label: "Total library", value: items.length }].map(stat => <div key={stat.label} className={`min-w-0 rounded-2xl border px-4 py-4 sm:px-5 ${stat.accent ? "border-orange-400/20 bg-orange-400/[.07]" : "border-white/10 bg-content1"}`}><p className={`text-2xl font-semibold tabular-nums sm:text-3xl ${stat.accent ? "text-orange-300" : "text-slate-100"}`}>{stat.value}</p><p className="mt-1 text-xs text-slate-400 sm:text-sm">{stat.label}</p></div>)}
       </div>
-      <section aria-labelledby="featured-selection-title" className="overflow-hidden rounded-2xl border border-white/10 bg-content1">
-        <div className="flex flex-wrap items-center justify-between gap-3 border-b border-white/10 bg-gradient-to-r from-orange-400/[.08] to-transparent p-5 sm:px-6">
-          <div className="flex items-center gap-3"><span className="flex h-10 w-10 items-center justify-center rounded-xl border border-orange-400/20 bg-orange-400/10 text-orange-300"><Icon name="star" /></span><div><h2 id="featured-selection-title" className="text-base font-semibold text-slate-100">Featured selection</h2><p className="mt-1 text-xs text-slate-400">Your landing page highlights</p></div></div>
-          <span className="rounded-full border border-orange-400/20 bg-orange-400/10 px-3 py-1 text-xs font-medium text-orange-300">{featured.length} featured</span>
-        </div>
-        {featured.length ? <ol aria-label="Featured content priority" className="divide-y divide-white/[.06]">
-          {featured.map((item, index) => <li key={item._id} className="group flex flex-wrap items-center gap-3 p-4 transition-colors hover:bg-white/[.025] sm:gap-5 sm:px-6 sm:py-5">
-            <span aria-label={`Priority ${index + 1}`} className={`w-6 shrink-0 text-sm font-semibold tabular-nums sm:w-8 sm:text-lg ${index === 0 ? "text-orange-300" : "text-slate-500"}`}>{String(index + 1).padStart(2, "0")}</span>
-            <Cover item={item} />
-            <div className="min-w-0 flex-1"><p className="mb-2 text-[10px] font-semibold uppercase tracking-wider text-orange-300/90">{index === 0 ? "First on landing" : `Priority ${index + 1}`}</p><h3 className="break-words text-sm font-semibold leading-6 text-slate-100 sm:text-base">{item.title}</h3><p className="mt-1 text-xs text-slate-400">{typeLabel(item.contentType)}</p></div>
-            <div className="flex w-full justify-end gap-2 sm:w-auto"><Button size="sm" variant="light" className="min-h-10 text-slate-300" isDisabled={busy} onPress={() => void edit(item)} aria-label={`Edit ${item.title}`}>Edit</Button><AdminButton variant="bordered" isLoading={pending === item._id} disabled={busy} onPress={() => void toggle(item)} aria-label={`Unfeature ${item.title}`}>Unfeature</AdminButton></div>
-          </li>)}
-        </ol> : <div className="flex flex-col items-center px-6 py-12 text-center"><Icon name="star" className="mb-4 h-9 w-9 text-orange-300/60" /><h3 className="font-semibold text-slate-200">Give your best content the spotlight</h3><p className="mt-2 max-w-sm text-sm leading-6 text-slate-400">No featured content yet. Feature an available item below.</p></div>}
-      </section>
-      <section aria-labelledby="available-content-title" className="min-w-0 space-y-4">
-        <div className="flex flex-col justify-between gap-4 sm:flex-row sm:items-center"><div><h2 id="available-content-title" className="text-lg font-semibold text-slate-100">Available library <span className="ml-1 text-sm font-normal text-slate-500">{unfeatured.length}</span></h2><p className="mt-1 text-sm text-slate-400">Choose what deserves a place in your featured selection.</p></div><AdminInput aria-label="Search available content" placeholder="Search title or type…" value={search} onChange={event => setSearch(event.target.value)} startContent={<Icon name="search" className="h-4 w-4 shrink-0 text-slate-400" />} className="w-full sm:max-w-xs" /></div>
-        {available.length ? <div className="grid gap-4 md:grid-cols-2 xl:grid-cols-3">{available.map(item => <article key={item._id} className="flex min-w-0 flex-col gap-4 rounded-2xl border border-white/10 bg-content1 p-4 transition-colors hover:border-orange-400/25 sm:p-5">
-          <div className="flex items-center gap-4"><Cover item={item} /><div className="min-w-0"><span className="text-[10px] font-semibold uppercase tracking-wider text-slate-400">{typeLabel(item.contentType)}</span><h3 className="mt-2 break-words text-sm font-semibold leading-6 text-slate-100">{item.title}</h3></div></div>
-          <div className="mt-auto flex items-center justify-between gap-2 border-t border-white/[.06] pt-3"><Button size="sm" variant="light" className="min-h-10 text-slate-300" isDisabled={busy} onPress={() => void edit(item)} aria-label={`Edit ${item.title}`}>Edit content</Button><AdminButton color="primary" variant="flat" startContent={<Icon name="plus" className="h-4 w-4" />} isLoading={pending === item._id} disabled={busy} onPress={() => void toggle(item)} aria-label={`Feature ${item.title}`}>Feature</AdminButton></div>
-        </article>)}</div> : <div className="rounded-2xl border border-dashed border-white/15 bg-content1/50 p-8 text-center"><Icon name={search.trim() ? "search" : "book"} className="mx-auto mb-3 h-7 w-7 text-slate-500" /><p className="text-sm text-slate-400">{search.trim() ? "No content matches your search." : "No available content to feature."}</p>{search.trim() ? <AdminButton className="mt-4" variant="light" onPress={() => setSearch("")}>Clear search</AdminButton> : null}</div>}
+      <section aria-labelledby="featured-selection-title" className="min-w-0 space-y-4">
+        <div className="flex flex-col justify-between gap-4 sm:flex-row sm:items-center"><div><h2 id="featured-selection-title" className="text-lg font-semibold text-slate-100">Featured library <span className="ml-1 text-sm font-normal text-slate-500">{items.length}</span></h2><p className="mt-1 text-sm text-slate-400">Featured rows stay at the top; priority is shown top-to-bottom.</p></div><AdminInput aria-label="Search featured content" placeholder="Search title or type…" value={search} onChange={event => setSearch(event.target.value)} startContent={<Icon name="search" className="h-4 w-4 shrink-0 text-slate-400" />} className="w-full sm:max-w-xs" /></div>
+        {filteredItems.length ? <div className="overflow-hidden rounded-2xl border border-white/10 bg-content1"><div className="overflow-x-auto"><Table aria-label="Featured content library" removeWrapper className="min-w-[900px]" classNames={{ table: "w-full", th: "h-12 bg-content2 px-4 text-[10px] font-bold uppercase tracking-[.12em] text-default-400 first:pl-5 last:pr-5", td: "border-b border-divider/60 px-4 py-3 first:pl-5 last:pr-5 last:border-0" }}><TableHeader><TableColumn>Priority</TableColumn><TableColumn>Content</TableColumn><TableColumn>Type</TableColumn><TableColumn>Featured</TableColumn><TableColumn>Created</TableColumn><TableColumn align="end">Actions</TableColumn></TableHeader><TableBody>{paginatedItems.map((item) => { const priority = item.featured ? featured.findIndex(entry => entry._id === item._id) + 1 : null; return <TableRow key={item._id} className="group hover:bg-content2/40"><TableCell><span className={`font-semibold tabular-nums ${priority === 1 ? 'text-orange-300' : 'text-default-500'}`}>{priority ? String(priority).padStart(2, '0') : '—'}</span></TableCell><TableCell><div className="flex min-w-[280px] items-center gap-3"><Cover item={item} compact /><div className="min-w-0"><p className="truncate text-sm font-semibold text-foreground" title={item.title}>{item.title}</p><p className="mt-1 text-[11px] text-default-400">{priority === 1 ? 'First on landing' : priority ? `Priority ${priority}` : 'Available to feature'}</p></div></div></TableCell><TableCell><span className="text-sm text-default-600">{typeLabel(item.contentType)}</span></TableCell><TableCell>{item.featured ? <Chip size="sm" color="warning" variant="flat">Featured</Chip> : <Chip size="sm" color="default" variant="flat">Available</Chip>}</TableCell><TableCell><span className="whitespace-nowrap text-xs text-default-400">{item.createdAt ? new Date(item.createdAt).toLocaleDateString() : '—'}</span></TableCell><TableCell><div className="flex justify-end gap-1"><Button size="sm" variant="light" className="min-h-9 text-default-600" isDisabled={busy} onPress={() => void edit(item)} aria-label={`Edit ${item.title}`}>Edit</Button><AdminButton color={item.featured ? 'default' : 'primary'} variant={item.featured ? 'bordered' : 'flat'} isLoading={pending === item._id} disabled={busy} onPress={() => void toggle(item)} aria-label={`${item.featured ? 'Unfeature' : 'Feature'} ${item.title}`}>{item.featured ? 'Unfeature' : 'Feature'}</AdminButton></div></TableCell></TableRow>; })}</TableBody></Table></div><div className="flex flex-wrap items-center justify-between gap-3 border-t border-divider px-5 py-3"><p className="text-xs text-default-400">Showing {pageStart + 1}–{Math.min(pageStart + FEATURED_PER_PAGE, filteredItems.length)} of {filteredItems.length} content items · {featured.length} currently featured</p>{pageCount > 1 ? <Pagination aria-label="Featured content pagination" page={currentPage} total={pageCount} onChange={setPage} showControls isCompact size="sm" radius="lg" color="primary" siblings={0} boundaries={1} /> : null}</div></div> : <div className="rounded-2xl border border-dashed border-white/15 bg-content1/50 p-8 text-center"><Icon name={search.trim() ? "search" : "book"} className="mx-auto mb-3 h-7 w-7 text-slate-500" /><p className="text-sm text-slate-400">{search.trim() ? "No content matches your search." : "No content available to feature."}</p>{search.trim() ? <AdminButton className="mt-4" variant="light" onClick={() => setSearch("")}>Clear search</AdminButton> : null}</div>}
       </section>
     </motion.div> : null}
   </section>;

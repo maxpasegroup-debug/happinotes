@@ -10,17 +10,18 @@ import AdminModal from "@/components/admin/AdminModal";
 
 import { useAdminConfirmation } from "@/components/admin/ConfirmationProvider";
 
-import { Card, Chip, Skeleton, Table, TableHeader, TableColumn, TableBody, TableRow, TableCell, ModalContent, ModalBody, Pagination } from "@heroui/react";
+import { addToast, Card, Chip, Skeleton, Table, TableHeader, TableColumn, TableBody, TableRow, TableCell, ModalContent, ModalBody, Pagination, Dropdown, DropdownTrigger, DropdownMenu, DropdownItem, Button } from "@heroui/react";
 
 import { AdminButton, AdminCheckbox, AdminInput, AdminTextarea, AdminSelect } from "@/components/admin/ui";
 
 import { useEffect, useMemo, useState } from "react";
 import { useRouter } from "next/navigation";
-import { apiRequest, uploadMultipart } from "@/lib/api";
+import { apiRequest, downloadCsv, uploadMultipart } from "@/lib/api";
 
 type Status = "draft" | "coming_soon" | "live";
 type Kind = "lifebook" | "note" | "silence";
 const USERS_PER_PAGE = 7;
+const BOOKS_PER_PAGE = 6;
 
 type Content = {
   _id: string;
@@ -45,13 +46,32 @@ function LibraryIcon({ name, className = "h-5 w-5" }: { name: "book" | "search" 
 }
 
 function StoryBooksSkeleton() {
-  return <div role="status" aria-label="Loading story books" aria-busy="true" className="space-y-6">
-    <span className="sr-only">Loading your audiobook library…</span>
+  return <div role="status" aria-label="Loading Life Books" aria-busy="true" className="space-y-6">
+    <span className="sr-only">Loading your Life Book library…</span>
     <div aria-hidden="true" className="grid grid-cols-2 gap-3 lg:grid-cols-4">{[0, 1, 2, 3].map(i => <Skeleton key={i} className="h-24 rounded-2xl motion-reduce:before:animate-none" />)}</div>
     <div aria-hidden="true" className="flex flex-wrap justify-between gap-3"><Skeleton className="h-11 w-80 max-w-full rounded-xl motion-reduce:before:animate-none" /><Skeleton className="h-11 w-64 max-w-full rounded-xl motion-reduce:before:animate-none" /></div>
-    <div aria-hidden="true" className="grid grid-cols-1 gap-4 md:grid-cols-2 2xl:grid-cols-3">
-      {Array.from({ length: 6 }, (_, index) => <div key={index} className="space-y-5 rounded-2xl border border-divider bg-content1 p-5"><div className="flex gap-4"><Skeleton className="h-36 w-24 shrink-0 rounded-xl motion-reduce:before:animate-none" /><div className="min-w-0 flex-1 space-y-3"><Skeleton className="h-5 w-20 rounded-full motion-reduce:before:animate-none" /><Skeleton className="h-5 w-full rounded motion-reduce:before:animate-none" /><Skeleton className="h-3 w-2/3 rounded motion-reduce:before:animate-none" /></div></div><Skeleton className="h-3 w-full rounded motion-reduce:before:animate-none" /><div className="flex gap-2"><Skeleton className="h-10 flex-1 rounded-xl motion-reduce:before:animate-none" /><Skeleton className="h-10 flex-1 rounded-xl motion-reduce:before:animate-none" /></div></div>)}
-    </div>
+    <div aria-hidden="true" className="overflow-hidden rounded-2xl border border-divider bg-content1"><div className="grid min-w-[920px] grid-cols-[2.5fr_1fr_1fr_.7fr_1fr_1fr_1fr] gap-4 bg-content2 px-5 py-4">{Array.from({ length: 7 }, (_, index) => <Skeleton key={index} className="h-3 rounded motion-reduce:before:animate-none" />)}</div>{Array.from({ length: 6 }, (_, index) => <div key={index} className="grid min-w-[920px] grid-cols-[2.5fr_1fr_1fr_.7fr_1fr_1fr_1fr] items-center gap-4 border-t border-divider/60 px-5 py-4"><div className="flex items-center gap-3"><Skeleton className="h-12 w-9 rounded-md motion-reduce:before:animate-none" /><Skeleton className={`h-4 rounded motion-reduce:before:animate-none ${index % 2 ? 'w-36' : 'w-52'}`} /></div><Skeleton className="h-6 w-20 rounded-full motion-reduce:before:animate-none" /><Skeleton className="h-6 w-16 rounded-full motion-reduce:before:animate-none" /><Skeleton className="h-4 w-8 rounded motion-reduce:before:animate-none" /><Skeleton className="h-5 w-16 rounded-full motion-reduce:before:animate-none" /><Skeleton className="h-3 w-20 rounded motion-reduce:before:animate-none" /><Skeleton className="h-8 w-24 rounded-lg motion-reduce:before:animate-none" /></div>)}</div>
+  </div>;
+}
+
+function MiniStatusChart({ count, total, values, activeIndex, tone }: { count: number; total: number; values: number[]; activeIndex: number; tone: "orange" | "green" | "slate" | "amber" }) {
+  const colors = { orange: "#fb923c", green: "#34d399", slate: "#94a3b8", amber: "#fbbf24" };
+  const color = colors[tone];
+  const width = 132;
+  const height = 44;
+  const max = Math.max(1, ...values);
+  const points = values.map((value, index) => ({ x: values.length === 1 ? width / 2 : (index / (values.length - 1)) * width, y: 36 - (value / max) * 27 }));
+  const line = points.map((point, index) => `${index === 0 ? "M" : "L"} ${point.x.toFixed(1)} ${point.y.toFixed(1)}`).join(" ");
+  const area = `${line} L ${width} ${height} L 0 ${height} Z`;
+  const activePoint = points[activeIndex] ?? points.at(-1) ?? { x: width, y: height };
+  return <div aria-hidden="true" className="pointer-events-none absolute bottom-3 right-4 w-[132px] opacity-90 transition-transform duration-300 group-hover:translate-y-[-2px]">
+    <svg viewBox={`0 0 ${width} ${height}`} className="h-11 w-full overflow-visible">
+      <defs><linearGradient id={`story-wave-${tone}-${activeIndex}`} x1="0" x2="0" y1="0" y2="1"><stop offset="0" stopColor={color} stopOpacity=".28" /><stop offset="1" stopColor={color} stopOpacity="0" /></linearGradient></defs>
+      <path d={area} fill={`url(#story-wave-${tone}-${activeIndex})`} />
+      <motion.path d={line} fill="none" stroke={color} strokeWidth="2.2" strokeLinecap="round" strokeLinejoin="round" initial={{ pathLength: 0, opacity: .25 }} animate={{ pathLength: 1, opacity: .9 }} transition={{ duration: .7, ease: "easeOut" }} />
+      <circle cx={activePoint.x} cy={activePoint.y} r="3" fill={color} stroke="#18181b" strokeWidth="1.5" />
+    </svg>
+    <span className="sr-only">{count} of {total} books represented in this status wave</span>
   </div>;
 }
 
@@ -82,10 +102,10 @@ function UsersSkeleton() {
   );
 }
 
-function BookCover({ item }: { item: Pick<Content, "title" | "thumbnailUrl" | "coverImageUrl"> }) {
+function BookCover({ item, compact = false }: { item: Pick<Content, "title" | "thumbnailUrl" | "coverImageUrl">; compact?: boolean }) {
   const [failedSource, setFailedSource] = useState<string | null>(null);
   const src = item.thumbnailUrl || item.coverImageUrl;
-  return <div className="relative flex h-36 w-24 shrink-0 items-center justify-center overflow-hidden rounded-xl border border-white/10 bg-gradient-to-br from-orange-400/10 to-slate-800 text-orange-300/60 shadow-md">
+  return <div className={`relative flex shrink-0 items-center justify-center overflow-hidden border border-white/10 bg-gradient-to-br from-orange-400/10 to-slate-800 text-orange-300/60 shadow-md ${compact ? 'h-12 w-9 rounded-md' : 'h-36 w-24 rounded-xl'}`}>
     {src && failedSource !== src ? <Image unoptimized fill sizes="96px" src={src} alt={item.title} className="object-contain" onError={() => setFailedSource(src)} /> : <LibraryIcon name="book" className="h-9 w-9" />}
   </div>;
 }
@@ -198,6 +218,7 @@ export default function ContentManagement({ activeModule }: { activeModule: Modu
   const [bookSearch, setBookSearch] = useState("");
   const [bookStatus, setBookStatus] = useState<"all" | Status>("all");
   const [bookAccess, setBookAccess] = useState("all");
+  const [booksPage, setBooksPage] = useState(1);
   const [users, setUsers] = useState<User[]>([]);
   const [usersPage, setUsersPage] = useState(1);
   const usersPageCount = Math.max(1, Math.ceil(users.length / USERS_PER_PAGE));
@@ -205,6 +226,7 @@ export default function ContentManagement({ activeModule }: { activeModule: Modu
   const usersStart = (currentUsersPage - 1) * USERS_PER_PAGE;
   const visibleUsers = users.slice(usersStart, usersStart + USERS_PER_PAGE);
   const [loading, setLoading] = useState(true);
+  const [exportingBooks, setExportingBooks] = useState(false);
   const [busyId, setBusyId] = useState<string | null>(null);
   const [createKind, setCreateKind] = useState<Kind>("lifebook");
   const [createOpen, setCreateOpen] = useState(false);
@@ -219,6 +241,12 @@ export default function ContentManagement({ activeModule }: { activeModule: Modu
   const [arrangeCategory, setArrangeCategory] = useState<"all" | Status | "free" | "premium">("all");
   const [arrangeDraft, setArrangeDraft] = useState<Content[]>([]);
   const [arrangeSaving, setArrangeSaving] = useState(false);
+  useEffect(() => {
+    if (!message) return;
+    const failure = /could not|failed|required|missing|must |requires|add at least/i.test(message);
+    const progress = /saving|uploading/i.test(message);
+    addToast({ title: failure ? "Action needs attention" : progress ? "Working" : "Updated", description: message, severity: failure ? "danger" : progress ? "default" : "success", timeout: progress ? 2200 : 4000, shouldShowTimeoutProgress: true });
+  }, [message]);
 
   async function uploadSingleMedia(file: File, scope: "intro" | "lesson" | "note" | "silence") {
     const token = window.localStorage.getItem("admin_token") || "";
@@ -274,6 +302,16 @@ export default function ContentManagement({ activeModule }: { activeModule: Modu
         .sort((a, b) => Date.parse(b.createdAt || "") - Date.parse(a.createdAt || "")),
     [contents]
   );
+  function exportBooks() {
+    if (exportingBooks || !lifebooks.length) return;
+    setExportingBooks(true);
+    try {
+      downloadCsv(`happinotes-story-books-${new Date().toISOString().slice(0, 10)}.csv`, ['ID', 'Title', 'Description', 'Content type', 'Access', 'Status', 'Featured', 'Web order', 'Mobile order', 'Thumbnail URL', 'Cover URL', 'Lesson count', 'Lessons', 'Created at'], lifebooks.map((book) => [book._id, book.title, book.description, book.contentType, book.type, book.status, book.featured, book.webDisplayOrder, book.mobileDisplayOrder, book.thumbnailUrl, book.coverImageUrl, book.lessons?.length || 0, book.lessons, book.createdAt]));
+      setMessage(`Exported ${lifebooks.length} Life Book${lifebooks.length === 1 ? '' : 's'} to CSV.`);
+    } finally {
+      setExportingBooks(false);
+    }
+  }
   const notes = useMemo(
     () =>
       [...contents]
@@ -628,6 +666,10 @@ export default function ContentManagement({ activeModule }: { activeModule: Modu
     (bookAccess === "all" || item.type === bookAccess) &&
     item.title.toLowerCase().includes(bookSearch.trim().toLowerCase())
   );
+  const booksPageCount = Math.max(1, Math.ceil(visibleBooks.length / BOOKS_PER_PAGE));
+  const currentBooksPage = Math.min(booksPage, booksPageCount);
+  const booksStart = (currentBooksPage - 1) * BOOKS_PER_PAGE;
+  const paginatedBooks = visibleBooks.slice(booksStart, booksStart + BOOKS_PER_PAGE);
   const bookStatuses = [
     { key: "all", label: "All books", count: lifebooks.length },
     { key: "live", label: "Published", count: lifebooks.filter(item => item.status === "live").length },
@@ -644,27 +686,70 @@ export default function ContentManagement({ activeModule }: { activeModule: Modu
     });
   }, [arrangeDraft, arrangeCategory]);
 
+  useEffect(() => {
+    setBooksPage(1);
+  }, [bookSearch, bookStatus, bookAccess]);
+
   return (
     <div className="w-full min-w-0 space-y-7">
-      <header className={`flex flex-wrap items-start justify-between gap-4 ${activeModule === "users" ? "px-5 sm:px-8 lg:px-10" : ""}`}><div><p className="text-xs font-bold uppercase tracking-widest text-primary">{activeModule === 'users' ? 'Account management' : 'Content management'}</p><h1 className="mt-2 text-3xl font-bold">{activeModule === 'users' ? 'Users' : 'Story Books'}</h1><p className="mt-2 text-sm text-default-400">{activeModule === 'users' ? 'Manage the people in your HappiNotes community.' : 'Create, publish and organize your audiobook library.'}</p></div>{activeModule === "lifebooks" ? <AdminButton color="primary" disabled={loading} startContent={<LibraryIcon name="plus" className="h-4 w-4" />} onPress={() => void openCreate("lifebook")}>Add New Book</AdminButton> : null}</header>
-      {!createOpen && !editOpen && message && <p role="status" className="rounded-xl border border-divider bg-content1 p-4 text-sm text-default-300">{message}</p>}
+      <header className={`flex flex-wrap items-start justify-between gap-4 ${activeModule === "users" ? "px-5 sm:px-8 lg:px-10" : ""}`}><div><p className="text-xs font-bold uppercase tracking-widest text-primary">{activeModule === 'users' ? 'Account management' : 'Content management'}</p><h1 className="mt-2 text-3xl font-bold">{activeModule === 'users' ? 'Users' : 'Life Books'}</h1><p className="mt-2 text-sm text-default-400">{activeModule === 'users' ? 'Manage the people in your HappiNotes community.' : 'Create, publish and organize your Life Book library.'}</p></div>{activeModule === "lifebooks" ? <div className="flex flex-wrap gap-2"><AdminButton variant="bordered" disabled={loading || exportingBooks || !lifebooks.length} onPress={exportBooks}>{exportingBooks ? 'Exporting…' : 'Export CSV'}</AdminButton><AdminButton color="primary" disabled={loading} startContent={<LibraryIcon name="plus" className="h-4 w-4" />} onPress={() => void openCreate("lifebook")}>Add New Life Book</AdminButton></div> : null}</header>
 
       {activeModule === "lifebooks" && (loading ? <StoryBooksSkeleton /> : <motion.div initial={reducedMotion ? false : { opacity: 0, y: 8 }} animate={{ opacity: 1, y: 0 }} transition={{ duration: 0.25 }} className="space-y-6">
         <div className="grid grid-cols-2 gap-3 lg:grid-cols-4" role="group" aria-label="Filter books by publication status">
-          {bookStatuses.map(status => <button key={status.key} type="button" aria-pressed={bookStatus === status.key} onClick={() => setBookStatus(status.key)} className={`min-w-0 rounded-2xl border p-4 text-left transition-colors focus-visible:outline-2 focus-visible:outline-offset-4 focus-visible:outline-orange-400 sm:p-5 ${bookStatus === status.key ? "border-orange-400/30 bg-orange-400/[.08]" : "border-white/10 bg-content1 hover:border-white/25"}`}><div className="flex items-center justify-between gap-2"><span className="text-xs font-medium text-slate-400 sm:text-sm">{status.label}</span><span className={`h-1.5 w-1.5 rounded-full ${status.key === "live" ? "bg-emerald-400" : status.key === "coming_soon" ? "bg-amber-400" : status.key === "draft" ? "bg-slate-500" : "bg-orange-400"}`} /></div><p className={`mt-3 text-2xl font-semibold tabular-nums sm:text-3xl ${bookStatus === status.key ? "text-orange-300" : "text-slate-100"}`}>{status.count}</p></button>)}
+          {bookStatuses.map((status, statusIndex) => { const tone: "orange" | "green" | "slate" | "amber" = status.key === "live" ? "green" : status.key === "coming_soon" ? "amber" : status.key === "draft" ? "slate" : "orange"; const chartValues = bookStatuses.map(entry => entry.count); return <button key={status.key} type="button" aria-pressed={bookStatus === status.key} onClick={() => setBookStatus(status.key)} className={`group relative min-w-0 overflow-hidden rounded-2xl border p-4 text-left transition-colors focus-visible:outline-2 focus-visible:outline-offset-4 focus-visible:outline-orange-400 sm:p-5 ${bookStatus === status.key ? "border-orange-400/30 bg-orange-400/[.08]" : "border-white/10 bg-content1 hover:border-white/25"}`}><div className="flex items-center justify-between gap-2"><span className="text-xs font-medium text-slate-400 sm:text-sm">{status.label}</span><span className={`h-1.5 w-1.5 rounded-full ${status.key === "live" ? "bg-emerald-400" : status.key === "coming_soon" ? "bg-amber-400" : status.key === "draft" ? "bg-slate-500" : "bg-orange-400"}`} /></div><p className={`mt-3 text-2xl font-semibold tabular-nums sm:text-3xl ${bookStatus === status.key ? "text-orange-300" : "text-slate-100"}`}>{status.count}</p><p className="mt-1 text-[10px] font-medium uppercase tracking-[.14em] text-default-500">{lifebooks.length ? `${Math.round((status.count / lifebooks.length) * 100)}% of library` : "No titles yet"}</p><MiniStatusChart count={status.count} total={lifebooks.length} values={chartValues} activeIndex={statusIndex} tone={tone} /></button>; })}
         </div>
         <section aria-labelledby="book-library-heading" className="min-w-0 space-y-4">
-          <div className="flex flex-col justify-between gap-4 xl:flex-row xl:items-center"><div><h2 id="book-library-heading" className="text-lg font-semibold text-slate-100">Your library</h2><p role="status" className="mt-1 text-xs text-slate-400">Showing {visibleBooks.length} of {lifebooks.length} books</p></div><div className="flex w-full flex-col gap-3 sm:flex-row xl:w-auto"><AdminInput aria-label="Search story books" placeholder="Search book titles…" value={bookSearch} onChange={event => setBookSearch(event.target.value)} startContent={<LibraryIcon name="search" className="h-4 w-4 shrink-0 text-slate-400" />} className="w-full xl:w-72" /><AdminSelect aria-label="Filter books by access" value={bookAccess} onChange={event => setBookAccess(event.target.value)} className="w-full sm:w-44"><option value="all">All access</option><option value="free">Free</option><option value="premium">Premium</option></AdminSelect></div></div>
-          {visibleBooks.length ? <div className="grid grid-cols-1 gap-4 md:grid-cols-2 2xl:grid-cols-3">
-            {visibleBooks.map(item => <article key={item._id} aria-label={item.title} className="flex min-w-0 flex-col overflow-hidden rounded-2xl border border-white/10 bg-content1 transition-colors hover:border-orange-400/25">
-              <div className="flex flex-1 gap-4 p-5"><BookCover item={item} /><div className="min-w-0 flex-1"><span className={`inline-flex rounded-full border px-2.5 py-1 text-[10px] font-semibold ${item.status === "live" ? "border-emerald-400/20 bg-emerald-400/10 text-emerald-300" : item.status === "coming_soon" ? "border-amber-400/20 bg-amber-400/10 text-amber-300" : "border-white/10 bg-white/5 text-slate-400"}`}>{item.status === "live" ? "Published" : item.status === "coming_soon" ? "Coming soon" : "Draft"}</span><h3 className="mt-3 break-words text-base font-semibold leading-6 text-slate-100">{item.title}</h3><p className="mt-2 text-xs text-slate-400">{item.lessons?.length || 0} episode{item.lessons?.length === 1 ? "" : "s"} saved</p>{item.featured ? <span className="mt-2 inline-block text-[10px] font-semibold uppercase tracking-wide text-orange-300">Featured</span> : null}</div></div>
-              <div className="mx-5 flex flex-wrap items-center justify-between gap-2 border-t border-white/[.06] py-3"><span className={`text-xs font-medium ${item.type === "premium" ? "text-violet-300" : "text-sky-300"}`}>{item.type === "premium" ? "Premium · Subscription" : "Free access"}</span><div className="flex gap-1"><AdminButton variant="light" disabled={busyId === item._id} onPress={() => void openEdit(item)} aria-label={`Edit ${item.title}`}>Edit book</AdminButton><AdminButton color="danger" variant="light" disabled={busyId === item._id} onPress={() => void removeContent(item._id)} aria-label={`Delete ${item.title}`}>Delete</AdminButton></div></div>
-              <div className="flex flex-wrap gap-2 border-t border-white/[.06] bg-white/[.015] px-5 py-3">
-                {item.status !== "live" ? <AdminButton color="success" variant="flat" className="flex-1" disabled={busyId === item._id} onPress={() => void setStatus(item._id, "live")} aria-label={`Publish ${item.title}`}>Publish</AdminButton> : null}
-                {item.status !== "coming_soon" ? <AdminButton color="warning" variant="flat" className="flex-1" disabled={busyId === item._id} onPress={() => void setStatus(item._id, "coming_soon")} aria-label={`Mark ${item.title} coming soon`}>Coming Soon</AdminButton> : null}
-              </div>
-            </article>)}
-          </div> : <div className="flex flex-col items-center rounded-2xl border border-dashed border-white/15 bg-content1/50 px-6 py-12 text-center"><LibraryIcon name="book" className="mb-4 h-9 w-9 text-orange-300/60" /><h3 className="font-semibold text-slate-200">{lifebooks.length ? "No books match your filters" : "Your library starts here"}</h3><p className="mt-2 text-sm text-slate-400">{lifebooks.length ? "Try another title, publication status, or access type." : "Create your first audiobook to start building your library."}</p>{lifebooks.length ? <AdminButton variant="light" className="mt-4" onPress={() => { setBookSearch(""); setBookStatus("all"); setBookAccess("all"); }}>Clear filters</AdminButton> : <AdminButton color="primary" className="mt-4" onPress={() => void openCreate("lifebook")}>Add New Book</AdminButton>}</div>}
+          <div className="flex flex-col justify-between gap-4 xl:flex-row xl:items-center"><div><h2 id="book-library-heading" className="text-lg font-semibold text-slate-100">Your Life Book library</h2><p role="status" className="mt-1 text-xs text-slate-400">Showing {visibleBooks.length} of {lifebooks.length} Life Books</p></div><div className="flex w-full flex-col gap-3 sm:flex-row xl:w-auto"><AdminInput aria-label="Search Life Books" placeholder="Search Life Book titles…" value={bookSearch} onChange={event => setBookSearch(event.target.value)} startContent={<LibraryIcon name="search" className="h-4 w-4 shrink-0 text-slate-400" />} className="w-full xl:w-72" /><AdminSelect aria-label="Filter Life Books by access" value={bookAccess} onChange={event => setBookAccess(event.target.value)} className="w-full sm:w-44"><option value="all">All access</option><option value="free">Free</option><option value="premium">Premium</option></AdminSelect></div></div>
+          {visibleBooks.length ? <div className="overflow-hidden rounded-2xl border border-divider bg-content1 shadow-sm">
+            <div className="overflow-x-auto">
+              <Table aria-label="Life Books library" removeWrapper className="min-w-[920px]" classNames={{ table: "w-full", th: "h-12 bg-content2 px-4 text-[10px] font-bold uppercase tracking-[.12em] text-default-400 first:pl-5 last:pr-5", td: "border-b border-divider/60 px-4 py-3.5 first:pl-5 last:pr-5 last:border-0" }}>
+                <TableHeader>
+                  <TableColumn>Life Book</TableColumn>
+                  <TableColumn>Status</TableColumn>
+                  <TableColumn>Access</TableColumn>
+                  <TableColumn>Lessons</TableColumn>
+                  <TableColumn>Visibility</TableColumn>
+                  <TableColumn>Created</TableColumn>
+                  <TableColumn align="end">Actions</TableColumn>
+                </TableHeader>
+                <TableBody>
+                  {paginatedBooks.map(item => <TableRow key={item._id} className="group hover:bg-content2/40">
+                    <TableCell>
+                      <div className="flex min-w-[260px] items-center gap-3">
+                        <BookCover item={item} compact />
+                        <div className="min-w-0"><p className="truncate text-sm font-semibold text-foreground" title={item.title}>{item.title}</p><p className="mt-1 truncate text-[11px] text-default-400">{item.contentType === 'lifebook' ? 'Life Book' : item.contentType}</p></div>
+                      </div>
+                    </TableCell>
+                    <TableCell><Badge text={item.status === 'live' ? 'Published' : item.status === 'coming_soon' ? 'Coming soon' : 'Draft'} tone={item.status === 'live' ? 'green' : item.status === 'coming_soon' ? 'amber' : 'gray'} /></TableCell>
+                    <TableCell><Badge text={item.type === 'premium' ? 'Premium' : 'Free'} tone={item.type === 'premium' ? 'purple' : 'blue'} /></TableCell>
+                    <TableCell><span className="text-sm tabular-nums text-default-600">{item.lessons?.length || 0}</span></TableCell>
+                    <TableCell>{item.featured ? <Chip size="sm" variant="flat" color="warning">Featured</Chip> : <span className="text-xs text-default-400">Standard</span>}</TableCell>
+                    <TableCell><span className="whitespace-nowrap text-xs text-default-400">{item.createdAt ? new Date(item.createdAt).toLocaleDateString() : '—'}</span></TableCell>
+                    <TableCell>
+                      <div className="flex items-center justify-end gap-1">
+                        <AdminButton size="sm" variant="light" disabled={busyId === item._id} onPress={() => void openEdit(item)} aria-label={`Edit ${item.title}`}>Edit</AdminButton>
+                        <Dropdown placement="bottom-end">
+                          <DropdownTrigger><Button isIconOnly size="sm" variant="light" aria-label={`More actions for ${item.title}`} className="text-default-500">•••</Button></DropdownTrigger>
+                          <DropdownMenu aria-label={`Actions for ${item.title}`} onAction={(key) => {
+                            if (key === 'delete') void removeContent(item._id);
+                            if (key === 'publish') void setStatus(item._id, 'live');
+                            if (key === 'coming') void setStatus(item._id, 'coming_soon');
+                          }}>
+                            {[
+                              ...(item.status !== 'live' ? [<DropdownItem key="publish" color="success">Publish</DropdownItem>] : []),
+                              ...(item.status !== 'coming_soon' ? [<DropdownItem key="coming" color="warning">Mark coming soon</DropdownItem>] : []),
+                              <DropdownItem key="delete" color="danger" className="text-danger">Delete</DropdownItem>,
+                            ]}
+                          </DropdownMenu>
+                        </Dropdown>
+                      </div>
+                    </TableCell>
+                  </TableRow>)}
+                </TableBody>
+              </Table>
+            </div>
+            <div className="flex flex-wrap items-center justify-between gap-3 border-t border-divider px-5 py-3"><p className="text-xs text-default-400">Showing {visibleBooks.length ? booksStart + 1 : 0}–{Math.min(booksStart + BOOKS_PER_PAGE, visibleBooks.length)} of {visibleBooks.length} filtered Life Books</p><div className="flex items-center gap-4"><span className="hidden text-[11px] text-default-400 sm:inline">Use Actions for publishing and deletion</span>{booksPageCount > 1 ? <Pagination aria-label="Life Books pagination" page={currentBooksPage} total={booksPageCount} onChange={setBooksPage} showControls isCompact size="sm" radius="lg" color="primary" siblings={0} boundaries={1} /> : null}</div></div>
+          </div> : <div className="flex flex-col items-center rounded-2xl border border-dashed border-divider bg-content1/50 px-6 py-12 text-center"><LibraryIcon name="book" className="mb-4 h-9 w-9 text-orange-300/60" /><h3 className="font-semibold text-slate-200">{lifebooks.length ? "No Life Books match your filters" : "Your library starts here"}</h3><p className="mt-2 text-sm text-slate-400">{lifebooks.length ? "Try another title, publication status, or access type." : "Create your first Life Book to start building your library."}</p>{lifebooks.length ? <AdminButton variant="light" className="mt-4" onPress={() => { setBookSearch(""); setBookStatus("all"); setBookAccess("all"); }}>Clear filters</AdminButton> : <AdminButton color="primary" className="mt-4" onPress={() => void openCreate("lifebook")}>Add New Life Book</AdminButton>}</div>}
         </section>
       </motion.div>)}
 
@@ -1285,7 +1370,6 @@ export default function ContentManagement({ activeModule }: { activeModule: Modu
                   </AdminButton>
                 ) : null}
               </div>
-              {message ? <div className="text-sm text-rose-300">{message}</div> : null}
             </div>
           </ModalBody></ModalContent>
         </AdminModal>

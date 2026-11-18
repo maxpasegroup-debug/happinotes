@@ -185,3 +185,18 @@ html:has(.admin-ui) {
 @media (forced-colors: active) {
   .admin-check-glass-title { color: CanvasText; background: none; -webkit-text-stroke: 0; text-shadow: none; }
 }
+
+/* Keep the featured priority marker close to its content column. */
+table[aria-label="Featured content library"] { table-layout: fixed; }
+table[aria-label="Featured content library"] th:first-child,
+table[aria-label="Featured content library"] td:first-child { width: 4.5rem; padding-left: .5rem; padding-right: .5rem; }
+table[aria-label="Featured content library"] th:nth-child(2),
+table[aria-label="Featured content library"] td:nth-child(2) { width: 42%; }
+table[aria-label="Featured content library"] th:last-child,
+table[aria-label="Featured content library"] td:last-child { width: 12rem; }
+
+/* User Security uses the same server-backed data in a compact table. Keep the
+   legacy card markup available for compatibility, but let the table own the
+   visible list and pagination controls. */
+div[aria-label="User security list"] { display: none; }
+section:has(table[aria-label="User security accounts"]) > .flex.items-center.justify-center.gap-4 { display: none; }

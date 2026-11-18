@@ -6,7 +6,7 @@ import Link from 'next/link';
 import { usePathname, useRouter } from 'next/navigation';
 import { forwardRef, useEffect, useState, type ReactNode } from 'react';
 import { motion, useReducedMotion, type HTMLMotionProps } from 'framer-motion';
-import { Avatar, BreadcrumbItem, Breadcrumbs, Button, Chip, Divider, Drawer, DrawerBody, DrawerContent, DrawerHeader } from '@heroui/react';
+import { Avatar, BreadcrumbItem, Breadcrumbs, Button, ButtonGroup, Divider, Drawer, DrawerBody, DrawerContent, DrawerHeader } from '@heroui/react';
 import { AdminInstallButton } from './AdminPwaProvider';
 import AdminSleepScreen from './AdminSleepScreen';
 
@@ -24,10 +24,9 @@ const MobileDrawerPanel = forwardRef<HTMLElement, HTMLMotionProps<'section'>>(fu
 
 const menu = [
   { label: 'Dashboard', href: '/admin/dashboard', icon: 'dashboard', group: 'Workspace' },
-  { label: 'Story Books', href: '/admin/story-books', icon: 'book', group: 'Content management' },
+  { label: 'Life Books', href: '/admin/story-books', icon: 'book', group: 'Content management' },
   { label: 'Happy Bites', href: '/admin/happy-bites', icon: 'audio', group: 'Content management' },
   { label: 'Featured', href: '/admin/featured', icon: 'star', group: 'Content management' },
-  { label: 'Users', href: '/admin/users', icon: 'users', group: 'Management' },
   { label: 'User Security', href: '/admin/user-security', icon: 'shield', group: 'Management' },
   { label: 'Settings', href: '/admin/settings', icon: 'settings', group: 'Management' },
   { label: 'System Status', href: '/admin/system-status', icon: 'status', group: 'Management' },
@@ -47,12 +46,31 @@ const paths: Record<string, string> = {
   logout: 'M9 4H4v16h5 M13 8l4 4-4 4 M8 12h13',
   menu: 'M4 6h16 M4 12h16 M4 18h16',
   collapse: 'M3 4h18v16H3z M9 4v16 M16 9l-3 3 3 3',
+  clock: 'M12 7v5l3 2 M21 12a9 9 0 1 1-18 0 9 9 0 0 1 18 0Z',
+  calendar: 'M5 4h14v16H5z M8 2v4 M16 2v4 M5 9h14',
 };
-function Icon({ name }: { name: string }) {
-  return <svg aria-hidden="true" width="19" height="19" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="1.6" strokeLinecap="round" strokeLinejoin="round"><path d={paths[name] ?? paths.audio} /></svg>;
+function Icon({ name, size = 19 }: { name: string; size?: number }) {
+  return <svg aria-hidden="true" width={size} height={size} viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="1.6" strokeLinecap="round" strokeLinejoin="round"><path d={paths[name] ?? paths.audio} /></svg>;
 }
 function Brand() {
-  return <div className="flex items-center gap-3"><div className="flex h-10 w-10 items-center justify-center rounded-2xl bg-primary text-white shadow-lg shadow-primary/10"><Icon name="audio" /></div><div><p className="text-lg font-bold tracking-tight">HappiNotes</p><p className="text-[10px] font-medium uppercase tracking-[.2em] text-default-400">Admin workspace</p></div></div>;
+  const [now, setNow] = useState<Date | null>(null);
+  useEffect(() => {
+    const update = () => setNow(new Date());
+    update();
+    const timer = window.setInterval(update, 1000);
+    return () => window.clearInterval(timer);
+  }, []);
+  const time = now?.toLocaleTimeString(undefined, { hour: '2-digit', minute: '2-digit', second: '2-digit', hour12: true }) ?? '--:--:--';
+  const date = now?.toLocaleDateString(undefined, { weekday: 'short', month: 'short', day: 'numeric' }) ?? 'Today';
+  return <div className="space-y-3">
+    <div className="flex items-center gap-2.5">
+      <div className="flex h-8 w-8 items-center justify-center rounded-xl bg-primary text-white"><Icon name="audio" /></div>
+      <div className="min-w-0"><p className="text-sm font-bold tracking-tight">HappiNotes</p><p className="text-[9px] font-medium uppercase tracking-[.16em] text-default-400">Admin workspace</p></div>
+    </div>
+    <div className="overflow-hidden rounded-2xl border border-divider bg-content2/30 p-2.5" aria-label="Current local time and date">
+      <div className="flex min-w-0 items-center gap-2.5"><span className="flex h-7 w-7 shrink-0 items-center justify-center rounded-lg bg-primary/10 text-primary"><Icon name="clock" size={16} /></span><div className="min-w-0"><p className="whitespace-nowrap font-mono text-[13px] font-semibold leading-4 tracking-tight text-foreground" aria-live="off">{time}</p><p className="mt-1 flex items-center gap-1 text-[9px] font-semibold text-default-500"><Icon name="calendar" size={11} /><span className="whitespace-nowrap">{date}</span></p></div></div>
+    </div>
+  </div>;
 }
 
 export default function AdminShell({ children }: { children: ReactNode }) {
@@ -118,8 +136,10 @@ export default function AdminShell({ children }: { children: ReactNode }) {
           <Breadcrumbs size="sm" className="min-w-0" classNames={{ list: 'flex-nowrap overflow-hidden' }}><BreadcrumbItem href="/admin/dashboard">Admin</BreadcrumbItem><BreadcrumbItem>{current}</BreadcrumbItem></Breadcrumbs>
         </div>
         <div className="flex shrink-0 items-center gap-2 sm:gap-3">
-          <Button variant="flat" size="sm" radius="full" startContent={<Icon name="sleep" />} isDisabled={confirming} aria-label="Put admin workspace to sleep" aria-haspopup="dialog" onPress={() => { setMenuOpen(false); setSleeping(true); }} className="min-w-10 border border-orange-400/15 bg-orange-500/10 px-2 text-orange-200 transition-colors hover:bg-orange-500/20 sm:px-3"><span className="hidden sm:inline">Sleep</span></Button>
-          <AdminInstallButton /><Chip size="sm" variant="flat" className="hidden border border-divider text-default-400 sm:inline-flex">HappiNotes Studio</Chip></div>
+          <ButtonGroup size="sm" color="primary" variant="flat" radius="none" className="overflow-hidden rounded-xl border border-primary/20 bg-primary/[.06]">
+            <Button startContent={<Icon name="sleep" />} isDisabled={confirming} aria-label="Put admin workspace to sleep" aria-haspopup="dialog" onPress={() => { setMenuOpen(false); setSleeping(true); }} className="h-9 min-w-10 border-r border-primary/20 bg-transparent px-2 text-primary hover:bg-primary/10 sm:px-3"><span className="hidden sm:inline">Sleep</span></Button>
+            <AdminInstallButton />
+          </ButtonGroup></div>
       </header>
       <main className={`min-w-0 ${pathname === '/admin/users' ? 'w-full py-5 sm:py-8 lg:py-10' : `p-5 sm:p-8 lg:p-10 ${(pathname.startsWith('/admin/happy-bites') || pathname.startsWith('/admin/content/') || pathname === '/admin/story-books' || pathname === '/admin/settings' || pathname === '/admin/system-status') ? 'w-full' : 'mx-auto max-w-[1600px]'}`}`} >{children}</main>
     </div>

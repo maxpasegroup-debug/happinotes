@@ -6,14 +6,14 @@ import { useAdminConfirmation } from "@/components/admin/ConfirmationProvider";
 
 import { AdminButton, AdminInput, AdminTextarea, AdminSelect, AdminFieldset } from "@/components/admin/ui";
 
-import { Card, Chip, ModalContent, ModalBody, ModalHeader, ModalFooter, Skeleton, Switch } from "@heroui/react";
+import { addToast, Card, Chip, ModalContent, ModalBody, ModalHeader, ModalFooter, Skeleton, Switch, Table, TableHeader, TableColumn, TableBody, TableRow, TableCell, Pagination, Dropdown, DropdownTrigger, DropdownMenu, DropdownItem, Button } from "@heroui/react";
 import { useCallback, useEffect, useRef, useState } from "react";
 import Image from "next/image";
 import AudioPreview from "@/components/admin/AudioPreview";
 import LanguagePicker from "@/components/admin/LanguagePicker";
 import HappyBiteUpload, { type BiteUploadState } from "@/components/admin/HappyBiteUpload";
 import { uploadHappyBiteChunks, type AudioUploadTicket } from "@/lib/happy-bite-upload";
-import { apiRequest, uploadMultipart } from "@/lib/api";
+import { apiRequest, downloadCsv, uploadMultipart } from "@/lib/api";
 import {
   BITE_CATEGORIES, EMPTY_BITE, detectAudioDuration, formatBiteDuration,
   uploadedAudioDuration, validateBiteDraft, validateBiteFile,
@@ -23,6 +23,7 @@ import {
 const inputClass = "mt-2 w-full rounded-xl border border-white/15 bg-[#141418] px-3.5 py-3 text-sm text-white outline-none transition focus:border-orange-400 focus:ring-2 focus:ring-orange-400/15 disabled:opacity-60";
 const buttonClass = "rounded-xl border border-white/15 px-4 py-2.5 text-sm font-medium transition hover:bg-white/5 focus-visible:outline-2 focus-visible:outline-orange-400 disabled:cursor-not-allowed disabled:opacity-40";
 const primaryClass = `${buttonClass} border-transparent bg-[#F27055] text-white hover:bg-[#DE6046]`;
+const BITES_PER_PAGE = 6;
 const token = () => window.localStorage.getItem("admin_token") || "";
 const errorMessage = (error: unknown) => error instanceof Error ? error.message : "Something went wrong. Please try again.";
 const dateLabel = (value?: string) => value && Number.isFinite(Date.parse(value))
@@ -37,29 +38,25 @@ function Thumbnail({ src, title, large = false }: { src: string; title: string; 
 }
 
 function HappyBitesSkeleton() {
-  return <div role="status" aria-label="Loading Happy Bites">
+  const columns = ['Bite', 'Status', 'Access', 'Category / Language', 'Duration', 'Order', 'Updated', 'Actions'];
+  return <div role="status" aria-label="Loading Happy Bites" aria-busy="true" className="overflow-hidden rounded-2xl border border-divider bg-content1">
     <span className="sr-only">Loading Happy Bites…</span>
-    <div aria-hidden="true">
-      {[0, 1, 2, 3].map((row) => <div key={row} className="border-b border-white/10 py-5 last:border-0">
-        <div className="flex flex-wrap items-center justify-between gap-4">
-          <div className="flex min-w-0 flex-1 items-center gap-4">
-            <Skeleton className="happy-bites-skeleton h-16 w-16 shrink-0 rounded-2xl motion-reduce:before:animate-none" />
-            <div className="min-w-0 flex-1 space-y-2">
-              <Skeleton className="happy-bites-skeleton h-5 w-56 max-w-full rounded-md motion-reduce:before:animate-none" />
-              <Skeleton className="happy-bites-skeleton h-3 w-32 max-w-full rounded-md motion-reduce:before:animate-none" />
-              <Skeleton className="happy-bites-skeleton h-3 w-44 max-w-full rounded-md motion-reduce:before:animate-none" />
-            </div>
-          </div>
-          <div className="flex flex-wrap gap-2">
-            <Skeleton className="happy-bites-skeleton h-6 w-14 rounded-full motion-reduce:before:animate-none" />
-            <Skeleton className="happy-bites-skeleton h-6 w-20 rounded-full motion-reduce:before:animate-none" />
-          </div>
-        </div>
-        <div className="mt-4 flex flex-wrap gap-2">
-          {[0, 1, 2, 3].map((action) => <Skeleton key={action} className="h-10 w-20 rounded-xl motion-reduce:before:animate-none" />)}
-        </div>
-      </div>)}
+    <div aria-hidden="true" className="overflow-x-auto">
+      <Table aria-label="Loading Happy Bites table" removeWrapper className="min-w-[1050px]" classNames={{ table: 'w-full', th: 'h-12 bg-content2 px-4 first:pl-5 last:pr-5', td: 'border-b border-divider/60 px-4 py-4 first:pl-5 last:pr-5 last:border-0' }}>
+        <TableHeader>{columns.map((column) => <TableColumn key={column}><Skeleton className="h-3 w-20 rounded motion-reduce:before:animate-none" /></TableColumn>)}</TableHeader>
+        <TableBody>{[0, 1, 2, 3, 4, 5].map((row) => <TableRow key={row}>
+          <TableCell><div className="flex min-w-[260px] items-center gap-3"><Skeleton className="h-12 w-12 shrink-0 rounded-xl motion-reduce:before:animate-none" /><div className="space-y-2"><Skeleton className="h-3.5 w-40 rounded motion-reduce:before:animate-none" /><Skeleton className="h-2.5 w-24 rounded motion-reduce:before:animate-none" /></div></div></TableCell>
+          <TableCell><Skeleton className="h-6 w-20 rounded-full motion-reduce:before:animate-none" /></TableCell>
+          <TableCell><Skeleton className="h-6 w-16 rounded-full motion-reduce:before:animate-none" /></TableCell>
+          <TableCell><div className="space-y-2"><Skeleton className="h-3 w-24 rounded motion-reduce:before:animate-none" /><Skeleton className="h-2.5 w-20 rounded motion-reduce:before:animate-none" /></div></TableCell>
+          <TableCell><Skeleton className="h-3 w-12 rounded motion-reduce:before:animate-none" /></TableCell>
+          <TableCell><Skeleton className="h-3 w-6 rounded motion-reduce:before:animate-none" /></TableCell>
+          <TableCell><Skeleton className="h-3 w-20 rounded motion-reduce:before:animate-none" /></TableCell>
+          <TableCell><div className="flex justify-end gap-2"><Skeleton className="h-8 w-16 rounded-lg motion-reduce:before:animate-none" /><Skeleton className="h-8 w-16 rounded-lg motion-reduce:before:animate-none" /></div></TableCell>
+        </TableRow>)}</TableBody>
+      </Table>
     </div>
+    <div className="flex items-center justify-between border-t border-divider px-5 py-3"><Skeleton className="h-3 w-40 rounded motion-reduce:before:animate-none" /><Skeleton className="h-8 w-28 rounded-lg motion-reduce:before:animate-none" /></div>
   </div>;
 }
 
@@ -68,6 +65,7 @@ export default function HappyBitesAdminPage() {
   const [items, setItems] = useState<HappyBite[]>([]);
   const [draft, setDraft] = useState<HappyBiteDraft | null>(null);
   const [loading, setLoading] = useState(true);
+  const [exporting, setExporting] = useState(false);
   const [operation, setOperation] = useState("");
   const [uploads, setUploads] = useState<Partial<Record<UploadKind, BiteUploadState>>>({});
   const [error, setError] = useState("");
@@ -75,6 +73,7 @@ export default function HappyBitesAdminPage() {
   const [search, setSearch] = useState("");
   const [filter, setFilter] = useState("all");
   const [categoryFilter, setCategoryFilter] = useState("");
+  const [page, setPage] = useState(1);
   const [deleteItem, setDeleteItem] = useState<HappyBite | null>(null);
   const [preview, setPreview] = useState<string | null>(null);
   const locked = useRef(false);
@@ -108,12 +107,33 @@ export default function HappyBitesAdminPage() {
     return () => { loadRequest.current += 1; };
   }, [load]);
 
+  useEffect(() => {
+    if (!notice) return;
+    addToast({ title: 'Happy Bites', description: notice, severity: 'success', timeout: 4000, shouldShowTimeoutProgress: true });
+  }, [notice]);
+
   const categories = [...new Set([...BITE_CATEGORIES, ...items.map((item) => item.category)])].sort();
   const visibleItems = items.filter((item) =>
     (filter === 'all' || item.published === (filter === 'published')) &&
     (!categoryFilter || item.category === categoryFilter) &&
     `${item.title} ${item.description} ${item.category} ${item.language ?? ''}`.toLowerCase().includes(search.toLowerCase().trim()),
   );
+  const pageCount = Math.max(1, Math.ceil(visibleItems.length / BITES_PER_PAGE));
+  const currentPage = Math.min(page, pageCount);
+  const pageStart = (currentPage - 1) * BITES_PER_PAGE;
+  const paginatedItems = visibleItems.slice(pageStart, pageStart + BITES_PER_PAGE);
+  useEffect(() => { setPage(1); }, [search, filter, categoryFilter]);
+
+  function exportHappyBites() {
+    if (exporting || !items.length) return;
+    setExporting(true);
+    try {
+      downloadCsv(`happinotes-happy-bites-${new Date().toISOString().slice(0, 10)}.csv`, ['ID', 'Title', 'Description', 'Thumbnail URL', 'Audio URL', 'Duration seconds', 'Category', 'Language', 'Access', 'Published', 'Display order', 'Created at', 'Updated at'], items.map((item) => [item._id, item.title, item.description, item.thumbnailUrl, item.audioUrl, item.durationSeconds, item.category, item.language, item.accessType, item.published, item.displayOrder, item.createdAt, item.updatedAt]));
+      setNotice(`Exported ${items.length} Happy Bite${items.length === 1 ? '' : 's'} to CSV.`);
+    } finally {
+      setExporting(false);
+    }
+  }
 
   const openEditor = async (item?: HappyBite) => {
     if (locked.current) return;
@@ -227,7 +247,6 @@ export default function HappyBitesAdminPage() {
     </header>
 
     {error && !deleteItem ? <div role="alert" className="rounded-2xl border border-red-400/25 bg-red-950/30 p-4 text-sm text-red-200">{error}</div> : null}
-    {notice ? <div role="status" className="rounded-2xl border border-emerald-400/20 bg-emerald-950/25 p-4 text-sm text-emerald-200">{notice}</div> : null}
 
     {draft ? <form onSubmit={(event) => { event.preventDefault(); void save(); }}>
       <AdminFieldset disabled={busy} className="min-w-0 space-y-6">
@@ -271,22 +290,30 @@ export default function HappyBitesAdminPage() {
           <AdminSelect label="Status" className={inputClass} value={filter} onChange={(e) => setFilter(e.target.value)}><option value="all">All statuses</option><option value="published">Published</option><option value="draft">Drafts</option></AdminSelect></div>
         <div className="text-xs text-zinc-400">
           <AdminSelect label="Category" className={inputClass} value={categoryFilter} onChange={(e) => setCategoryFilter(e.target.value)}><option value="">All categories</option>{[...new Set(items.map((item) => item.category))].sort().map((category) => <option key={category}>{category}</option>)}</AdminSelect></div>
-        <AdminButton disabled={loading || busy} onClick={() => void load()} className={buttonClass}>Refresh</AdminButton>
+        <div className="flex flex-wrap gap-2"><AdminButton disabled={loading || busy || exporting || !items.length} onClick={exportHappyBites} className={buttonClass}>{exporting ? 'Exporting…' : 'Export CSV'}</AdminButton><AdminButton disabled={loading || busy} onClick={() => void load()} className={buttonClass}>Refresh</AdminButton></div>
       </div>
-      <Card as="div" shadow="none" aria-busy={loading} className="w-full rounded-none border-0 bg-transparent shadow-none">
-        {loading ? <HappyBitesSkeleton /> : visibleItems.length === 0 ? <div className="px-5 py-12 text-center"><p className="text-lg font-semibold">{items.length ? 'No matching Happy Bites' : error ? 'Library unavailable' : 'Make someone’s day a little brighter'}</p><p className="mt-2 text-sm text-zinc-400">{items.length ? 'Try a different search or filter.' : error ? 'Check the message above, then refresh to try again.' : 'Upload your first short audio and share it for free.'}</p></div> : visibleItems.map((item) => <article key={item._id} className="border-b border-white/10 py-5 last:border-0">
-          <div className="flex flex-wrap items-center justify-between gap-4">
-            <div className="flex min-w-0 flex-1 items-center gap-4"><Thumbnail key={item.thumbnailUrl} src={item.thumbnailUrl} title={item.title} /><div className="min-w-0"><h2 className="truncate font-semibold">{item.title}</h2><p className="mt-1 text-xs text-zinc-400">{item.category} · {formatBiteDuration(item.durationSeconds)}{item.language ? ` · ${item.language}` : ''}</p><p className="mt-1 text-xs text-zinc-500">Order {item.displayOrder} · Updated {dateLabel(item.updatedAt)}</p></div></div>
-            <div className="flex flex-wrap gap-2"><Chip size="sm" variant="flat" color={item.accessType === "premium" ? "warning" : "default"}>{item.accessType === "premium" ? "Premium" : "Free"}</Chip><Chip size="sm" variant="flat" color={item.published ? 'success' : 'default'}>{item.published ? 'Published' : 'Draft'}</Chip></div>
+      <Card as="div" shadow="none" aria-busy={loading} className="w-full overflow-hidden rounded-2xl border border-divider bg-content1 p-0 shadow-sm">
+        {loading ? <HappyBitesSkeleton /> : visibleItems.length === 0 ? <div className="px-5 py-12 text-center"><p className="text-lg font-semibold">{items.length ? 'No matching Happy Bites' : error ? 'Library unavailable' : 'Make someone’s day a little brighter'}</p><p className="mt-2 text-sm text-zinc-400">{items.length ? 'Try a different search or filter.' : error ? 'Check the message above, then refresh to try again.' : 'Upload your first short audio and share it for free.'}</p></div> : <>
+          <div className="overflow-x-auto">
+            <Table aria-label="Happy Bites library" removeWrapper className="min-w-[1050px]" classNames={{ table: "w-full", th: "h-12 bg-content2 px-4 text-[10px] font-bold uppercase tracking-[.12em] text-default-400 first:pl-5 last:pr-5", td: "border-b border-divider/60 px-4 py-3.5 first:pl-5 last:pr-5 last:border-0" }}>
+              <TableHeader><TableColumn>Bite</TableColumn><TableColumn>Status</TableColumn><TableColumn>Access</TableColumn><TableColumn>Category / Language</TableColumn><TableColumn>Duration</TableColumn><TableColumn>Order</TableColumn><TableColumn>Updated</TableColumn><TableColumn align="end">Actions</TableColumn></TableHeader>
+              <TableBody>
+                {paginatedItems.map((item) => <TableRow key={item._id} className="group hover:bg-content2/40">
+                  <TableCell><div className="flex min-w-[260px] items-center gap-3"><Thumbnail src={item.thumbnailUrl} title={item.title} /><div className="min-w-0"><p className="truncate text-sm font-semibold text-foreground" title={item.title}>{item.title}</p><p className="mt-1 truncate text-[11px] text-default-400">Happy Bite</p></div></div></TableCell>
+                  <TableCell><Chip size="sm" variant="flat" color={item.published ? 'success' : 'default'}>{item.published ? 'Published' : 'Draft'}</Chip></TableCell>
+                  <TableCell><Chip size="sm" variant="flat" color={item.accessType === 'premium' ? 'warning' : 'primary'}>{item.accessType === 'premium' ? 'Premium' : 'Free'}</Chip></TableCell>
+                  <TableCell><p className="max-w-[170px] truncate text-sm text-default-600">{item.category || 'General'}</p><p className="mt-1 text-[11px] text-default-400">{item.language || 'All languages'}</p></TableCell>
+                  <TableCell><span className="whitespace-nowrap text-sm tabular-nums text-default-600">{formatBiteDuration(item.durationSeconds)}</span></TableCell>
+                  <TableCell><span className="text-sm tabular-nums text-default-600">{item.displayOrder}</span></TableCell>
+                  <TableCell><span className="whitespace-nowrap text-xs text-default-400">{dateLabel(item.updatedAt)}</span></TableCell>
+                  <TableCell><div className="flex items-center justify-end gap-1"><AdminButton size="sm" variant="light" onClick={() => setPreview(preview === item._id ? null : item._id)}>{preview === item._id ? 'Close' : 'Listen'}</AdminButton><AdminButton size="sm" variant="light" disabled={busy} onClick={() => openEditor(item)}>Edit</AdminButton><Dropdown placement="bottom-end"><DropdownTrigger><Button isIconOnly size="sm" variant="light" aria-label={`More actions for ${item.title}`} className="text-default-500">•••</Button></DropdownTrigger><DropdownMenu aria-label={`Actions for ${item.title}`} onAction={(key) => { if (key === 'status') void changeStatus(item); if (key === 'delete') { setError(''); setDeleteItem(item); } }}>{[<DropdownItem key="status" color={item.published ? 'warning' : 'success'}>{item.published ? 'Unpublish' : 'Publish'}</DropdownItem>, <DropdownItem key="delete" color="danger" className="text-danger">Delete</DropdownItem>]}</DropdownMenu></Dropdown></div></TableCell>
+                </TableRow>)}
+              </TableBody>
+            </Table>
           </div>
-          <div className="mt-4 flex flex-wrap gap-2">
-            <AdminButton className={buttonClass} onClick={() => setPreview(preview === item._id ? null : item._id)}>{preview === item._id ? 'Close preview' : 'Listen'}</AdminButton>
-            <AdminButton disabled={busy} className={buttonClass} onClick={() => openEditor(item)}>Edit</AdminButton>
-            <AdminButton disabled={busy} className={buttonClass} onClick={() => void changeStatus(item)}>{operation === item._id ? 'Updating…' : item.published ? 'Unpublish' : 'Publish'}</AdminButton>
-            <AdminButton disabled={busy} className={`${buttonClass} text-red-300`} onClick={() => { setError(''); setDeleteItem(item); }}>Delete</AdminButton>
-          </div>
-          {preview === item._id ? <div className="mt-4 space-y-3 rounded-2xl bg-white/5 p-4"><p className="whitespace-pre-wrap text-sm leading-6 text-zinc-300">{item.description}</p><AudioPreview src={item.audioUrl} title={item.title} durationSeconds={item.durationSeconds} /><p className="break-all text-xs text-zinc-500">ID {item._id} · Created {dateLabel(item.createdAt)}</p></div> : null}
-        </article>)}
+          {preview ? (() => { const item = visibleItems.find((entry) => entry._id === preview); return item ? <div className="border-t border-divider bg-content2/30 p-5"><div className="mb-3 flex flex-wrap items-center justify-between gap-2"><h3 className="font-semibold">Preview · {item.title}</h3><Chip size="sm" variant="flat">ID {item._id}</Chip></div><p className="whitespace-pre-wrap text-sm leading-6 text-default-600">{item.description}</p><div className="mt-4"><AudioPreview src={item.audioUrl} title={item.title} durationSeconds={item.durationSeconds} /></div><p className="mt-3 text-xs text-default-400">Created {dateLabel(item.createdAt)}</p></div> : null; })() : null}
+          <div className="flex flex-wrap items-center justify-between gap-3 border-t border-divider px-5 py-3"><p className="text-xs text-default-400">Showing {pageStart + 1}–{Math.min(pageStart + BITES_PER_PAGE, visibleItems.length)} of {visibleItems.length} filtered bites</p>{pageCount > 1 ? <Pagination aria-label="Happy Bites pagination" page={currentPage} total={pageCount} onChange={setPage} showControls isCompact size="sm" radius="lg" color="primary" siblings={0} boundaries={1} /> : null}</div>
+        </>}
       </Card>
     </>}
 

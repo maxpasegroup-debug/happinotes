@@ -1,13 +1,15 @@
-import { test } from 'node:test';
-import assert from 'node:assert/strict';
-import { uploadMultipart } from '../lib/api.ts';
+import { test } from "node:test";
+import assert from "node:assert/strict";
+import { uploadMultipart } from "../lib/api.ts";
 
-test('upload reports transfer completion but waits for the server response before resolving', async (t) => {
+test("upload reports transfer completion but waits for the server response before resolving", async (t) => {
   const original = globalThis.XMLHttpRequest;
   const instances = [];
   globalThis.XMLHttpRequest = class {
     upload = {};
-    constructor() { instances.push(this); }
+    constructor() {
+      instances.push(this);
+    }
     open() {}
     setRequestHeader() {}
     send() {}
@@ -18,8 +20,15 @@ test('upload reports transfer completion but waits for the server response befor
   });
   const progress = [];
   let completed = false;
-  const pending = uploadMultipart('/admin/contents/upload-media', new FormData(), 'test-token', (value) => progress.push(value))
-    .then((result) => { completed = true; return result; });
+  const pending = uploadMultipart(
+    "/admin/contents/upload-media",
+    new FormData(),
+    "test-token",
+    (value) => progress.push(value),
+  ).then((result) => {
+    completed = true;
+    return result;
+  });
   const xhr = instances[0];
   assert.equal(xhr.timeout, 120_000);
   xhr.upload.onprogress({ lengthComputable: true, loaded: 50, total: 100 });
@@ -31,18 +40,20 @@ test('upload reports transfer completion but waits for the server response befor
   assert.deepEqual(progress, [50, 99, 100]);
   assert.equal(completed, false);
   xhr.status = 201;
-  xhr.responseText = JSON.stringify({ url: 'https://media.test/bite.mp3' });
+  xhr.responseText = JSON.stringify({ url: "https://media.test/bite.mp3" });
   xhr.onload();
-  assert.deepEqual(await pending, { url: 'https://media.test/bite.mp3' });
+  assert.deepEqual(await pending, { url: "https://media.test/bite.mp3" });
   assert.equal(completed, true);
 });
 
-test('large Happy Bites audio keeps progress without the shared upload deadline', async (t) => {
+test("large Happy Bites audio keeps progress without the shared upload deadline", async (t) => {
   const original = globalThis.XMLHttpRequest;
   const instances = [];
   globalThis.XMLHttpRequest = class {
     upload = {};
-    constructor() { instances.push(this); }
+    constructor() {
+      instances.push(this);
+    }
     open() {}
     setRequestHeader() {}
     send() {}
@@ -52,24 +63,37 @@ test('large Happy Bites audio keeps progress without the shared upload deadline'
     else globalThis.XMLHttpRequest = original;
   });
   const progress = [];
-  const pending = uploadMultipart('/admin/contents/upload-happy-bite-audio', new FormData(), 'test-token', value => progress.push(value));
+  const pending = uploadMultipart(
+    "/admin/contents/upload-happy-bite-audio",
+    new FormData(),
+    "test-token",
+    (value) => progress.push(value),
+  );
   const xhr = instances[0];
   assert.equal(xhr.timeout, 0);
-  xhr.upload.onprogress({ lengthComputable: true, loaded: 75 * 1024 * 1024, total: 100 * 1024 * 1024 });
+  xhr.upload.onprogress({
+    lengthComputable: true,
+    loaded: 75 * 1024 * 1024,
+    total: 100 * 1024 * 1024,
+  });
   assert.deepEqual(progress, [75]);
   xhr.status = 201;
-  xhr.responseText = JSON.stringify({ url: 'https://media.test/large.mp3', durationSeconds: 900 });
+  xhr.responseText = JSON.stringify({
+    url: "https://media.test/large.mp3",
+    durationSeconds: 900,
+  });
   xhr.onload();
   assert.equal((await pending).durationSeconds, 900);
 });
 
-
-test('upload failures preserve backend messages and explain non-JSON hosting rejections', async (t) => {
+test("upload failures preserve backend messages and explain non-JSON hosting rejections", async (t) => {
   const original = globalThis.XMLHttpRequest;
   const instances = [];
   globalThis.XMLHttpRequest = class {
     upload = {};
-    constructor() { instances.push(this); }
+    constructor() {
+      instances.push(this);
+    }
     open() {}
     setRequestHeader() {}
     send() {}
@@ -79,11 +103,21 @@ test('upload failures preserve backend messages and explain non-JSON hosting rej
     else globalThis.XMLHttpRequest = original;
   });
   for (const [status, response, expected] of [
-    [413, '<html>too large</html>', /rejected the file size/],
-    [504, '<html>gateway timeout</html>', /timed out/],
-    [413, JSON.stringify({ message: 'Cloudinary rejected this audio: per-file limit.' }), /Cloudinary rejected/],
+    [413, "<html>too large</html>", /rejected the file size/],
+    [504, "<html>gateway timeout</html>", /timed out/],
+    [
+      413,
+      JSON.stringify({
+        message: "Cloudinary rejected this audio: per-file limit.",
+      }),
+      /Cloudinary rejected/,
+    ],
   ]) {
-    const pending = uploadMultipart('/admin/contents/upload-happy-bite-audio', new FormData(), 'test-token');
+    const pending = uploadMultipart(
+      "/admin/contents/upload-happy-bite-audio",
+      new FormData(),
+      "test-token",
+    );
     const xhr = instances.at(-1);
     xhr.status = status;
     xhr.responseText = response;

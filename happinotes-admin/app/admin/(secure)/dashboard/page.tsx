@@ -10,6 +10,7 @@ export default function AdminDashboardPage() {
   const [data, setData] = useState<AnalyticsSnapshot | null>(null);
   const [busy, setBusy] = useState(false);
   const [months, setMonths] = useState<6 | 12>(6);
+  const [view, setView] = useState<'charts' | 'csv'>('charts');
   const generation = useRef(0), pending = useRef(false);
   const load = useCallback(async () => {
     if (pending.current) return;
@@ -31,7 +32,7 @@ export default function AdminDashboardPage() {
         stats: stats.status === 'fulfilled' && stats.value.stats ? stats.value.stats : null,
         loadedAt: Date.now(), failed: [],
       };
-      snapshot.failed = [!snapshot.books && 'Story Books', !snapshot.bites && 'Happy Bites', !snapshot.users && 'Users', !snapshot.stats && 'Subscriptions'].filter(Boolean) as string[];
+      snapshot.failed = [!snapshot.books && 'Life Books', !snapshot.bites && 'Happy Bites', !snapshot.users && 'Users', !snapshot.stats && 'Subscriptions'].filter(Boolean) as string[];
       setData(snapshot);
     } finally { if (version === generation.current) { pending.current = false; setBusy(false); } }
   }, []);
@@ -46,9 +47,9 @@ export default function AdminDashboardPage() {
     return () => { invalidate(); clearInterval(timer); window.removeEventListener('focus', refresh); window.removeEventListener('happinotes:catalog-changed', refresh); document.removeEventListener('visibilitychange', refresh); };
   }, [load]);
   return <section className="space-y-7">
-    <header className="flex flex-wrap items-end justify-between gap-5"><div><p className="text-[10px] font-bold uppercase tracking-[.2em] text-primary">Application analytics</p><h1 className="mt-3 text-3xl font-semibold tracking-tight sm:text-4xl">Your app, in perspective.</h1><p className="mt-3 text-sm text-default-400">The whole library. Your community. One clear overview.</p></div><div className="flex flex-wrap items-center gap-3"><div className="flex rounded-xl border border-divider bg-content1 p-1" aria-label="Chart period">{([6, 12] as const).map(value => <button type="button" key={value} aria-pressed={months === value} onClick={() => setMonths(value)} className={`rounded-lg px-3 py-2 text-xs font-medium focus-visible:outline-2 focus-visible:outline-primary ${months === value ? 'bg-primary/15 text-primary' : 'text-default-400 hover:text-foreground'}`}>{value} months</button>)}</div><Button size="sm" variant="bordered" isLoading={busy} onPress={() => void load()} className="h-10 rounded-xl border-divider">Refresh charts</Button></div></header>
+    <header className="flex flex-wrap items-end justify-between gap-5"><div><p className="text-[10px] font-bold uppercase tracking-[.2em] text-primary">Application analytics</p><h1 className="mt-3 text-3xl font-semibold tracking-tight sm:text-4xl">Your app, in perspective.</h1><p className="mt-3 text-sm text-default-400">The whole library. Your community. One clear overview.</p></div><div className="flex flex-wrap items-center gap-3"><div className="flex rounded-xl border border-divider bg-content1 p-1" aria-label="Chart period">{([6, 12] as const).map(value => <button type="button" key={value} aria-pressed={months === value} onClick={() => setMonths(value)} className={`rounded-lg px-3 py-2 text-xs font-medium focus-visible:outline-2 focus-visible:outline-primary ${months === value ? 'bg-primary/15 text-primary' : 'text-default-400 hover:text-foreground'}`}>{value} months</button>)}</div><div className="flex rounded-xl border border-divider bg-content1 p-1" aria-label="Dashboard view"><button type="button" aria-pressed={view === 'charts'} onClick={() => setView('charts')} className={`rounded-lg px-3 py-2 text-xs font-medium focus-visible:outline-2 focus-visible:outline-primary ${view === 'charts' ? 'bg-primary/15 text-primary' : 'text-default-400 hover:text-foreground'}`}>Charts</button><button type="button" aria-pressed={view === 'csv'} onClick={() => setView('csv')} className={`rounded-lg px-3 py-2 text-xs font-medium focus-visible:outline-2 focus-visible:outline-primary ${view === 'csv' ? 'bg-primary/15 text-primary' : 'text-default-400 hover:text-foreground'}`}>CSV view</button></div><Button size="sm" variant="bordered" isLoading={busy} onPress={() => void load()} className="h-10 rounded-xl border-divider">Refresh charts</Button></div></header>
     <div className="flex flex-wrap items-center justify-between gap-2 border-b border-divider pb-4 text-[11px] text-default-400"><span className="flex items-center gap-2"><span className="h-1.5 w-1.5 rounded-full bg-primary" />All records · refreshes every minute</span><span>{data ? `Updated ${new Date(data.loadedAt).toLocaleTimeString()} · UTC chart dates` : 'Loading application data…'}</span></div>
     {!!data?.failed.length && <p role="alert" className="rounded-xl border border-warning/20 bg-warning/5 p-4 text-sm text-warning">Could not load: {data.failed.join(', ')}. Those charts are marked unavailable. Use Refresh charts to retry.</p>}
-    <DashboardCharts data={data} months={months} />
+    <DashboardCharts data={data} months={months} view={view} />
   </section>;
 }

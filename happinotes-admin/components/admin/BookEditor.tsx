@@ -5,7 +5,7 @@ import LanguagePicker from "@/components/admin/LanguagePicker";
 
 import { useAdminConfirmation } from "@/components/admin/ConfirmationProvider";
 
-import { Card, Switch } from "@heroui/react";
+import { addToast, Card, Switch } from "@heroui/react";
 
 import { AdminButton, AdminCheckbox, AdminInput, AdminTextarea, AdminProgress, AdminSelect } from "@/components/admin/ui";
 
@@ -233,6 +233,10 @@ export default function BookEditor({ contentId }: { contentId?: string }) {
   }, [lessonQuery, lessonAccessFilter, lessonSort, lessons.length]);
   const [pageError, setPageError] = useState("");
   const [success, setSuccess] = useState("");
+  useEffect(() => {
+    if (!success) return;
+    addToast({ title: "Life Book", description: success, severity: "success", timeout: 4000, shouldShowTimeoutProgress: true });
+  }, [success]);
   const [loading, setLoading] = useState(editing);
   const [saving, setSaving] = useState(false);
   const [saveProgress, setSaveProgress] = useState(0);
@@ -379,7 +383,6 @@ export default function BookEditor({ contentId }: { contentId?: string }) {
       </header>
 
       {pageError ? <div className="rounded-xl border border-rose-400/20 bg-rose-400/10 p-4 text-sm text-rose-100" role="alert">{pageError}</div> : null}
-      {success ? <div className="rounded-xl border border-emerald-400/20 bg-emerald-400/10 p-4 text-sm text-emerald-100" role="status">{success}</div> : null}
 
       <Card as="section" shadow="none" className={cardClass} aria-labelledby="book-details-heading">
         <div className="mb-5 flex items-start justify-between gap-4"><div><h2 id="book-details-heading" className="text-lg font-semibold">Book details</h2><p className="mt-1 text-sm text-slate-400">Tell listeners what this book is about.</p></div><span className="rounded-full bg-white/5 px-3 py-1 text-xs text-slate-400">{editing ? `Current status: ${status.replace("_", " ")}` : "New book"}</span></div>

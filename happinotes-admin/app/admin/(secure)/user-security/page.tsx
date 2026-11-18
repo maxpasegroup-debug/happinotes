@@ -1,15 +1,17 @@
 'use client';
 
 import { useCallback, useEffect, useRef, useState } from 'react';
-import { Button, Card, CardBody, Chip, Input, Modal, ModalBody, ModalContent, ModalFooter, ModalHeader, Skeleton, Textarea } from '@heroui/react';
+import { addToast, Button, Card, CardBody, Chip, Input, Modal, ModalBody, ModalContent, ModalFooter, ModalHeader, Pagination, Skeleton, Table, TableBody, TableCell, TableColumn, TableHeader, TableRow, Textarea } from '@heroui/react';
 import { io } from 'socket.io-client';
 import { AnimatePresence, motion, useReducedMotion } from 'framer-motion';
-import UserSecurityCharts, { SecurityChartsLoading } from '@/components/admin/UserSecurityCharts';
-import { apiRequest, BASE_URL } from '@/lib/api';
+import UserSecurityCharts, { RealPacketLevelVisualization, SecurityChartsLoading, type PacketTelemetrySnapshot } from '@/components/admin/UserSecurityCharts';
+import { apiRequest, BASE_URL, downloadCsv } from '@/lib/api';
 import UserNetworkDetails from '@/components/admin/UserNetworkDetails';
 import type { SecurityUser as UserRow } from '@/lib/user-security';
 
 type Action = 'temporary' | 'permanent' | 'unban' | 'delete' | 'ip_ban' | 'ip_unban';
+type SecurityTab = 'details' | 'charts' | 'packets';
+const securityTabs: Array<{ key: SecurityTab; label: string }> = [{ key: 'details', label: 'Details' }, { key: 'charts', label: 'Charts' }, { key: 'packets', label: 'Packet-level' }];
 const labels: Record<Action, string> = { temporary: 'Temporary ban', permanent: 'Permanent ban', unban: 'Unban', delete: 'Delete account', ip_ban: 'Block reported IP', ip_unban: 'Unblock reported IP' };
 const errorText = (error: unknown) => error instanceof Error ? error.message : 'Request failed. Please try again.';
 const date = (value?: string) => value ? new Date(value).toLocaleString() : 'Unavailable';
@@ -17,7 +19,7 @@ function NetworkIcon({ type }: { type?: string }) {
   return <svg aria-hidden="true" width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="1.8" strokeLinecap="round">{type === 'wifi' ? <><path d="M3 8a15 15 0 0 1 18 0M6 12a10 10 0 0 1 12 0M9 16a5 5 0 0 1 6 0" /><circle cx="12" cy="20" r=".6" /></> : type === 'cellular' ? <><path d="M7 3h7l4 4v14H6V3Z" /><rect x="9" y="11" width="6" height="6" rx="1" /></> : <><circle cx="12" cy="12" r="9" /><path d="M3 12h18M12 3a20 20 0 0 1 0 18 20 20 0 0 1 0-18" /></>}</svg>;
 }
 export default function UserSecurityPage() {
-  const [tab, setTab] = useState<'details' | 'charts'>('details');
+  const [tab, setTab] = useState<SecurityTab>('details');
   const reduceMotion = useReducedMotion();
   const [total, setTotal] = useState(0);
   const [loadedAt, setLoadedAt] = useState(0);
@@ -30,6 +32,7 @@ export default function UserSecurityPage() {
   const [query, setQuery] = useState('');
   const [search, setSearch] = useState('');
   const [loading, setLoading] = useState(true);
+  const [exporting, setExporting] = useState(false);
   const [error, setError] = useState('');
   const [notice, setNotice] = useState('');
   const [live, setLive] = useState(false);
@@ -40,6 +43,9 @@ export default function UserSecurityPage() {
   const [confirmation, setConfirmation] = useState('');
   const [saving, setSaving] = useState(false);
   const [dialogError, setDialogError] = useState('');
+  const [packetTelemetry, setPacketTelemetry] = useState<PacketTelemetrySnapshot | null>(null);
+  const [packetLoading, setPacketLoading] = useState(false);
+  const [packetError, setPacketError] = useState('');
   const vpnCounts = useRef(new Map<string, number>());
   const generation = useRef(0);
   const busy = useRef(false);
@@ -60,6 +66,16 @@ export default function UserSecurityPage() {
     } catch (exception) { if (requestId === generation.current) setError(errorText(exception)); }
     finally { if (requestId === generation.current) setLoading(false); }
   }, [page, search]);
+  const loadPacketTelemetry = useCallback(async () => {
+    setPacketLoading(true); setPacketError('');
+    try {
+      const result = await apiRequest<PacketTelemetrySnapshot>('/admin/user-security/packet-telemetry', 'GET', undefined, localStorage.getItem('admin_token') || '');
+      setPacketTelemetry(result);
+    } catch (exception) {
+      setPacketTelemetry(null); setPacketError(errorText(exception));
+    } finally { setPacketLoading(false); }
+  }, []);
+  useEffect(() => { if (tab === 'packets') void loadPacketTelemetry(); }, [tab, loadPacketTelemetry]);
   useEffect(() => {
     const timer = setTimeout(() => { setSearch(query.trim()); setPage(1); }, 300);
     return () => clearTimeout(timer);
@@ -78,6 +94,11 @@ export default function UserSecurityPage() {
     void load(true);
     return () => { invalidate(); socket.disconnect(); clearInterval(interval); window.removeEventListener('focus', refresh); document.removeEventListener('visibilitychange', refresh); };
   }, [load]);
+  useEffect(() => {
+    if (!notice) return;
+    const securityAlert = notice.startsWith('VPN detected');
+    addToast({ title: securityAlert ? 'Security alert' : 'User Security', description: notice, severity: securityAlert ? 'warning' : 'success', timeout: securityAlert ? 7000 : 4000, shouldShowTimeoutProgress: true });
+  }, [notice]);
   function open(user: UserRow, action: Action) { setDialog({ user, action }); setReason(''); setExpiry(''); setConfirmation(''); setDialogError(''); }
   async function submit() {
     if (!dialog || busy.current) return;
@@ -92,33 +113,59 @@ export default function UserSecurityPage() {
     } catch (exception) { setDialogError(errorText(exception)); }
     finally { busy.current = false; setSaving(false); }
   }
+  async function exportUsers() {
+    if (exporting) return;
+    setExporting(true); setError('');
+    try {
+      const adminToken = localStorage.getItem('admin_token') || '';
+      const fetchPage = (value: number) => apiRequest<{ users: UserRow[]; totalPages: number }>(`/admin/user-security?${new URLSearchParams({ page: String(value), query: search })}`, 'GET', undefined, adminToken);
+      const first = await fetchPage(1);
+      const allUsers = [...first.users];
+      for (let current = 2; current <= Math.max(1, first.totalPages); current += 1) {
+        const result = await fetchPage(current);
+        allUsers.push(...result.users);
+      }
+      downloadCsv(`happinotes-user-security-${new Date().toISOString().slice(0, 10)}.csv`, ['ID', 'Name', 'Email', 'Status', 'Reason', 'Expires at', 'Public IP', 'Device IP', 'Network type', 'Carrier', 'Device model', 'OS', 'OS version', 'Location status', 'City', 'Region', 'Country', 'Latitude', 'Longitude', 'Last seen', 'Device count', 'Login history count', 'VPN detections', 'VPN last detected', 'VPN last IP', 'VPN IP blocked', 'Devices', 'Login history', 'Moderation history'], allUsers.map((user) => {
+        const network = user.network;
+        return [user.id, user.name, user.email, user.status, user.reason, user.expiresAt, network?.publicIp, network?.deviceIp, network?.networkType, network?.carrier, network?.deviceModel, network?.os, network?.osVersion, network?.locationStatus?.state, network?.geo?.city, network?.geo?.region, network?.geo?.country, network?.geo?.latitude, network?.geo?.longitude, network?.lastSeen, user.devices?.length || 0, user.loginHistory?.length || 0, user.vpn?.count || 0, user.vpn?.lastDetectedAt, user.vpn?.lastIp, user.vpn?.ipBlocked, user.devices, user.loginHistory, user.history];
+      }));
+      setNotice(`Exported ${allUsers.length} account${allUsers.length === 1 ? '' : 's'} to CSV.`);
+    } catch (exception) {
+      setError(errorText(exception));
+    } finally {
+      setExporting(false);
+    }
+  }
   return <section className="w-full min-w-0 space-y-5">
     <header><p className="text-xs font-bold uppercase tracking-widest text-primary">Account management</p><h1 className="mt-2 text-3xl font-bold">User Security</h1><p className="mt-2 text-sm text-default-400">Review account details or explore security patterns in the chart view.</p></header>
     <div className="flex flex-wrap items-center justify-between gap-4">
     <div role="tablist" aria-label="User Security views" className="inline-flex gap-1 rounded-xl border border-divider bg-content2/50 p-1">
-      {(['details', 'charts'] as const).map(view => <button key={view} type="button" role="tab" id={`security-tab-${view}`} aria-selected={tab === view} aria-controls={`security-panel-${view}`} tabIndex={tab === view ? 0 : -1} onClick={() => setTab(view)} onKeyDown={event => {
+      {securityTabs.map(({ key: view, label }) => <button key={view} type="button" role="tab" id={`security-tab-${view}`} aria-selected={tab === view} aria-controls={`security-panel-${view}`} tabIndex={tab === view ? 0 : -1} onClick={() => setTab(view)} onKeyDown={event => {
         if (!['ArrowLeft', 'ArrowRight', 'Home', 'End'].includes(event.key)) return;
         event.preventDefault();
-        const next = event.key === 'Home' ? 'details' : event.key === 'End' ? 'charts' : view === 'details' ? 'charts' : 'details';
+        const index = securityTabs.findIndex(item => item.key === view);
+        const next = event.key === 'Home' ? securityTabs[0].key : event.key === 'End' ? securityTabs[securityTabs.length - 1].key : securityTabs[(index + (event.key === 'ArrowRight' ? 1 : -1) + securityTabs.length) % securityTabs.length].key;
         setTab(next); document.getElementById(`security-tab-${next}`)?.focus();
       }} className={`relative rounded-lg px-5 py-2.5 text-sm font-medium outline-offset-2 focus-visible:outline-primary ${tab === view ? 'text-primary' : 'text-default-400 hover:text-foreground'}`}>
         {tab === view && <motion.span layoutId="security-tab-highlight" className="absolute inset-0 rounded-lg border border-primary/20 bg-primary/10" transition={reduceMotion ? { duration: 0 } : { type: 'spring', stiffness: 420, damping: 34 }} />}
-        <span className="relative flex items-center gap-2"><svg aria-hidden="true" width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="1.8">{view === 'details' ? <><path d="M8 6h13M8 12h13M8 18h13" /><path d="M3 6h1M3 12h1M3 18h1" /></> : <><path d="M4 20h17M6 16V9M12 16V4M18 16v-5" /></>}</svg>{view === 'details' ? 'Details' : 'Charts'}</span>
+        <span className="relative flex items-center gap-2"><svg aria-hidden="true" width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="1.8">{view === 'details' ? <><path d="M8 6h13M8 12h13M8 18h13" /><path d="M3 6h1M3 12h1M3 18h1" /></> : view === 'charts' ? <><path d="M4 20h17M6 16V9M12 16V4M18 16v-5" /></> : <><path d="M4 6h16v12H4z" /><path d="M8 10h8M8 14h5" /><path d="M7 3v3M17 3v3" /></>}</svg>{label}</span>
       </button>)}
     </div>
-    <div className="flex flex-wrap items-center gap-3"><Input aria-label="Search users" placeholder="Search name or email" value={query} onValueChange={setQuery} className="w-full sm:w-56" isClearable onClear={() => setQuery('')} /><Chip size="sm" color={live ? 'success' : 'default'} variant="flat">{live ? 'Live updates' : 'Refreshing every 15 seconds'}</Chip><Button size="sm" variant="flat" onPress={() => void load()}>Refresh</Button></div>
+    <div className="flex flex-wrap items-center gap-3"><Input aria-label="Search users" placeholder="Search name or email" value={query} onValueChange={setQuery} className="w-full sm:w-56" isClearable onClear={() => setQuery('')} /><Chip size="sm" color={live ? 'success' : 'default'} variant="flat">{live ? 'Live updates' : 'Refreshing every 15 seconds'}</Chip><Button size="sm" variant="bordered" isLoading={exporting} isDisabled={exporting} onPress={() => void exportUsers()}>{exporting ? 'Exporting…' : 'Export CSV'}</Button><Button size="sm" variant="flat" onPress={() => void load()}>Refresh</Button></div>
     </div>
     {tab === 'details' && <p className="text-xs leading-5 text-default-400">Public IP is observed by the server. Device IP, carrier and network type are device-reported and may be unavailable. IPs can be shared or changed; the map is approximate, not a street address. Bans apply to the account.</p>}
     {backendReady === false && <p role="alert" className="rounded-xl border border-warning/30 bg-warning/10 p-4 text-sm text-warning">The connected backend has not confirmed device-location storage, single-session login and VPN reporting support. Deploy the updated backend to the API server used by both the app and admin, then refresh. Restarting this admin panel alone will not enable those features.</p>}
     {error && <p role="alert" className="rounded-xl bg-danger/10 p-4 text-sm text-danger">{error}</p>}
-    {notice && <p role="status" className="rounded-xl bg-success/10 p-4 text-sm text-success">{notice}</p>}
     <AnimatePresence mode="wait" initial={false}>
       <motion.div key={tab} id={`security-panel-${tab}`} role="tabpanel" aria-labelledby={`security-tab-${tab}`} tabIndex={0} initial={reduceMotion ? false : { opacity: 0, y: 8 }} animate={{ opacity: 1, y: 0 }} exit={{ opacity: 0 }} transition={{ duration: reduceMotion ? 0 : 0.16 }} className="min-w-0 space-y-5 focus-visible:outline-primary">
         {tab === 'charts' ? <>
           <div className="flex flex-wrap items-center justify-between gap-2 border-b border-white/[0.06] pb-4"><p className="text-xs text-default-400">Page {page} of {pages} · <strong className="text-foreground">{users.length} accounts in these charts</strong> · {total} matching accounts{search ? ` · Search: “${search}”` : ''}</p><span className="text-[11px] text-default-400">{loadedAt ? `Updated ${new Date(loadedAt).toLocaleTimeString()}` : 'Waiting for security data'}</span></div>
           {loading ? <SecurityChartsLoading /> : error && users.length === 0 ? <p className="py-12 text-center text-sm text-default-400">Charts could not load. Use Refresh to retry.</p> : users.length === 0 ? <p className="py-12 text-center text-sm text-default-400">No matching accounts. Change your search to explore security charts.</p> : <UserSecurityCharts key={`${page}:${search}`} users={users} loadedAt={loadedAt} onOpenUser={user => { setSelection({ user, page, query: search }); setDetailsOpen(true); }} />}
+        </> : tab === 'packets' ? <>
+          <div className="flex flex-wrap items-center justify-between gap-2 border-b border-white/[0.06] pb-4"><div><p className="text-xs font-semibold uppercase tracking-[.16em] text-primary">Packet-Level Visualization</p><p className="mt-1 text-xs text-default-400">Packet data appears only when the connected backend reports real packet telemetry.</p></div><span className="text-[11px] text-default-400">{loadedAt ? `Updated ${new Date(loadedAt).toLocaleTimeString()}` : 'Waiting for security data'}</span></div>
+          {loading || packetLoading ? <SecurityChartsLoading /> : error && users.length === 0 ? <p className="py-12 text-center text-sm text-default-400">Packet data could not load. Use Refresh to retry.</p> : packetError ? <p role="alert" className="rounded-xl bg-danger/10 p-4 text-sm text-danger">{packetError}</p> : users.length === 0 ? <p className="py-12 text-center text-sm text-default-400">No matching accounts for packet inspection. Change your search to explore the stream.</p> : <RealPacketLevelVisualization key={`${page}:${search}`} users={users} telemetry={packetTelemetry} />}
         </> : <>
-    {loading ? <div className="space-y-3" aria-label="Loading users">{[0, 1, 2, 3, 4, 5, 6].map(i => <Skeleton key={i} className="h-24 rounded-2xl" />)}</div> : users.length === 0 ? <Card><CardBody className="p-10 text-center">No matching users.</CardBody></Card> : <div className="space-y-3" aria-label="User security list">{users.map(user => {
+    {loading ? <div className="overflow-hidden rounded-2xl border border-divider bg-content1" aria-label="Loading users" aria-busy="true"><div className="overflow-x-auto"><Table aria-label="Loading user security accounts" removeWrapper className="min-w-[920px]" classNames={{ table: 'w-full', th: 'h-12 bg-content2 px-4 first:pl-5 last:pr-5', td: 'border-b border-divider/60 px-4 py-4 first:pl-5 last:pr-5 last:border-0' }}><TableHeader>{[0, 1, 2, 3, 4, 5, 6].map(index => <TableColumn key={index}><Skeleton className="h-3 w-20 rounded" /></TableColumn>)}</TableHeader><TableBody>{[0, 1, 2, 3, 4, 5, 6].map(index => <TableRow key={index}><TableCell><div className="flex items-center gap-3"><Skeleton className="h-9 w-9 shrink-0 rounded-full" /><div className="space-y-2"><Skeleton className="h-3 w-32 rounded" /><Skeleton className="h-2.5 w-24 rounded" /></div></div></TableCell><TableCell><Skeleton className="h-6 w-20 rounded-full" /></TableCell><TableCell><div className="space-y-2"><Skeleton className="h-3 w-6 rounded" /><Skeleton className="h-2.5 w-20 rounded" /></div></TableCell><TableCell><div className="space-y-2"><Skeleton className="h-3 w-20 rounded" /><Skeleton className="h-2.5 w-28 rounded" /></div></TableCell><TableCell><Skeleton className="h-6 w-24 rounded-full" /></TableCell><TableCell><div className="space-y-2"><Skeleton className="h-3 w-28 rounded" /><Skeleton className="h-2.5 w-20 rounded" /></div></TableCell><TableCell><Skeleton className="ml-auto h-8 w-24 rounded-lg" /></TableCell></TableRow>)}</TableBody></Table></div><div className="flex items-center justify-between border-t border-divider px-5 py-3"><Skeleton className="h-3 w-36 rounded" /><Skeleton className="h-8 w-28 rounded-lg" /></div></div> : users.length === 0 ? <Card><CardBody className="p-10 text-center">No matching users.</CardBody></Card> : <div className="space-y-3" aria-label="User security list">{users.map(user => {
       const network = user.network;
       const statusColor = user.status === 'active' ? 'bg-success/10 text-success' : user.status === 'temporary_ban' ? 'bg-warning/10 text-warning' : 'bg-danger/10 text-danger';
       return <button key={user.id} type="button" aria-label={`View network details for ${user.name}`} aria-haspopup="dialog" onClick={() => { setSelection({ user, page, query: search }); setDetailsOpen(true); }} className="group flex w-full items-center gap-3 rounded-2xl border border-divider bg-content1 p-4 text-left transition-colors hover:border-primary/40 hover:bg-content2 focus-visible:outline-2 focus-visible:outline-offset-2 focus-visible:outline-primary motion-reduce:transition-none sm:gap-4 sm:p-5">
@@ -133,6 +180,37 @@ export default function UserSecurityPage() {
         </>}
       </motion.div>
     </AnimatePresence>
+    {tab === 'details' && !loading && users.length > 0 && <div className="overflow-hidden rounded-2xl border border-divider bg-content1" aria-label="User security table">
+      <div className="overflow-x-auto">
+        <Table aria-label="User security accounts" removeWrapper className="min-w-[920px]" classNames={{ table: 'w-full', th: 'h-12 bg-content2 px-4 text-[10px] font-bold uppercase tracking-[.12em] text-default-400 first:pl-5 last:pr-5', td: 'border-b border-divider/60 px-4 py-3.5 first:pl-5 last:pr-5 last:border-0' }}>
+          <TableHeader>
+            <TableColumn>Account</TableColumn>
+            <TableColumn>Status</TableColumn>
+            <TableColumn>Devices</TableColumn>
+            <TableColumn>Connection</TableColumn>
+            <TableColumn>Risk signals</TableColumn>
+            <TableColumn>Last report</TableColumn>
+            <TableColumn align="end">Actions</TableColumn>
+          </TableHeader>
+          <TableBody>
+            {users.map(user => {
+              const network = user.network;
+              const statusColor = user.status === 'active' ? 'success' : user.status === 'temporary_ban' ? 'warning' : 'danger';
+              return <TableRow key={user.id} className="group hover:bg-content2/40">
+                <TableCell><div className="flex min-w-[220px] items-center gap-3"><span aria-hidden="true" className="flex h-9 w-9 shrink-0 items-center justify-center rounded-full bg-primary/10 text-sm font-semibold text-primary">{user.name?.trim().charAt(0).toUpperCase() || '?'}</span><div className="min-w-0"><p className="truncate text-sm font-semibold text-foreground" title={user.name}>{user.name}</p><p className="mt-1 truncate text-xs text-default-400" title={user.email || undefined}>{user.email || 'No email'}</p></div></div></TableCell>
+                <TableCell><Chip size="sm" color={statusColor} variant="flat" className="capitalize">{user.status.replaceAll('_', ' ')}</Chip></TableCell>
+                <TableCell><div className="text-sm tabular-nums text-default-600">{user.devices?.length || 0}</div><div className="mt-1 text-[11px] text-default-400">{user.loginHistory?.length || 0} recent logins</div></TableCell>
+                <TableCell><div className="flex items-center gap-2 text-sm text-default-600"><NetworkIcon type={network?.networkType} /><span className="capitalize">{network?.networkType || 'Unknown'}</span></div><p className="mt-1 max-w-[150px] truncate font-mono text-[11px] text-default-400">{network?.publicIp || 'IP not reported'}</p></TableCell>
+                <TableCell>{user.vpn?.count ? <Chip size="sm" color="danger" variant="flat">VPN · {user.vpn.count}</Chip> : <span className="text-xs text-default-400">No recorded VPN</span>}</TableCell>
+                <TableCell><span className="whitespace-nowrap text-xs text-default-400">{date(network?.lastSeen)}</span><p className="mt-1 max-w-[150px] truncate text-[11px] text-default-400">{[network?.geo?.city, network?.geo?.country].filter(Boolean).join(', ') || 'Location pending'}</p></TableCell>
+                <TableCell><div className="flex justify-end"><Button size="sm" variant="light" color="primary" onPress={() => { setSelection({ user, page, query: search }); setDetailsOpen(true); }}>View details</Button></div></TableCell>
+              </TableRow>;
+            })}
+          </TableBody>
+        </Table>
+      </div>
+      <div className="flex flex-wrap items-center justify-between gap-3 border-t border-divider px-5 py-3"><p className="text-xs text-default-400">Page {page} of {pages} · {total} matching accounts</p>{pages > 1 ? <Pagination aria-label="User security pagination" page={page} total={pages} onChange={setPage} showControls isCompact size="sm" radius="lg" color="primary" siblings={0} boundaries={1} /> : null}</div>
+    </div>}
     <div className="flex items-center justify-center gap-4"><Button size="sm" variant="flat" isDisabled={page <= 1} onPress={() => setPage(value => value - 1)}>Previous</Button><span className="text-sm">Page {page} of {pages}</span><Button size="sm" variant="flat" isDisabled={page >= pages} onPress={() => setPage(value => value + 1)}>Next</Button></div>
     <Modal size="5xl" isOpen={detailsOpen && Boolean(selection) && !dialog} onClose={() => setDetailsOpen(false)} scrollBehavior="inside" placement="center" classNames={{ base: 'dark admin-ui admin-modal-panel bg-content1 text-foreground', wrapper: 'admin-modal-wrapper', backdrop: 'admin-modal-backdrop' }}>
       <ModalContent>

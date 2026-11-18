@@ -4,7 +4,7 @@ import AdminModal from "@/components/admin/AdminModal";
 
 import { useAdminConfirmation } from "@/components/admin/ConfirmationProvider";
 
-import { Card, Skeleton, Table, TableHeader, TableColumn, TableBody, TableRow, TableCell, ModalContent, ModalBody, ModalHeader } from "@heroui/react";
+import { addToast, Card, Skeleton, Table, TableHeader, TableColumn, TableBody, TableRow, TableCell, ModalContent, ModalBody, ModalHeader } from "@heroui/react";
 
 import { AdminButton, AdminInput, AdminSelect } from "@/components/admin/ui";
 
@@ -92,6 +92,11 @@ export default function AdminSettingsPage() {
   const [message, setMessage] = useState("");
   const [saving, setSaving] = useState<string | null>(null);
   const [previewPlan, setPreviewPlan] = useState<string | null>(null);
+  useEffect(() => {
+    if (!message) return;
+    const failure = /could not|failed|check |enable |enter |add at least|positive|no higher|not confirm|status/i.test(message);
+    addToast({ title: failure ? "Subscription settings" : "Subscription settings updated", description: message, severity: failure ? "danger" : "success", timeout: 5000, shouldShowTimeoutProgress: true });
+  }, [message]);
 
   const load = useCallback(async (isActive: () => boolean = () => true) => {
     setLoading(true);
@@ -269,7 +274,6 @@ export default function AdminSettingsPage() {
           </Card>;
         })}
       </div>
-      {message ? <p role="status" className="rounded-xl border border-divider bg-content1 px-5 py-4 text-sm leading-6 text-slate-300">{message}</p> : null}
     </div>
   );
 }

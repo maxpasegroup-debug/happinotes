@@ -4,7 +4,7 @@ import { useAdminConfirmation } from "@/components/admin/ConfirmationProvider";
 
 import { AdminButton } from "@/components/admin/ui";
 
-import { Card, CardBody, Chip, Divider, Skeleton } from "@heroui/react";
+import { addToast, Card, CardBody, Chip, Divider, Skeleton } from "@heroui/react";
 import { useCallback, useEffect, useRef, useState } from "react";
 import { io } from "socket.io-client";
 import { apiRequest } from "@/lib/api";
@@ -43,7 +43,6 @@ function DeletionRequestsSkeleton() {
 export default function DeletionRequestsPage() {
   const confirm = useAdminConfirmation();
   const [requests, setRequests] = useState<DeletionRequest[]>([]);
-  const [message, setMessage] = useState("");
   const [loading, setLoading] = useState(true);
   const [loadError, setLoadError] = useState("");
   const [live, setLive] = useState(false);
@@ -103,13 +102,13 @@ export default function DeletionRequestsPage() {
 
   async function markUnderReview(id: string) {
     if (!await confirm({ title: 'Mark request under review?', description: 'Update this request to under review? This does not complete account deletion.', confirmLabel: 'Mark under review', tone: 'warning' })) return;
-    setBusy(id); setMessage("");
+    setBusy(id);
     try {
       const token = window.localStorage.getItem("admin_token") || "";
       await apiRequest(`/admin/account-deletions/${id}/review`, "PATCH", {}, token);
-      setMessage("Request marked under review. This does not mark deletion complete.");
+      addToast({ title: "Deletion request updated", description: "Request marked under review. This does not mark deletion complete.", severity: "success", timeout: 4500, shouldShowTimeoutProgress: true });
       await load();
-    } catch { setMessage("Could not update this request."); }
+    } catch { addToast({ title: "Update failed", description: "Could not update this request.", severity: "danger", timeout: 5000, shouldShowTimeoutProgress: true }); }
     finally { setBusy(""); }
   }
 
@@ -117,7 +116,6 @@ export default function DeletionRequestsPage() {
     <header><p className="mb-2 text-xs font-semibold uppercase tracking-[.18em] text-primary">Account management</p><h1>Account deletion requests</h1><p className="mt-3 max-w-3xl text-sm leading-6 text-default-400">Review requests from the app and public form. Purchase and transaction records are retained pending an approved retention policy. This admin screen cannot mark a request completed.</p></header>
     <div className="flex items-center justify-between gap-3"><Chip size="sm" variant="flat" color={live ? "success" : "default"}>{live ? "Live updates" : "Auto-refresh · every 15 seconds"}</Chip><AdminButton size="sm" variant="flat" onClick={() => void load()}>Refresh</AdminButton></div>
     {loadError && <div role="alert" className="rounded-2xl bg-danger/10 p-4 text-sm text-danger">{loadError}</div>}
-    {message && <div role="status" className="rounded-2xl border border-warning/20 bg-warning/10 p-4 text-sm text-warning-200">{message}</div>}
     <div className="grid gap-5">
       {requests.map((request) => <Card as="article" key={request.id} shadow="sm" className="border border-divider bg-content1"><CardBody className="gap-4 p-5 sm:p-6">
         <div className="flex flex-wrap items-start justify-between gap-4">
