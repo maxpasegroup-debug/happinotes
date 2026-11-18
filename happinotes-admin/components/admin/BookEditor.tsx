@@ -7,24 +7,24 @@ import { useAdminConfirmation } from "@/components/admin/ConfirmationProvider";
 
 import { Card, Switch } from "@heroui/react";
 
-import { AdminButton, AdminCheckbox, AdminInput, AdminTextarea, AdminProgress } from "@/components/admin/ui";
+import { AdminButton, AdminCheckbox, AdminInput, AdminTextarea, AdminProgress, AdminSelect } from "@/components/admin/ui";
 
-import { useEffect, useMemo, useState } from "react";
+import { Fragment, useEffect, useMemo, useRef, useState } from "react";
 import { useRouter } from "next/navigation";
 import { apiRequest, uploadMultipart } from "@/lib/api";
 import { validateCoverFile, validateLessonFile } from "@/lib/media-validation";
 
 type Status = "draft" | "coming_soon" | "live";
-type Lesson = { title: string; description: string; mediaUrl: string; mediaType: "audio" | "video"; file: File | null; error: string; accessType: "free" | "premium"; thumbnailUrl: string; thumbnailFile: File | null; thumbnailError: string };
+type Lesson = { editorId: string; createdAt?: string; title: string; description: string; mediaUrl: string; mediaType: "audio" | "video"; file: File | null; error: string; accessType: "free" | "premium"; thumbnailUrl: string; thumbnailFile: File | null; thumbnailError: string };
 type Content = {
   _id: string; title: string; description?: string; language?: string; thumbnailUrl?: string;
   contentType: "lifebook"; type: "free" | "premium"; priceInr?: number; status: Status; featured?: boolean;
-  lessons?: Array<{ title?: string; description?: string; mediaUrl?: string; mediaType?: "audio" | "video"; order?: number; accessType?: "free" | "premium"; thumbnailUrl?: string }>;
+  lessons?: Array<{ title?: string; description?: string; mediaUrl?: string; mediaType?: "audio" | "video"; order?: number; createdAt?: string; accessType?: "free" | "premium"; thumbnailUrl?: string }>;
 };
 
 const inputClass = "mt-2 w-full rounded-xl border border-white/10 bg-[#0d111b] px-4 py-3 text-sm text-white outline-none transition placeholder:text-slate-500 focus:border-orange-400 focus:ring-2 focus:ring-orange-400/20";
 const cardClass = "rounded-2xl border border-divider bg-content1 p-5 sm:p-6";
-const emptyLesson = (index: number, accessType: "free" | "premium" = "free"): Lesson => ({ title: `Lesson ${index + 1}`, description: "", mediaUrl: "", mediaType: "audio", file: null, error: "", accessType, thumbnailUrl: "", thumbnailFile: null, thumbnailError: "" });
+const emptyLesson = (index: number, editorId: string): Lesson => ({ editorId, createdAt: new Date().toISOString(), title: `Lesson ${index + 1}`, description: "", mediaUrl: "", mediaType: "audio", file: null, error: "", accessType: "free", thumbnailUrl: "", thumbnailFile: null, thumbnailError: "" });
 
 function useObjectUrl(file: File | null): string | undefined {
   const [preview, setPreview] = useState<{ file: File; url: string }>();
@@ -91,7 +91,7 @@ function LessonCard({ lesson, index, total, bookCoverUrl, onChange, onRemove, on
         </label>
       </div>
       <div className="mt-4 flex flex-wrap items-center justify-between gap-3 rounded-xl border border-divider bg-content2/40 p-4">
-        <div><p className="text-sm font-semibold text-foreground">Lesson access</p><p className="mt-1 text-xs text-default-500">{lesson.accessType === 'premium' ? 'Paid · unlocked by Pro or an existing book purchase.' : 'Free · everyone can listen to this lesson.'}</p></div>
+        <div><p className="text-sm font-semibold text-foreground">Lesson access</p><p className="mt-1 text-xs text-default-500">{lesson.accessType === 'premium' ? 'Premium · only this lesson requires Pro or an existing book purchase.' : 'Free · everyone can listen to this lesson.'}</p></div>
         <Switch size="sm" color="warning" isSelected={lesson.accessType === 'premium'} onValueChange={(paid) => onChange({ accessType: paid ? 'premium' : 'free' })} aria-label={`Paid access for lesson ${index + 1}`}>
           <span className="text-sm font-semibold">{lesson.accessType === 'premium' ? 'Paid' : 'Free'}</span>
         </Switch>
@@ -137,6 +137,61 @@ function LessonCard({ lesson, index, total, bookCoverUrl, onChange, onRemove, on
   );
 }
 
+function LessonTableRow({ lesson, index, total, bookCoverUrl, expanded, error, disabled, onExpand, onChange, onRemove, onMove }: {
+  lesson: Lesson; index: number; total: number; bookCoverUrl?: string; expanded: boolean; error?: string; disabled: boolean;
+  onExpand: () => void; onChange: (value: Partial<Lesson>) => void; onRemove: () => void; onMove: (direction: -1 | 1) => void;
+}) {
+  const confirm = useAdminConfirmation();
+  const localThumbnail = useObjectUrl(lesson.thumbnailFile);
+  const thumbnail = localThumbnail || lesson.thumbnailUrl || bookCoverUrl;
+  const hasError = Boolean(error || lesson.error || lesson.thumbnailError);
+  return <Fragment>
+    <tr className={expanded ? 'bg-orange-500/5' : ''}>
+      <td className="w-14 px-3 py-3 text-xs font-medium tabular-nums text-slate-400">{String(index + 1).padStart(2, '0')}</td>
+      <td className="px-3 py-3">
+        <div className="flex items-center gap-3">
+          {thumbnail ? <Image unoptimized src={thumbnail} width={36} height={44} alt="" className="h-11 w-9 shrink-0 rounded-md object-cover" />
+            : <span aria-hidden="true" className="flex h-11 w-9 shrink-0 items-center justify-center rounded-md bg-white/5 text-xs text-slate-500">{index + 1}</span>}
+          <div className="min-w-0"><p className="max-w-[min(36vw,440px)] truncate text-sm font-medium text-white">{lesson.title || 'Untitled lesson'}</p>
+            <p className={`mt-0.5 max-w-[min(36vw,440px)] truncate text-[11px] ${hasError ? 'text-rose-300' : 'text-slate-500'}`}>{hasError ? 'Needs attention — open details' : lesson.description || 'No description yet'}</p>
+          </div>
+        </div>
+      </td>
+      <td className="w-28 px-3 py-3">
+        <Switch size="sm" color="warning" isSelected={lesson.accessType === 'premium'} isDisabled={disabled}
+          onValueChange={(paid) => onChange({ accessType: paid ? 'premium' : 'free' })} aria-label={`Paid access for lesson ${index + 1}`}>
+          <span className="text-xs">{lesson.accessType === 'premium' ? 'Paid' : 'Free'}</span>
+        </Switch>
+      </td>
+      <td className="hidden w-32 px-3 py-3 sm:table-cell"><span className={`whitespace-nowrap rounded-full px-2 py-1 text-[11px] ${hasError ? 'bg-rose-500/10 text-rose-300' : lesson.file ? 'bg-orange-500/10 text-orange-200' : lesson.mediaUrl ? 'bg-emerald-500/10 text-emerald-300' : 'bg-white/5 text-slate-400'}`}>
+        {hasError ? 'Check file' : lesson.file ? 'Ready to upload' : lesson.mediaUrl ? 'Audio saved' : 'No audio'}
+      </span></td>
+      <td className="w-44 px-3 py-3 text-right">
+        <div className="flex items-center justify-end gap-2">
+        <button type="button" aria-label={`${expanded ? 'Collapse' : 'Expand'} lesson ${index + 1} details`} aria-expanded={expanded} aria-controls={`lesson-details-${lesson.editorId}`} onClick={onExpand}
+          className="inline-flex items-center gap-1.5 rounded-lg border border-orange-300/20 px-2.5 py-2 text-xs font-medium text-orange-200 transition-colors hover:bg-orange-500/10 focus-visible:outline-2 focus-visible:outline-orange-400 motion-reduce:transition-none">
+          {expanded ? 'Close' : 'Details'}
+          <svg aria-hidden="true" width="12" height="12" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" className={`transition-transform motion-reduce:transition-none ${expanded ? 'rotate-180' : ''}`}><path d="m6 9 6 6 6-6" /></svg>
+        </button>
+        <button type="button" disabled={disabled} aria-label={`Remove lesson ${index + 1}: ${lesson.title || 'Untitled lesson'}`}
+          onClick={async () => {
+            if (await confirm({ title: 'Remove lesson?', description: `Remove “${lesson.title || `Lesson ${index + 1}`}” from this book? Save the book to apply this change.`, confirmLabel: 'Remove lesson', tone: 'danger' })) onRemove();
+          }}
+          className="inline-flex items-center gap-1.5 rounded-lg border border-rose-400/20 px-2.5 py-2 text-xs font-medium text-rose-200 transition-colors hover:bg-rose-400/10 focus-visible:outline-2 focus-visible:outline-rose-400 disabled:cursor-not-allowed disabled:opacity-40 motion-reduce:transition-none">
+          <svg aria-hidden="true" width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="1.8" strokeLinecap="round" strokeLinejoin="round"><path d="M3 6h18M9 6V4h6v2M5 6l1 14h12l1-14M10 10v6M14 10v6" /></svg>
+          Remove
+        </button>
+        </div>
+      </td>
+    </tr>
+    {expanded && <tr id={`lesson-details-${lesson.editorId}`}><td colSpan={5} className="bg-black/10 p-3 sm:p-4">
+      {error && <p className="mb-2 text-sm text-rose-300" role="alert">{error}</p>}
+      <LessonCard lesson={lesson} index={index} total={total} bookCoverUrl={bookCoverUrl} onChange={onChange} onRemove={onRemove} onMove={onMove} />
+      <button type="button" onClick={onExpand} className="mt-3 rounded px-2 py-1 text-xs text-orange-200 hover:text-orange-100 focus-visible:outline-2 focus-visible:outline-orange-400">Collapse details</button>
+    </td></tr>}
+  </Fragment>;
+}
+
 export default function BookEditor({ contentId }: { contentId?: string }) {
   const confirm = useAdminConfirmation();
   const router = useRouter();
@@ -145,18 +200,51 @@ export default function BookEditor({ contentId }: { contentId?: string }) {
   const [title, setTitle] = useState("");
   const [description, setDescription] = useState("");
   const [language, setLanguage] = useState("English");
-  const [type, setType] = useState<"free" | "premium">("free");
   const [status, setStatus] = useState<Status>("draft");
   const [featured, setFeatured] = useState(false);
   const [cover, setCover] = useState<File | null>(null);
   const [coverError, setCoverError] = useState("");
   const [lessons, setLessons] = useState<Lesson[]>([]);
+  const [lessonQuery, setLessonQuery] = useState('');
+  const [expandedLessonId, setExpandedLessonId] = useState<string | null>(null);
+  const [lessonAccessFilter, setLessonAccessFilter] = useState('all');
+  const [lessonSort, setLessonSort] = useState('part');
+  const lessonSequence = useRef(0);
+  const lessonViewport = useRef<HTMLDivElement>(null);
+  const visibleLessons = useMemo(() => {
+    const query = lessonQuery.trim().toLocaleLowerCase();
+    const part = query.match(/^(?:(?:part|lesson|session)\s*[-#:]?\s*)?0*(\d+)$/i);
+    const filtered = lessons.map((lesson, index) => ({ lesson, index })).filter(({ lesson, index }) => {
+      const accessMatches = lessonAccessFilter === 'all' || lesson.accessType === lessonAccessFilter;
+      const searchMatches = !query || (part ? index + 1 === Number(part[1]) : lesson.title.toLocaleLowerCase().includes(query));
+      return accessMatches && searchMatches;
+    });
+    if (lessonSort !== 'part') filtered.sort((a, b) => {
+      const timeA = a.lesson.createdAt ? Date.parse(a.lesson.createdAt) || 0 : 0;
+      const timeB = b.lesson.createdAt ? Date.parse(b.lesson.createdAt) || 0 : 0;
+      const ascending = timeA - timeB || a.index - b.index;
+      return lessonSort === 'newest' ? -ascending : ascending;
+    });
+    return filtered;
+  }, [lessons, lessonQuery, lessonAccessFilter, lessonSort]);
+
+  useEffect(() => {
+    lessonViewport.current?.scrollTo({ top: 0, behavior: 'instant' });
+  }, [lessonQuery, lessonAccessFilter, lessonSort, lessons.length]);
   const [pageError, setPageError] = useState("");
   const [success, setSuccess] = useState("");
   const [loading, setLoading] = useState(editing);
   const [saving, setSaving] = useState(false);
   const [saveProgress, setSaveProgress] = useState(0);
   const [fieldErrors, setFieldErrors] = useState<Record<string, string>>({});
+  const paidLessonCount = lessons.filter((lesson) => lesson.accessType === 'premium').length;
+  const mixedAccess = paidLessonCount > 0 && paidLessonCount < lessons.length;
+  const allPaid = lessons.length > 0 && paidLessonCount === lessons.length;
+
+  function setAllLessonAccess(paid: boolean) {
+    setLessons((current) => current.map((lesson) => ({ ...lesson, accessType: paid ? 'premium' : 'free' })));
+  }
+
   const coverUrl = content?.thumbnailUrl;
   const selectedCoverUrl = useObjectUrl(coverError ? null : cover);
   const completeness = useMemo(() => ({
@@ -174,9 +262,9 @@ export default function BookEditor({ contentId }: { contentId?: string }) {
         if (!item) throw new Error("This book could not be found. Refresh the list and try again.");
         setContent(item);
         setTitle(item.title || ""); setDescription(item.description || ""); setLanguage(item.language || "English");
-        setType(item.type === "premium" || Number(item.priceInr) > 0 ? "premium" : "free"); setStatus(item.status || "draft"); setFeatured(Boolean(item.featured));
+        setStatus(item.status || "draft"); setFeatured(Boolean(item.featured));
         const saved = [...(item.lessons || [])].sort((a, b) => (a.order ?? 0) - (b.order ?? 0));
-        setLessons(saved.map((lesson, index) => ({ title: lesson.title || `Lesson ${index + 1}`, description: lesson.description || "", mediaUrl: lesson.mediaUrl || "", mediaType: lesson.mediaType || "audio", file: null, error: "", accessType: lesson.accessType || (item.type === "premium" || Number(item.priceInr) > 0 ? "premium" : "free"), thumbnailUrl: lesson.thumbnailUrl || "", thumbnailFile: null, thumbnailError: "" })));
+        setLessons(saved.map((lesson, index) => ({ editorId: `saved-${index}`, createdAt: lesson.createdAt, title: lesson.title || `Lesson ${index + 1}`, description: lesson.description || "", mediaUrl: lesson.mediaUrl || "", mediaType: lesson.mediaType || "audio", file: null, error: "", accessType: lesson.accessType || (item.type === "premium" || Number(item.priceInr) > 0 ? "premium" : "free"), thumbnailUrl: lesson.thumbnailUrl || "", thumbnailFile: null, thumbnailError: "" })));
       })
       .catch((error) => setPageError(cleanFailure(error, "Could not load this book.")))
       .finally(() => setLoading(false));
@@ -208,6 +296,12 @@ export default function BookEditor({ contentId }: { contentId?: string }) {
       if (!lesson.file && !lesson.mediaUrl) errors[`lesson-${index}`] = `Lesson ${index + 1}: upload an MP3, or remove this empty lesson card.`;
     });
     setFieldErrors(errors);
+    if (Object.keys(errors).some((key) => key.startsWith('lesson'))) {
+      const firstInvalid = Object.keys(errors).find((key) => /^lesson-\d+$/.test(key));
+      if (firstInvalid) setExpandedLessonId(lessons[Number(firstInvalid.slice(7))]?.editorId ?? null);
+      setLessonQuery(firstInvalid ? `Part ${Number(firstInvalid.slice(7)) + 1}` : '');
+      setLessonAccessFilter('all'); setLessonSort('part');
+    }
     return Object.keys(errors).length === 0;
   }
 
@@ -228,7 +322,7 @@ export default function BookEditor({ contentId }: { contentId?: string }) {
       const finalLessons = lessons.map((lesson, index) => ({ ...lesson, order: index }));
       const data = new FormData();
       data.append("title", title.trim()); data.append("description", description.trim()); data.append("language", language.trim());
-      data.append("contentType", "lifebook"); data.append("type", Number(content?.priceInr) > 0 ? "free" : lessons.length ? (lessons.some((lesson) => lesson.accessType === "premium") ? "premium" : "free") : type); data.append("priceInr", String(content?.priceInr ?? 0));
+      data.append("contentType", "lifebook"); data.append("type", Number(content?.priceInr) > 0 ? "free" : allPaid ? "premium" : "free"); data.append("priceInr", String(content?.priceInr ?? 0));
       data.append("status", editing ? status : targetStatus); data.append("featured", String(featured));
       if (cover) data.append("thumbnail", cover);
       const lessonMediaIndexes: number[] = [];
@@ -242,7 +336,7 @@ export default function BookEditor({ contentId }: { contentId?: string }) {
       });
       data.append("lessonMediaIndexes", JSON.stringify(lessonMediaIndexes));
       data.append("lessonThumbnailIndexes", JSON.stringify(lessonThumbnailIndexes));
-      data.append("lessons", JSON.stringify(finalLessons.map(({ title: lessonTitle, description: lessonDescription, mediaUrl, mediaType, order, file, accessType, thumbnailUrl }) => ({ accessType, thumbnailUrl, title: lessonTitle.trim(), description: lessonDescription.trim(), ...(file ? {} : { mediaUrl }), mediaType: file ? "audio" : mediaType, order }))));
+      data.append("lessons", JSON.stringify(finalLessons.map(({ title: lessonTitle, description: lessonDescription, mediaUrl, mediaType, order, file, accessType, thumbnailUrl, createdAt }) => ({ accessType, thumbnailUrl, createdAt, title: lessonTitle.trim(), description: lessonDescription.trim(), ...(file ? {} : { mediaUrl }), mediaType: file ? "audio" : mediaType, order }))));
 
       if (editing && contentId) {
         await uploadMultipart(`/admin/contents/${contentId}`, data, token, setSaveProgress, "PUT");
@@ -306,43 +400,79 @@ export default function BookEditor({ contentId }: { contentId?: string }) {
         <AdminCheckbox isSelected={featured} onValueChange={setFeatured} className="mt-5 rounded-xl border border-white/10 px-4 py-3">Show this book as featured</AdminCheckbox>
       </Card>
 
-      <Card as="section" shadow="none" className={cardClass} aria-labelledby="access-heading">
-        <h2 id="access-heading" className="text-lg font-semibold">Access and publishing</h2><p className="mt-1 text-sm text-slate-400">Set Free or Paid on each lesson below. Paid lessons use the existing Pro membership and book purchase access.</p>
-        <div className="mt-5 grid gap-4 sm:grid-cols-2">
-          <div className={`rounded-xl border p-4 transition-colors duration-300 motion-reduce:transition-none ${type === 'premium' ? 'border-orange-400/30 bg-orange-500/5' : 'border-emerald-400/20 bg-emerald-500/5'}`}>
-            <p className="text-xs font-medium uppercase tracking-wide text-slate-400">Default for new lessons</p>
-            <div className="mt-3 flex items-center gap-3">
-              <span className={`flex h-11 w-11 shrink-0 items-center justify-center rounded-xl transition-colors duration-300 motion-reduce:transition-none ${type === 'premium' ? 'bg-orange-500/15 text-orange-300' : 'bg-emerald-500/15 text-emerald-300'}`}>
-                <AccessIcon paid={type === 'premium'} />
-              </span>
-              <div className="min-w-0 flex-1">
-                <p className="font-semibold text-white">{type === 'premium' ? 'Paid · Pro access' : 'Free access'}</p>
-                <p className="mt-0.5 text-xs text-slate-400">{type === 'premium' ? 'New lessons require paid access.' : 'New lessons are free to listen to.'}</p>
-              </div>
-              <Switch
-                size="lg"
-                color="warning"
-                isSelected={type === 'premium'}
-                isDisabled={saving}
-                onValueChange={(paid) => setType(paid ? 'premium' : 'free')}
-                aria-label="Paid access by default for new lessons"
-                aria-describedby="lesson-access-default-help"
-                thumbIcon={<AccessIcon paid={type === 'premium'} className="h-4 w-4 text-slate-900" />}
-                classNames={{ base: 'shrink-0', wrapper: 'mr-0 bg-emerald-500/40 group-data-[selected=true]:bg-orange-500 motion-reduce:transition-none', thumb: 'shadow-md motion-reduce:transition-none' }}
-              />
-            </div>
-            <p id="lesson-access-default-help" className="mt-3 text-xs leading-5 text-slate-500">Choose Free or Paid for new lessons. Change existing lessons individually below.</p>
-          </div>
-          <div className="rounded-xl border border-white/10 bg-black/10 p-4"><p className="text-xs uppercase tracking-wide text-slate-500">Publication status</p><p className="mt-2 font-semibold capitalize text-white">{status.replace("_", " ")}</p><p className="mt-1 text-xs text-slate-400">Drafts are hidden from regular app users. Coming soon shows book details without lesson audio.</p></div>
+      <Card as="section" shadow="none" className="rounded-2xl border border-divider bg-content1 p-4" aria-labelledby="access-heading">
+        <div className="flex flex-wrap items-center justify-between gap-2">
+          <h2 id="access-heading" className="text-base font-semibold">Access and publishing</h2>
+          <span className={`rounded-full px-2.5 py-1 text-[11px] font-medium capitalize ${status === 'live' ? 'bg-emerald-500/10 text-emerald-300' : status === 'coming_soon' ? 'bg-amber-500/10 text-amber-200' : 'bg-white/5 text-slate-400'}`} aria-label={`Publication status: ${status.replace('_', ' ')}`}>
+            {status.replace('_', ' ')}
+          </span>
         </div>
-        {status === "live" && completeness.lessonCount === 0 ? <p className="mt-4 rounded-lg bg-amber-400/10 p-3 text-sm text-amber-100">Add at least one complete lesson before publishing.</p> : null}
+        <div className="mt-3 flex flex-col gap-3 border-t border-white/10 pt-3 sm:flex-row sm:items-center sm:justify-between">
+          <div className="flex items-center gap-3">
+            <span className={`flex h-8 w-8 shrink-0 items-center justify-center rounded-lg ${paidLessonCount ? 'bg-orange-500/15 text-orange-300' : 'bg-emerald-500/15 text-emerald-300'}`}>
+              <AccessIcon paid={allPaid} className="h-4 w-4" />
+            </span>
+            <div aria-live="polite">
+              <p className="text-sm font-semibold text-white">All lessons <span className="ml-1 text-xs font-normal text-slate-400">· {mixedAccess ? 'Free + Premium' : allPaid ? 'Paid' : 'Free'}</span></p>
+              <p className="text-[11px] text-slate-500">{lessons.length - paidLessonCount} free · {paidLessonCount} paid</p>
+            </div>
+          </div>
+          <div className="flex items-center gap-2.5 self-end sm:self-auto">
+            <button type="button" disabled={saving || !lessons.length} onClick={() => setAllLessonAccess(false)} aria-label="Set all lessons Free"
+              className="rounded px-1 py-2 text-xs text-slate-400 hover:text-emerald-300 focus-visible:outline-2 focus-visible:outline-orange-400 disabled:opacity-40">Free</button>
+            <Switch size="sm" color="warning" isSelected={allPaid} onValueChange={setAllLessonAccess} isDisabled={saving || !lessons.length}
+              aria-label="Paid access for all lessons" aria-describedby="all-lessons-access-help"
+              thumbIcon={<AccessIcon paid={allPaid} className="h-3 w-3 text-slate-900" />}
+              classNames={{ wrapper: 'mr-0 bg-emerald-500/40 group-data-[selected=true]:bg-orange-500', base: 'shrink-0' }} />
+            <button type="button" disabled={saving || !lessons.length} onClick={() => setAllLessonAccess(true)} aria-label="Set all lessons Paid"
+              className="rounded px-1 py-2 text-xs text-slate-400 hover:text-orange-300 focus-visible:outline-2 focus-visible:outline-orange-400 disabled:opacity-40">Paid</button>
+          </div>
+        </div>
+        <p id="all-lessons-access-help" className="mt-2 text-xs leading-5 text-slate-400">Set every current lesson at once, then adjust individual lessons below. Save changes to apply. Paid uses Pro or existing book purchases.</p>
+        <p className="mt-1 text-[11px] leading-4 text-slate-500">Drafts are hidden. Coming soon shows book details without audio.</p>
+        {status === "live" && completeness.lessonCount === 0 ? <p className="mt-2 text-xs text-amber-200">Add at least one complete lesson before publishing.</p> : null}
       </Card>
 
       <Card as="section" shadow="none" className={cardClass} aria-labelledby="lessons-heading">
-        <div className="mb-5 flex flex-wrap items-end justify-between gap-3"><div><h2 id="lessons-heading" className="text-lg font-semibold">Lessons</h2><p className="mt-1 text-sm text-slate-400">Add as many ordered lessons as needed. Listen to each clip before saving.</p></div><span className="rounded-full bg-white/5 px-3 py-1 text-xs text-slate-400">{lessons.length} lesson{lessons.length === 1 ? "" : "s"}</span></div>
+        <div className="mb-5 flex flex-wrap items-end justify-between gap-3"><div><h2 id="lessons-heading" className="text-lg font-semibold">Lessons</h2><p className="mt-1 text-sm text-slate-400">Search and manage your lesson list. Open Details to preview or edit a part.</p></div><span className="rounded-full bg-white/5 px-3 py-1 text-xs text-slate-400">{lessons.length} lesson{lessons.length === 1 ? "" : "s"}</span></div>
         {fieldErrors.lessons ? <p className="mb-4 text-sm text-rose-300" role="alert">{fieldErrors.lessons}</p> : null}
-        {lessons.length === 0 ? <div className="rounded-xl border border-dashed border-white/15 bg-black/10 px-5 py-8 text-center"><p className="font-medium text-slate-200">No lessons added yet</p><p className="mt-1 text-sm text-slate-500">Add a lesson card, then choose an MP3 file.</p></div> : <div className="space-y-4">{lessons.map((lesson, index) => <div key={index}>{fieldErrors[`lesson-${index}`] ? <p className="mb-2 text-sm text-rose-300" role="alert">{fieldErrors[`lesson-${index}`]}</p> : null}<LessonCard bookCoverUrl={selectedCoverUrl || coverUrl} lesson={lesson} index={index} total={lessons.length} onChange={(patch) => updateLesson(index, patch)} onRemove={() => setLessons((current) => current.filter((_, i) => i !== index))} onMove={(direction) => moveLesson(index, direction)} /></div>)}</div>}
-        <AdminButton type="button" onClick={async () => { if (await confirm({ title: 'Add a lesson?', description: 'Add a new lesson to this book? Save the book after adding its details and audio.', confirmLabel: 'Add lesson' })) setLessons((current) => [...current, emptyLesson(current.length, type)]); }} className="mt-4 rounded-xl border border-dashed border-orange-300/30 px-4 py-3 text-sm font-semibold text-orange-200 hover:bg-orange-300/5">+ Add lesson</AdminButton>
+        <div className="mb-3 grid gap-3 sm:grid-cols-[minmax(0,1fr)_160px_180px]">
+          <AdminInput type="search" aria-label="Search lessons" placeholder="Search name or part number (e.g. Part 2)" value={lessonQuery} onChange={(event) => setLessonQuery(event.target.value)} />
+          <AdminSelect aria-label="Filter lesson access" value={lessonAccessFilter} onChange={(event) => setLessonAccessFilter(event.target.value)}>
+            <option value="all">Free & Paid</option><option value="free">Free only</option><option value="premium">Paid only</option>
+          </AdminSelect>
+          <AdminSelect aria-label="Sort lessons" value={lessonSort} onChange={(event) => setLessonSort(event.target.value)}>
+            <option value="part">Part order</option><option value="newest">Newest added</option><option value="oldest">Oldest added</option>
+          </AdminSelect>
+        </div>
+        <div className="mb-3 flex flex-wrap items-center justify-between gap-2 text-xs text-slate-400">
+          <span role="status">{visibleLessons.length} of {lessons.length} lessons</span>
+          {(lessonQuery || lessonAccessFilter !== 'all' || lessonSort !== 'part') && <button type="button" className="rounded px-2 py-1 text-orange-300 hover:text-orange-200 focus-visible:outline-2 focus-visible:outline-orange-400" onClick={() => { setLessonQuery(''); setLessonAccessFilter('all'); setLessonSort('part'); }}>Reset filters</button>}
+        </div>
+        {lessonSort !== 'part' && lessons.some((lesson) => !lesson.createdAt) && <p className="mb-3 text-xs text-slate-500">Older lessons without an added date use their part order.</p>}
+        {lessons.length === 0 ? <div className="rounded-xl border border-dashed border-white/15 bg-black/10 px-5 py-8 text-center"><p className="font-medium text-slate-200">No lessons added yet</p><p className="mt-1 text-sm text-slate-500">Add a lesson card, then choose an MP3 file.</p></div>
+          : visibleLessons.length === 0 ? <div role="status" className="rounded-xl border border-dashed border-white/15 px-5 py-10 text-center"><p className="text-sm font-medium text-slate-200">No matching lessons</p><p className="mt-1 text-xs text-slate-500">Try another name, part number, or access filter.</p></div>
+          : <div ref={lessonViewport} role="region" aria-label="Scrollable lesson list" tabIndex={0} className="relative max-h-[70dvh] overflow-auto overscroll-contain rounded-xl border border-white/10 focus-visible:outline-2 focus-visible:outline-orange-400 [scrollbar-gutter:stable]">
+            <table className="w-full min-w-[480px] text-left">
+              <caption className="sr-only">Book lessons. Open a row’s details to edit audio, thumbnail, description or playback order.</caption>
+              <thead className="sticky top-0 z-10"><tr>
+                <th scope="col" className="px-3 py-3">Part</th><th scope="col" className="px-3 py-3">Lesson</th><th scope="col" className="px-3 py-3">Access</th><th scope="col" className="hidden px-3 py-3 sm:table-cell">Audio</th><th scope="col" className="px-3 py-3 text-right"><span className="sr-only">Actions</span></th>
+              </tr></thead>
+              <tbody>{visibleLessons.map(({ lesson, index }) => <LessonTableRow key={lesson.editorId}
+                lesson={lesson} index={index} total={lessons.length} bookCoverUrl={selectedCoverUrl || coverUrl}
+                expanded={expandedLessonId === lesson.editorId} error={fieldErrors[`lesson-${index}`]} disabled={saving}
+                onExpand={() => setExpandedLessonId((current) => current === lesson.editorId ? null : lesson.editorId)}
+                onChange={(patch) => updateLesson(index, patch)} onRemove={() => { setLessons((current) => current.filter((_, i) => i !== index)); setExpandedLessonId(null); }} onMove={(direction) => moveLesson(index, direction)}
+              />)}</tbody>
+            </table>
+          </div>}
+        <AdminButton type="button" onClick={async () => {
+          if (!await confirm({ title: 'Add a lesson?', description: 'Add a new lesson to this book? Save the book after adding its details and audio.', confirmLabel: 'Add lesson' })) return;
+          const editorId = `new-${++lessonSequence.current}`;
+          setLessons((current) => [...current, emptyLesson(current.length, editorId)]);
+          setExpandedLessonId(editorId);
+          setLessonQuery(''); setLessonAccessFilter('all'); setLessonSort('newest');
+        }} className="mt-4 rounded-xl border border-dashed border-orange-300/30 px-4 py-3 text-sm font-semibold text-orange-200 hover:bg-orange-300/5">+ Add lesson</AdminButton>
         <p className="mt-4 text-xs text-slate-500">Each lesson keeps its own access and thumbnail when reordered. Lessons without a custom thumbnail use the book cover.</p>
       </Card>
 
