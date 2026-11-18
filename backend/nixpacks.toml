@@ -1,0 +1,4 @@
+# Packet metadata capture is opt-in at runtime through PACKET_TELEMETRY_ENABLED.
+# TShark installs Dumpcap as its capture helper in the Railway image.
+[phases.setup]
+aptPkgs = ["tshark"]

@@ -39,6 +39,7 @@ backend/
 │   ├── services/
 │   │   ├── systemMetrics.ts
 │   │   ├── railwayStatus.ts
+│   │   ├── packetTelemetry.ts
 │   │   ├── vpnSecurity.ts
 │   │   ├── accountSessions.ts
 │   │   └── deviceReferenceCache.ts
@@ -48,6 +49,7 @@ backend/
 │   ├── app.ts             # Express app setup
 │   └── server.ts          # DB connect + listen
 ├── .env.example
+├── nixpacks.toml
 ├── test/
 │   ├── systemStatus.test.cjs
 │   ├── vpnSecurity.test.cjs
@@ -60,6 +62,24 @@ backend/
 ├── tsconfig.json
 └── README.md
 ```
+
+## Admin packet metadata telemetry
+
+`GET /admin/user-security/packet-telemetry` is an admin-authenticated,
+rate-limited, opt-in endpoint. When `PACKET_TELEMETRY_ENABLED=true`, the server
+runs a bounded Dumpcap capture using `PACKET_CAPTURE_INTERFACE`, then asks
+TShark to return only timestamp, IP, protocol, port and frame-length fields.
+The temporary capture is deleted before the response completes; packet payloads
+are never returned or stored. The default is disabled and the endpoint reports
+an unavailable state until both tools are installed and the configured capture
+interface is permitted.
+
+The Railway Nixpacks configuration installs `tshark` (which includes Dumpcap).
+Set the packet variables in Railway only after confirming that packet capture
+is lawful and disclosed to affected users. Recommended bounds are a five-second
+capture, 100 packets and a 128-byte snap length. A Railway container normally
+sees its own interface traffic, not every end-user packet, so this is not a
+global network monitor.
 
 ## Happy Bites audio uploads
 

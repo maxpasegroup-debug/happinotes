@@ -7,6 +7,10 @@ const NODE_ENV = process.env.NODE_ENV || 'development';
 const JWT_SECRET_RAW = process.env.JWT_SECRET;
 const JWT_SECRET_FALLBACK = 'fallback-secret-change-me';
 const WHATSAPP_OTP_MODE = (process.env.WHATSAPP_OTP_MODE || 'test').trim().toLowerCase();
+const positiveInteger = (value: string | undefined, fallback: number, maximum: number) => {
+  const parsed = Number(value);
+  return Number.isSafeInteger(parsed) && parsed > 0 ? Math.min(parsed, maximum) : fallback;
+};
 
 export type RateLimitStoreConfiguration = {
   mode: 'memory';
@@ -116,4 +120,9 @@ export const env = {
   RESEND_API_KEY: process.env.RESEND_API_KEY ?? '',
   RESEND_FROM_EMAIL: process.env.RESEND_FROM_EMAIL || 'no-reply@happinotes.online',
   FIREBASE_SERVICE_ACCOUNT_JSON: process.env.FIREBASE_SERVICE_ACCOUNT_JSON ?? '',
+  PACKET_TELEMETRY_ENABLED: process.env.PACKET_TELEMETRY_ENABLED === 'true',
+  PACKET_CAPTURE_INTERFACE: (process.env.PACKET_CAPTURE_INTERFACE || '').trim() || 'any',
+  PACKET_CAPTURE_DURATION_SECONDS: positiveInteger(process.env.PACKET_CAPTURE_DURATION_SECONDS, 5, 10),
+  PACKET_CAPTURE_MAX_PACKETS: positiveInteger(process.env.PACKET_CAPTURE_MAX_PACKETS, 100, 200),
+  PACKET_CAPTURE_SNAPLEN: positiveInteger(process.env.PACKET_CAPTURE_SNAPLEN, 128, 256),
 } as const;
