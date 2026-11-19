@@ -1143,3 +1143,55 @@ test("device-location status distinguishes permission, service, build and GPS fa
   assert.match(deviceLocationMessage("timeout"), /fix in time/);
   assert.match(deviceLocationMessage(), /No location result has been reported/);
 });
+
+test("a transient report failure retries and offline IPv4 and IPv6 results use the bundled database", async () => {
+  const { handleSecurityLookup } = await freshLookup();
+  let ip = "8.8.8.8", reports = 0;
+  mock.method(globalThis, "fetch", async (input, options) => {
+    const url = new URL(input);
+    if (url.hostname === "backend.example") {
+      assert.equal(url.searchParams.get("lookupUserId"), id);
+      if (++reports === 1) throw new TypeError("connection reset");
+      return Response.json({ users: [{ id, network: { publicIp: ip } }] });
+    }
+    assert.equal(options.headers.Authorization, undefined);
+    throw new TypeError("provider DNS failure");
+  });
+  for (const address of ["8.8.8.8", "2606:4700:4700::1111"]) {
+    ip = address;
+    const response = await handleSecurityLookup(request(), "https://backend.example");
+    assert.equal(response.status, 200);
+    const body = await response.json();
+    assert.equal(body.publicIp, ip);
+    assert.equal(body.geo.source, "DB-IP Lite");
+    assert.match(body.geo.countryCode, /^[A-Z]{2}$/);
+    assert.match(body.geo.databaseDate, /^\d{4}-\d{2}-\d{2}$/);
+    assert.ok(mapCoordinates(body.geo));
+  }
+  assert.equal(reports, 3);
+});
+
+test("unavailable report fails closed before geolocation without exposing upstream details", async () => {
+  const fetcher = mock.method(globalThis, "fetch", async input => {
+    assert.equal(new URL(input).hostname, "backend.example");
+    throw new TypeError("secret address");
+  });
+  const result = await handleSecurityLookup(request(), "https://backend.example");
+  assert.equal(fetcher.mock.callCount(), 2);
+  assert.equal(result.status, 503);
+  assert.doesNotMatch(await result.text(), /secret|backend\.example/);
+});
+
+test("server resolves an unexpanded configured backend selector without trusting the incoming host", async t => {
+  const key = "NEXT_PUBLIC_RAILWAY_API_BASE_URL";
+  const previous = process.env[key];
+  process.env[key] = "https://configured.example";
+  t.after(() => { if (previous === undefined) delete process.env[key]; else process.env[key] = previous; });
+  mock.method(globalThis, "fetch", async url => {
+    assert.equal(new URL(url).origin, "https://configured.example");
+    return Response.json({ users: [{ id, network: { publicIp: "192.168.0.1" } }] });
+  });
+  const result = await handleSecurityLookup(request(), "$" + key);
+  assert.equal(result.status, 200);
+  assert.equal((await result.json()).geo.status, "no_public_ip");
+});

@@ -2,7 +2,7 @@ export type SecurityGeo = {
   status?: string; latitude?: number; longitude?: number; city?: string; region?: string;
   country?: string; countryCode?: string; postal?: string; timezone?: string;
   provider?: string; organization?: string; asn?: string; checkedAt?: string;
-  source?: 'ipapi.co' | 'ipwho.is'; isp?: string; retryAt?: string; stale?: boolean;
+  source?: 'ipapi.co' | 'ipwho.is' | 'DB-IP Lite'; databaseDate?: string; isp?: string; retryAt?: string; stale?: boolean;
 };
 export type ReportedDeviceLocation = {
   latitude: number; longitude: number; accuracy: number | null;

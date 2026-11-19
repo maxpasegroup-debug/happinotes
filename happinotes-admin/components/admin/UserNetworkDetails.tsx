@@ -78,11 +78,17 @@ function NetworkDetails({ user, network, deviceId, page, query }: { user: Securi
     const params = new URLSearchParams({ userId: user.id, page: String(page), query, ...(deviceId ? { deviceId } : {}), ...(retryImage ? { retryImage: '1' } : {}) });
     void fetch(`/api/admin/user-network?${params}`, { headers: { Authorization: `Bearer ${localStorage.getItem('admin_token') || ''}` }, cache: 'no-store', signal: AbortSignal.any([controller.signal, AbortSignal.timeout(45000)]) })
       .then(async response => {
-        const data = await response.json();
-        if (!response.ok) throw new Error(displayError(data.message, 'Could not load IP details.'));
-        if (data.userId !== user.id || (deviceId && data.deviceId !== deviceId) || data.publicIp !== (network?.publicIp || '')) throw new Error('The network report changed. Refresh the user list to see its latest details.');
+        const data = await response.json().catch(() => null);
+        if (!response.ok || !data?.geo) {
+          if (active) setResult({ key, error: displayError(data?.message, 'Could not load IP details. Please retry.') });
+          return;
+        }
+        if (data.userId !== user.id || (deviceId && data.deviceId !== deviceId) || data.publicIp !== (network?.publicIp || '')) {
+          if (active) setResult({ key, error: 'The network report changed. Refresh the user list to see its latest details.' });
+          return;
+        }
         if (active) setResult({ key, data });
-      }).catch(error => { if (active) setResult({ key, error: error instanceof Error && error.name !== 'TimeoutError' ? error.message : 'Lookup timed out. Please retry.' }); });
+      }).catch(error => { if (active) setResult({ key, error: error instanceof Error && error.name === 'TimeoutError' ? 'Lookup timed out. Please retry.' : 'Unable to load IP details. Check your connection and retry.' }); });
     return () => { active = false; controller.abort(); };
   }, [user.id, deviceId, network?.publicIp, key, page, query, retryImage]);
   const current = result?.key === key ? result : null;
@@ -99,6 +105,10 @@ function NetworkDetails({ user, network, deviceId, page, query }: { user: Securi
     {lookup?.geo.stale && <p role="status" className="rounded-xl bg-warning/10 p-3 text-sm text-warning">The location services are unavailable. Showing a cached location from {new Date(lookup.geo.checkedAt!).toLocaleString()}.</p>}
     <div className="grid gap-6 lg:grid-cols-[1fr_1.1fr]">
       <section className="min-w-0"><div className="mb-2 flex items-center justify-between gap-2"><h3 className="font-semibold">IP & location</h3><Chip size="sm" variant="flat">{source}</Chip></div><p className="text-xs leading-5 text-default-400">Latest available provider result{geo?.checkedAt ? ` · ${new Date(geo.checkedAt).toLocaleString()}` : ''}</p>
+        {geo?.source === 'DB-IP Lite' && <p className="mt-1 text-xs text-default-500">
+          <a href="https://db-ip.com/" target="_blank" rel="noopener noreferrer" className="underline">IP Geolocation by DB-IP</a>
+          {geo.databaseDate && ` · Database dated ${geo.databaseDate}`}
+        </p>}
         {loading && !geo && <Skeleton className="mt-3 h-1 w-full rounded-full" />}
         <Fields items={[
           ['Country', geo?.country], ['Country ISO', geo?.countryCode], ['State / region', geo?.region], ['City', geo?.city], ['Postal code', geo?.postal], ['Time zone', geo?.timezone], ['Latitude', geo?.latitude], ['Longitude', geo?.longitude], ['ASN', geo?.asn], ['Organization', geo?.organization || geo?.provider], ['ISP (location provider)', geo?.isp], ['AS name', undefined],

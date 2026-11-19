@@ -1,4 +1,7 @@
 // Server-only use: imported by the authenticated Next route, never by UI code.
+import { readFile } from 'node:fs/promises';
+import path from 'node:path';
+import { Reader } from 'mmdb-lib';
 import { isIP } from 'node:net';
 import { createHash } from 'node:crypto';
 import type { DevicePhoto, SecurityGeo, SecurityUser } from './user-security';
@@ -106,6 +109,36 @@ export async function lookupIp(value: unknown): Promise<SecurityGeo> {
   pendingGeo.set(key, task);
   return task;
 }
+// Load only the address family needed. Concurrent lookups share the same read.
+const localReaders = new Map<number, Promise<Reader<Record<string, unknown>>>>();
+async function reportGeo(value: unknown, saved?: SecurityGeo): Promise<SecurityGeo> {
+  const result = await lookupIp(value);
+  const ip = publicIp(value);
+  if (!ip || result.status === 'approximate' || result.status === 'disabled' || saved?.status === 'approximate') return result;
+  const family = isIP(ip);
+  try {
+    let reader = localReaders.get(family);
+    if (!reader) {
+      const filename = family === 4 ? 'dbip-city-ipv4.mmdb' : 'dbip-city-ipv6.mmdb';
+      const file = path.join(process.cwd(), 'node_modules', '@ip-location-db', 'dbip-city-mmdb', filename);
+      reader = readFile(file).then(data => new Reader<Record<string, unknown>>(data)).catch(error => {
+        localReaders.delete(family);
+        throw error;
+      });
+      localReaders.set(family, reader);
+    }
+    const db = await reader;
+    const row = db.get(ip);
+    const lat = row?.latitude, lon = row?.longitude;
+    if (typeof lat !== 'number' || typeof lon !== 'number' || !Number.isFinite(lat) || !Number.isFinite(lon) || Math.abs(lat) > 90 || Math.abs(lon) > 180) return result;
+    const code = clean(row?.country_code, 2);
+    return { status: 'approximate', source: 'DB-IP Lite', checkedAt: new Date().toISOString(),
+      databaseDate: db.metadata.buildEpoch.toISOString().slice(0, 10), latitude: lat, longitude: lon,
+      countryCode: code, country: /^[A-Z]{2}$/.test(code) ? new Intl.DisplayNames(['en'], { type: 'region' }).of(code) : undefined,
+      city: clean(row?.city), region: clean(row?.state1), postal: clean(row?.postcode), timezone: clean(row?.timezone) };
+  } catch { return result; }
+}
+
 const normal = (value: string) => value.toLowerCase().replace(/[^a-z0-9]+/g, ' ').trim();
 const plain = (value: unknown) => clean(typeof value === 'string' ? value.replace(/<[^>]*>/g, '').replace(/&amp;/g, '&').replace(/&#39;/g, "'").replace(/&quot;/g, '"') : '', 300);
 const hardwareCode = (value: string) => value.length <= 32 && /[a-z]/i.test(value) && /\d/.test(value) && (/^[a-z0-9]+(?:-[a-z0-9]+)*(?:\/DS)?$/i.test(value) || /^(?:iPhone|iPad|iPod)\d+,\d+$/i.test(value));
@@ -369,6 +402,20 @@ export async function lookupDevice(value: unknown, retry = false, store?: Device
 }
 const requestLimits = new Map<string, { count: number; until: number }>();
 const json = (body: unknown, status = 200) => Response.json(body, { status, headers: { 'Cache-Control': 'private, no-store', Vary: 'Authorization' } });
+// Some hosts pass the target selector literally instead of expanding dotenv references.
+function reportApiBase(configured: string) {
+  const target = configured.trim().replace(/\/+$/, '');
+  let value: string | undefined = target;
+  if (target === '/api/backend') value = process.env.AUTH_BACKEND_ORIGIN;
+  for (const key of ['NEXT_PUBLIC_LOCAL_API_BASE_URL', 'NEXT_PUBLIC_RAILWAY_API_BASE_URL']) {
+    if (target === '$' + key || target === '${' + key + '}') value = process.env[key];
+  }
+  try {
+    const url = new URL(value || '');
+    if (['http:', 'https:'].includes(url.protocol) && !url.username && !url.password && !url.search && !url.hash) return url.href.replace(/\/+$/, '');
+  } catch { /* A configuration error is reported without including the target. */ }
+}
+
 export async function handleSecurityLookup(request: Request, apiBase: string): Promise<Response> {
   const token = request.headers.get('authorization');
   if (!token || !/^Bearer \S+$/.test(token) || token.length > 8192) return json({ message: 'Admin sign-in is required.' }, 401);
@@ -388,30 +435,50 @@ export async function handleSecurityLookup(request: Request, apiBase: string): P
   const page = Math.max(1, Math.min(100000, Number.parseInt(params.get('page') || '1', 10) || 1));
   // Reuse the existing protected listing endpoint to authorize every request and
   // obtain the observed IP/model. Never trust caller-supplied IPs or model names.
-  const url = `${apiBase.replace(/\/+$/, '')}/admin/user-security?${new URLSearchParams({ page: String(page), query: clean(params.get('query')) })}`;
-  try {
-    const response = await fetch(url, { headers: { Authorization: token, Accept: 'application/json' }, cache: 'no-store', redirect: 'error', signal: AbortSignal.timeout(8000) });
-    if (!response.ok) return json({ message: response.status === 401 || response.status === 403 ? 'Admin access expired or denied. Sign in again.' : 'Cannot load the user report. Refresh and try again.' }, [401, 403].includes(response.status) ? response.status : 502);
-    const data = await response.json() as { users?: SecurityUser[] };
-    const user = data.users?.find(item => String(item.id) === id);
-    if (!user) return json({ message: 'The user list changed. Close these details and refresh the list.' }, 404);
-    const network = deviceId ? user.devices?.find(item => String(item._id) === deviceId) : user.legacyNetwork || user.network;
-    if (deviceId && !network) return json({ message: 'This device does not belong to the selected account. Refresh the list.' }, 404);
-    const actualDeviceId = deviceId || user.devices?.find(item => item._id === network?._id)?._id;
-    const cacheUrl = `${apiBase.replace(/\/+$/, '')}/admin/user-security/${id}/device-reference${actualDeviceId ? `?deviceId=${encodeURIComponent(actualDeviceId)}` : ''}`;
-    const store: DeviceReferenceStore = {
-      read: async () => {
-        const result = await fetch(cacheUrl, { headers: { Authorization: token, Accept: 'application/json' }, cache: 'no-store', redirect: 'error', signal: AbortSignal.timeout(3000) });
-        if (!result.ok) return null;
-        const saved = await result.json();
-        return saved?.photo ? saved : null;
-      },
-      write: async photo => {
-        const result = await fetch(cacheUrl, { method: 'PUT', headers: { Authorization: token, 'Content-Type': 'application/json' }, body: JSON.stringify({ photo }), cache: 'no-store', redirect: 'error', signal: AbortSignal.timeout(3000) });
-        return result.ok;
-      },
-    };
-    const [geo, device] = await Promise.all([lookupIp(network?.publicIp), lookupDevice(network?.deviceModel, params.get('retryImage') === '1', store)]);
-    return json({ userId: id, ...(actualDeviceId ? { deviceId: actualDeviceId } : {}), publicIp: network?.publicIp || '', geo, device });
-  } catch { return json({ message: 'The backend could not be reached. Retry when it is available.' }, 502); }
+  const base = reportApiBase(apiBase);
+  if (!base) return json({ message: 'The user report service is unavailable.' }, 503);
+  const query = new URLSearchParams({ page: String(page), query: clean(params.get('query')), lookupUserId: id });
+  if (deviceId) query.set('deviceId', deviceId);
+  const url = `${base}/admin/user-security?${query}`;
+  let users: SecurityUser[] | undefined;
+  for (const timeout of [5000, 10000]) {
+    try {
+      const response = await fetch(url, { headers: { Authorization: token, Accept: 'application/json' }, cache: 'no-store', redirect: 'error',
+        signal: AbortSignal.any([request.signal, AbortSignal.timeout(timeout)]) });
+      if (response.status === 401 || response.status === 403) return json({ message: 'Admin access expired or denied. Sign in again.' }, response.status);
+      if (response.status === 429) return json({ message: 'Too many requests. Please retry shortly.' }, 429);
+      if ([502, 503, 504].includes(response.status)) {
+        await response.body?.cancel();
+        continue;
+      }
+      if (!response.ok) return json({ message: 'Could not load this account report. Refresh the user list and retry.' }, 502);
+      const data = await response.json();
+      if (!Array.isArray(data?.users)) return json({ message: 'The user report was incomplete. Refresh the user list and retry.' }, 502);
+      users = data.users;
+      break;
+    } catch {
+      if (request.signal.aborted) break;
+    }
+  }
+  if (!users) return json({ message: 'The account report is temporarily unavailable. Please retry.' }, 503);
+  const user = users.find(item => String(item.id) === id);
+  if (!user) return json({ message: 'The user list changed. Close these details and refresh the list.' }, 404);
+  const network = deviceId ? user.devices?.find(item => String(item._id) === deviceId) : user.legacyNetwork || user.network;
+  if (deviceId && !network) return json({ message: 'This device does not belong to the selected account. Refresh the list.' }, 404);
+  const actualDeviceId = deviceId || user.devices?.find(item => item._id === network?._id)?._id;
+  const cacheUrl = `${base}/admin/user-security/${id}/device-reference${actualDeviceId ? `?deviceId=${encodeURIComponent(actualDeviceId)}` : ''}`;
+  const store: DeviceReferenceStore = {
+    read: async () => {
+      const result = await fetch(cacheUrl, { headers: { Authorization: token, Accept: 'application/json' }, cache: 'no-store', redirect: 'error', signal: AbortSignal.timeout(3000) });
+      if (!result.ok) return null;
+      const saved = await result.json();
+      return saved?.photo ? saved : null;
+    },
+    write: async photo => {
+      const result = await fetch(cacheUrl, { method: 'PUT', headers: { Authorization: token, 'Content-Type': 'application/json' }, body: JSON.stringify({ photo }), cache: 'no-store', redirect: 'error', signal: AbortSignal.timeout(3000) });
+      return result.ok;
+    },
+  };
+  const [geo, device] = await Promise.all([reportGeo(network?.publicIp, network?.geo), lookupDevice(network?.deviceModel, params.get('retryImage') === '1', store).catch((): DevicePhoto => ({ status: 'unavailable', model: clean(network?.deviceModel), reason: 'catalog_unavailable' }))]);
+  return json({ userId: id, ...(actualDeviceId ? { deviceId: actualDeviceId } : {}), publicIp: network?.publicIp || '', geo, device });
 }

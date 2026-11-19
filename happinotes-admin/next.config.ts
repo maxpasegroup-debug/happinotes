@@ -1,6 +1,9 @@
 import type { NextConfig } from "next";
 
 const nextConfig: NextConfig = {
+  outputFileTracingIncludes: {
+    '/api/admin/user-network': ['./node_modules/@ip-location-db/dbip-city-mmdb/*.mmdb'],
+  },
   async headers() {
     return [
       { source: '/admin/sw.js', headers: [
