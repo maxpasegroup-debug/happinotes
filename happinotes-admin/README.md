@@ -340,6 +340,24 @@ Deploy this website route before setting backend `GOOGLE_SIGN_IN_BROWSER_ORIGIN=
 
 The header’s Sleep button opens `components/admin/AdminSleepScreen.tsx`: a full-screen local clock, orange/red ambient animation, 12/24-hour clock toggle, and Wake up button. Escape also wakes the workspace. The current page stays mounted, so unsaved form values are retained. This is a visual screen cover, not a logout or authentication lock; existing uploads and background work continue. Reduced-motion preferences are respected, and the clock timer is cleared on wake.
 
+## Google Play Console
+
+Open **Management → Play Console** at `/admin/google-play`. The page is a
+responsive workspace with Overview, Applications, Releases, Reviews, Analytics
+and Integration tabs. It reads actual data from protected backend routes;
+configured packages with unavailable API data are shown explicitly instead of
+being replaced with sample statuses. Review search/rating filters, release-track
+inspection, connection metadata, cache/sync controls and loading/error/empty
+states are included.
+
+The browser receives no Play credentials. Configure
+`GOOGLE_PLAY_SERVICE_ACCOUNT_JSON` and `GOOGLE_PLAY_PACKAGE_NAMES` on the
+backend only, grant the service account matching app permissions in Play
+Console, enable Android Publisher API, and enable Play Developer Reporting if
+analytics are required. The backend keeps a short in-memory cache and **Sync
+now** invalidates it. No frontend dependency was added; the existing HeroUI and
+API client are reused.
+
 ### Story Book lesson access
 
 Each lesson’s Free/Paid switch changes only that lesson. New lessons always start Free. The compact access section has a global Free/Paid toggle that applies to all current lessons, plus a publication-status badge. The Free/Paid labels also apply that choice directly when the book has mixed access. Individual lesson switches remain independent and can override the global choice afterward. Click **Save changes** to persist the settings. Mixed books use independent lesson access and display Free + Premium in the app; only a book whose lessons are all paid is marked entirely Premium. Existing Pro membership and book purchases still unlock paid sessions. Regression coverage: `test/book-editor-access.test.mjs`.

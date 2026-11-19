@@ -30,6 +30,7 @@ const menu = [
   { label: 'User Security', href: '/admin/user-security', icon: 'shield', group: 'Management' },
   { label: 'Settings', href: '/admin/settings', icon: 'settings', group: 'Management' },
   { label: 'System Status', href: '/admin/system-status', icon: 'status', group: 'Management' },
+  { label: 'Play Console', href: '/admin/google-play', icon: 'play', group: 'Management' },
   { label: 'Deletion requests', href: '/admin/deletion-requests', icon: 'trash', group: 'Management' },
 ];
 const paths: Record<string, string> = {
@@ -40,6 +41,7 @@ const paths: Record<string, string> = {
   book: 'M12 5C8 3 5 3 2 4v15c3-1 6-1 10 1 4-2 7-2 10-1V4c-3-1-6-1-10 1Z M12 5v15',
   users: 'M16 21v-2a4 4 0 0 0-4-4H6a4 4 0 0 0-4 4v2 M16 3a4 4 0 0 1 0 8 M22 21v-2a4 4 0 0 0-3-3.87 M13 7a4 4 0 1 1-8 0 4 4 0 0 1 8 0',
   audio: 'M5 10v4 M9 6v12 M13 3v18 M17 7v10 M21 10v4',
+  play: 'M7 4 20 12 7 20V4Z',
   star: 'm12 3 2.8 5.7 6.2.9-4.5 4.4 1.1 6.2-5.6-3-5.6 3 1.1-6.2L3 9.6l6.2-.9L12 3Z',
   settings: 'M4 7h16 M4 17h16 M9 4v6 M16 14v6',
   shield: 'M12 3 4 6v6c0 5 8 9 8 9s8-4 8-9V6l-8-3Z M9 12l2 2 4-4',
@@ -141,7 +143,7 @@ export default function AdminShell({ children }: { children: ReactNode }) {
             <AdminInstallButton />
           </ButtonGroup></div>
       </header>
-      <main className={`min-w-0 ${pathname === '/admin/users' ? 'w-full py-5 sm:py-8 lg:py-10' : `p-5 sm:p-8 lg:p-10 ${(pathname.startsWith('/admin/happy-bites') || pathname.startsWith('/admin/content/') || pathname === '/admin/story-books' || pathname === '/admin/settings' || pathname === '/admin/system-status') ? 'w-full' : 'mx-auto max-w-[1600px]'}`}`} >{children}</main>
+      <main className={`min-w-0 ${pathname === '/admin/users' ? 'w-full py-5 sm:py-8 lg:py-10' : `p-5 sm:p-8 lg:p-10 ${(pathname.startsWith('/admin/happy-bites') || pathname.startsWith('/admin/content/') || pathname === '/admin/story-books' || pathname === '/admin/settings' || pathname === '/admin/system-status' || pathname === '/admin/google-play') ? 'w-full' : 'mx-auto max-w-[1600px]'}`}`} >{children}</main>
     </div>
     <AdminSleepScreen isOpen={sleeping} onWake={() => setSleeping(false)} />
     <Drawer
