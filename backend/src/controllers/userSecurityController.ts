@@ -69,6 +69,21 @@ export async function recordNetwork(req: Request, res: Response, next: NextFunct
 
 export async function listUserSecurity(req: Request, res: Response, next: NextFunction) {
   try {
+    const { lookupUserId, deviceId } = req.query;
+    if (lookupUserId !== undefined) {
+      if (typeof lookupUserId !== 'string' || !isValidObjectId(lookupUserId)) throw new BadRequestError('Invalid user ID.');
+      if (deviceId !== undefined && (typeof deviceId !== 'string' || !isValidObjectId(deviceId))) throw new BadRequestError('Invalid device ID.');
+      res.setHeader('Cache-Control', 'private, no-store');
+      const account = await User.exists({ _id: lookupUserId, role: 'user' });
+      if (!account) { res.json({ users: [] }); return; }
+      const fields = 'publicIp deviceModel geo';
+      const [legacyNetwork, device] = await Promise.all([
+        deviceId ? null : UserNetwork.findOne({ userId: lookupUserId }).select(fields).lean(),
+        UserDevice.findOne({ userId: lookupUserId, ...(deviceId ? { _id: deviceId } : {}) }).sort({ lastSeen: -1, _id: -1 }).select(fields).lean(),
+      ]);
+      res.json({ users: [{ id: lookupUserId, legacyNetwork, network: device || legacyNetwork, devices: device ? [device] : [] }] });
+      return;
+    }
     const page = Math.max(1, Math.min(100000, Number.parseInt(String(req.query.page || '1'), 10) || 1));
     const search = clean(req.query.query, 100).replace(/[.*+?^${}()|[\]\\]/g, '\\$&');
     const filter: Record<string, unknown> = { role: 'user' };

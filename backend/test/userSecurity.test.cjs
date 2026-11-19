@@ -116,3 +116,22 @@ test('Mongo changes notify only the affected account room and admin invalidation
   assert.deepEqual(sent, [{ namespace: '/account', room: `account:${userId}`, event: 'account:changed' }, { namespace: '/admin', event: 'users:changed' }]);
   stop();
 });
+
+test('single-account lookup reads only its selected device independent of the current list page', async () => {
+  const { UserDevice } = require('../dist/models/UserDevice');
+  const deviceId = '64b000000000000000000099';
+  const device = { _id: deviceId, publicIp: '8.8.8.8', deviceModel: 'Phone' };
+  mock.method(User, 'exists', async filter => {
+    assert.deepEqual(filter, { _id: userId, role: 'user' });
+    return { _id: userId };
+  });
+  mock.method(UserDevice, 'findOne', filter => {
+    assert.deepEqual(filter, { userId, _id: deviceId });
+    return { sort() { return this; }, select() { return this; }, lean: async () => device };
+  });
+  mock.method(UserNetwork, 'findOne', () => assert.fail('selected device does not require a legacy record'));
+  mock.method(User, 'countDocuments', () => assert.fail('single-account lookup must not recount the user list'));
+  const res = response();
+  await controller.listUserSecurity({ query: { lookupUserId: userId, deviceId, page: '999', query: 'unrelated' } }, res, error => { throw error; });
+  assert.deepEqual(res.body.users, [{ id: userId, network: device, legacyNetwork: null, devices: [device] }]);
+});
