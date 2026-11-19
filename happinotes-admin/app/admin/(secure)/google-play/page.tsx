@@ -3,7 +3,7 @@
 import { useCallback, useEffect, useMemo, useState, type ReactNode } from 'react';
 import { Alert, Button, Card, CardBody, CardHeader, Chip, Divider, Input, Select, SelectItem, Skeleton, Tab, Table, TableBody, TableCell, TableColumn, TableHeader, TableRow, Tabs } from '@heroui/react';
 import { motion, useReducedMotion } from 'framer-motion';
-import { apiRequest } from '@/lib/api';
+import { apiRequest, displayError, readErrorMessage } from '@/lib/api';
 
 type Release = { track: string; status: string; statusSource: string; versionCodes: string[]; name?: string; releaseNotes?: Array<{ language: string; text: string }>; userFraction?: number; countryTargeting?: Record<string, unknown> };
 type Track = { track: string; releases: Release[] };
@@ -16,8 +16,8 @@ type App = { submissionActivity?: SubmissionSnapshot; lifecycle?: { track: strin
 function StoreStatus({ app }: { app: App }) {
   const store = app.store;
   const missingStatus = 'The connected backend has not reported this status.';
-  const subscription = { enabled: 'Enabled', disabled: 'No active plans', unknown: store?.subscriptionReason || missingStatus };
-  const production = { published: 'Published to production', unpublished: 'No published production release', unknown: store?.productionReason || missingStatus };
+  const subscription = { enabled: 'Enabled', disabled: 'No active plans', unknown: displayError(store?.subscriptionReason, missingStatus) };
+  const production = { published: 'Published to production', unpublished: 'No published production release', unknown: displayError(store?.productionReason, missingStatus) };
   const listing = 'https://play.google.com/store/apps/details?id=' + encodeURIComponent(app.packageName);
   return <div className="mt-3 space-y-1 text-xs">
     <p><span className="text-default-500">Subscriptions · </span>{subscription[store?.subscriptions ?? 'unknown']}</p>
@@ -133,13 +133,14 @@ export default function GooglePlayPage() {
       <div className="relative flex flex-col gap-6 xl:flex-row xl:items-start xl:justify-between"><div className="flex items-start gap-4"><span className="flex h-12 w-12 shrink-0 items-center justify-center rounded-2xl bg-primary text-primary-foreground shadow-lg shadow-primary/20"><MetricIcon name="play" size={24} /></span><div><div className="flex flex-wrap items-center gap-2"><h1 className="!text-3xl font-semibold tracking-tight">Google Play Console</h1>{sync?.configured ? <Chip size="sm" color="success" variant="flat" startContent={<MetricIcon name="check" size={14} />}>Connected</Chip> : <Chip size="sm" color="warning" variant="flat">Setup needed</Chip>}</div><p className="mt-2 max-w-2xl text-sm leading-6 text-default-500">Monitor releases, testing tracks, reviews and supported Play reporting data from the authenticated Android Publisher APIs.</p></div></div><div className="flex flex-wrap items-center gap-2"><span className="text-xs text-default-500">{sync?.lastSyncedAt ? `Synced ${formatDate(sync.lastSyncedAt)}` : 'Not synced yet'}</span><Button color="primary" isLoading={syncing} startContent={!syncing && <MetricIcon name="refresh" />} onPress={handleRefresh}>Sync now</Button></div></div>
     </motion.header>
     {error && <Alert color="danger" variant="flat" title="Google Play request failed" description={error} onClose={() => setError('')} />}
-    {!busy && sync && !sync.configured && <Unavailable>{sync.reason || 'Configure the backend service-account JSON and at least one package name before connecting.'}</Unavailable>}
+    {!busy && sync && !sync.configured && <Unavailable>{displayError(sync.reason, 'Google Play setup is incomplete.')}</Unavailable>}
     {busy && !overview ? <LoadingCards /> : <>
       <div className="grid gap-4 sm:grid-cols-2 xl:grid-cols-4"><MetricCard label="Configured apps" value={String(overview?.totals.configuredApps ?? 0)} note={`${overview?.totals.appsWithData ?? 0} returned Play data`} icon="apps" /><MetricCard label="Production releases" value={String(overview?.totals.published ?? 0)} note="Completed releases returned by the API" icon="release" tone="success" /><MetricCard label="Draft releases" value={String(overview?.totals.draft ?? 0)} note="Across configured tracks" icon="release" tone="warning" /><MetricCard label="Review / rejection" value={overview?.totals.inReview == null && overview?.totals.rejected == null ? '—' : `${overview?.totals.inReview ?? 0} / ${overview?.totals.rejected ?? 0}`} note="Apps in review / rejected across monitored tracks" icon="warning" tone="danger" /></div>
       <Tabs aria-label="Google Play Console views" selectedKey={tab} onSelectionChange={key => setTab(String(key))} color="primary" variant="solid" radius="lg" disableAnimation={Boolean(reduce)} classNames={{ tabList: 'gap-1 border border-divider bg-content1 p-1.5', tab: 'h-11 px-4', tabContent: 'text-xs font-semibold group-data-[selected=true]:text-primary-foreground', cursor: 'bg-primary', panel: 'px-0 pt-6' }}>
         <Tab key="overview" title={<span className="flex items-center gap-2"><MetricIcon name="chart" />Overview</span>}><OverviewPanel apps={apps} notes={overview?.statusNotes || []} /></Tab>
         <Tab key="apps" title={<span className="flex items-center gap-2"><MetricIcon name="apps" />Applications</span>}><ApplicationsPanel apps={apps} selected={selectedPackage} onSelect={packageName => { setSelectedPackage(packageName); setTab('releases'); }} /></Tab>
         <Tab key="releases" title={<span className="flex items-center gap-2"><MetricIcon name="release" />Releases</span>}><ReleasesPanel apps={apps} selectedPackage={selectedPackage} selectedApp={selectedApp} releases={releases} onSelect={setSelectedPackage} /><LifecyclePanel app={selectedApp} /></Tab>
+        <Tab key="search" title="Store search"><StoreSearch token={token} apps={apps} /></Tab>
         <Tab key="submissions" title="Submission activity">
           <Select label="Application" selectedKeys={selectedPackage ? [selectedPackage] : []} disallowEmptySelection
             onSelectionChange={keys => setSelectedPackage(String(Array.from(keys)[0]))} className="mb-5 max-w-md">
@@ -182,7 +183,7 @@ function AnalyticsPanel({ apps, selectedPackage, onSelect, analytics }: { apps: 
       <CardHeader><h2 className="text-lg font-semibold">Android vitals · last 30 days</h2></CardHeader>
       <CardBody className="gap-4">
         {!analytics && <Skeleton className="h-28 rounded-2xl" />}
-        {analytics?.reason && <Unavailable>{analytics.reason}{analytics.enableReporting && (
+        {analytics?.reason && <Unavailable>{displayError(analytics.reason, 'Analytics are temporarily unavailable.')}{analytics.enableReporting && (
           <a href="https://console.cloud.google.com/apis/library/playdeveloperreporting.googleapis.com" target="_blank" rel="noopener noreferrer" className="ml-2 underline">Open API settings ↗</a>
         )}</Unavailable>}
         {analytics?.available && <div className="grid gap-4 sm:grid-cols-2">
@@ -205,14 +206,81 @@ function AnalyticsPanel({ apps, selectedPackage, onSelect, analytics }: { apps: 
 }
 
 function IntegrationPanel({ status }: { status: SyncStatus | null }) {
-  return <div className="grid gap-5 lg:grid-cols-[1.2fr_.8fr]"><Card shadow="none" className="border border-divider"><CardHeader className="flex-col items-start gap-1 px-6 pt-6"><h2 className="text-lg font-semibold">Connection settings</h2><p className="text-xs text-default-500">Only non-secret service-account metadata is shown here.</p></CardHeader><CardBody className="gap-4 px-6 pb-6"><div className="grid gap-4 sm:grid-cols-2"><Info label="Connection" value={status?.configured ? 'Configured' : 'Not configured'} /><Info label="Service account" value={status?.credentials.clientEmail || 'Not available'} /><Info label="Google Cloud project" value={status?.credentials.projectId || 'Not available'} /><Info label="Cache window" value={status ? `${status.cacheTtlSeconds} seconds` : 'Not available'} /></div><Divider /><div><p className="text-xs font-semibold uppercase tracking-wider text-default-500">Configured package names</p><div className="mt-3 flex flex-wrap gap-2">{status?.packageNames.length ? status.packageNames.map(packageName => <Chip key={packageName} variant="flat" className="font-mono">{packageName}</Chip>) : <span className="text-sm text-default-500">None configured</span>}</div></div>{status?.reason && <Unavailable>{status.reason}</Unavailable>}</CardBody></Card><Card shadow="none" className="border border-divider"><CardHeader className="flex-col items-start gap-1 px-6 pt-6"><h2 className="text-lg font-semibold">Required permissions</h2><p className="text-xs text-default-500">Grant these to the backend service account in Google Cloud and Play Console.</p></CardHeader><CardBody className="gap-3 px-6 pb-6">{(status?.scopes || []).map(scope => <p key={scope} className="break-all rounded-xl bg-content2/50 p-3 font-mono text-[11px] text-default-500">{scope}</p>)}<p className="text-xs leading-5 text-default-500">Private keys and access tokens never leave the backend.</p></CardBody></Card></div>;
+  return <div className="grid gap-5 lg:grid-cols-[1.2fr_.8fr]"><Card shadow="none" className="border border-divider"><CardHeader className="flex-col items-start gap-1 px-6 pt-6"><h2 className="text-lg font-semibold">Connection settings</h2><p className="text-xs text-default-500">Only non-secret service-account metadata is shown here.</p></CardHeader><CardBody className="gap-4 px-6 pb-6"><div className="grid gap-4 sm:grid-cols-2"><Info label="Connection" value={status?.configured ? 'Configured' : 'Not configured'} /><Info label="Service account" value={status?.credentials.clientEmail || 'Not available'} /><Info label="Google Cloud project" value={status?.credentials.projectId || 'Not available'} /><Info label="Cache window" value={status ? `${status.cacheTtlSeconds} seconds` : 'Not available'} /></div><Divider /><div><p className="text-xs font-semibold uppercase tracking-wider text-default-500">Configured package names</p><div className="mt-3 flex flex-wrap gap-2">{status?.packageNames.length ? status.packageNames.map(packageName => <Chip key={packageName} variant="flat" className="font-mono">{packageName}</Chip>) : <span className="text-sm text-default-500">None configured</span>}</div></div>{status?.reason && <Unavailable>{displayError(status.reason, 'Google Play setup is incomplete.')}</Unavailable>}</CardBody></Card><Card shadow="none" className="border border-divider"><CardHeader className="flex-col items-start gap-1 px-6 pt-6"><h2 className="text-lg font-semibold">Required permissions</h2><p className="text-xs text-default-500">Grant these to the backend service account in Google Cloud and Play Console.</p></CardHeader><CardBody className="gap-3 px-6 pb-6">{(status?.scopes || []).map(scope => <p key={scope} className="break-all rounded-xl bg-content2/50 p-3 font-mono text-[11px] text-default-500">{scope}</p>)}<p className="text-xs leading-5 text-default-500">Private keys and access tokens never leave the backend.</p></CardBody></Card></div>;
+}
+
+type StoreListing = { packageName: string; title: string; summary: string; url: string };
+
+function StoreSearch({ token, apps }: { token: string; apps: App[] }) {
+  const [input, setInput] = useState('');
+  const [items, setItems] = useState<StoreListing[] | null>(null);
+  const [query, setQuery] = useState('');
+  const [loading, setLoading] = useState(false);
+  const [error, setError] = useState('');
+  const monitored = apps.filter(app => {
+    if (!query) return false;
+    if (query.startsWith('https://')) {
+      try {
+        const link = new URL(query);
+        return link.origin === 'https://play.google.com' && link.pathname === '/store/apps/details' && link.searchParams.get('id') === app.packageName;
+      } catch { return false; }
+    }
+    return (app.packageName + ' ' + app.appName).toLowerCase().includes(query.toLowerCase());
+  });
+  async function search(event: React.FormEvent) {
+    event.preventDefault();
+    if (loading || !input.trim()) return;
+    setLoading(true); setItems(null); setError(''); setQuery(input.trim());
+    try {
+      const response = await fetch('/api/admin/play-search?' + new URLSearchParams({ q: input.trim() }), {
+        headers: { Authorization: `Bearer ${token}` }, cache: 'no-store',
+      });
+      const data = await response.json();
+      if (!response.ok) {
+        setError(readErrorMessage(data, response.status));
+      } else if (Array.isArray(data.items)) {
+        setItems(data.items);
+      } else {
+        setError('Store search returned an unexpected response. Try again.');
+      }
+    } catch {
+      setError('Store search is unavailable. Try again.');
+    } finally { setLoading(false); }
+  }
+  return <Card shadow="none" className="border border-divider"><CardBody className="gap-4 p-5">
+    <h2 className="text-lg font-semibold">Search Google Play</h2>
+    <form onSubmit={search} className="flex flex-wrap items-end gap-2">
+      <Input label="App name, keyword, package or Play Store link" value={input} onValueChange={setInput}
+        maxLength={2048} className="min-w-48 flex-1" />
+      <Button type="submit" color="primary" isLoading={loading} isDisabled={!input.trim() || loading}>Search</Button>
+    </form>
+    {monitored.length > 0 && <section aria-label="Monitored applications">
+      <h3 className="text-sm font-semibold">Monitored applications</h3>
+      {monitored.map(app => <div key={app.packageName} className="py-2">
+        <p>{app.appName}</p><p className="break-all text-xs text-default-500">{app.packageName}</p>
+        <StoreStatus app={app} />
+      </div>)}
+    </section>}
+    <div role="status" className="text-sm text-default-500">{loading ? 'Searching Google Play…' : error || (items &&
+      (items.length ? `${items.length} indexed Google Play results for “${query}”` : `No indexed listings found for “${query}”.`))}</div>
+    {items && items.length > 0 && <ul className="divide-y divide-divider">{items.map(item => <li key={item.packageName} className="py-3">
+      <a href={item.url} target="_blank" rel="noopener noreferrer" className="font-semibold text-primary hover:underline">{item.title}</a>
+      <p className="break-all text-xs text-default-500">{item.packageName}</p>
+      {item.summary && <p className="mt-1 text-sm">{item.summary}</p>}
+    </li>)}</ul>}
+  </CardBody></Card>;
 }
 
 function SubmissionActivity({ snapshot }: { snapshot?: SubmissionSnapshot }) {
   const [status, setStatus] = useState('');
   const [area, setArea] = useState('');
+  const [query, setQuery] = useState('');
+  const terms = query.toLowerCase().trim().split(/\s+/).filter(Boolean);
   const records = snapshot?.records ?? [];
-  const filtered = records.filter(row => (!status || row.status === status) && (!area || row.areas.includes(area)));
+  const filtered = records.filter(row => {
+    const text = [`#${row.id}`, row.submitted, row.status, ...row.areas].join(' ').toLowerCase();
+    return (!status || row.status === status) && (!area || row.areas.includes(area)) && terms.every(term => text.includes(term));
+  });
   return <Card shadow="none" className="border border-divider">
     <CardHeader className="flex-col items-start gap-2 p-5">
       <h2 className="text-lg font-semibold">Submission activity</h2>
@@ -222,6 +290,8 @@ function SubmissionActivity({ snapshot }: { snapshot?: SubmissionSnapshot }) {
     </CardHeader>
     {snapshot && <CardBody className="gap-4 p-5 pt-0">
       <div className="flex flex-wrap items-center gap-3">
+        <Input aria-label="Search submission activity" placeholder="Search submissions" size="sm" className="max-w-64"
+          isClearable value={query} onValueChange={setQuery} onClear={() => setQuery('')} />
         <Select aria-label="Filter submissions by status" size="sm" className="max-w-52" selectedKeys={[status || 'all']} disallowEmptySelection
           onSelectionChange={keys => { const key = String(Array.from(keys)[0]); setStatus(key === 'all' ? '' : key); }}>
           {['all', ...new Set(records.map(row => row.status))].map(key => <SelectItem key={key}>{key === 'all' ? 'All statuses' : key}</SelectItem>)}
@@ -251,7 +321,7 @@ function LifecyclePanel({ app }: { app?: App }) {
       {app.lifecycle.map(track => <Card key={track.track} shadow="none" className="border border-divider">
         <CardBody className="gap-2 p-4">
           <h3 className="font-medium">{track.track}</h3>
-          {track.reason && <p className="text-xs text-warning">{track.reason}</p>}
+          {track.reason && <p className="text-xs text-warning">{displayError(track.reason, 'Track information is unavailable.')}</p>}
           {!track.reason && !track.releases.length && <p className="text-xs text-default-500">No current releases.</p>}
           {track.releases.map((release, i) => <div key={i} className="flex flex-wrap justify-between gap-2 text-sm">
             <span>{release.name || 'Unnamed release'} {release.codes.length > 0 && <small>· {release.codes.join(', ')}</small>}</span>

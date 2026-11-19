@@ -23,14 +23,25 @@ async function parseResponse(res: Response): Promise<unknown> {
   }
 }
 
-function readErrorMessage(parsed: unknown, status: number): string {
+export const connectionMessage = "Unable to connect. Check your connection and try again.";
+
+// Older services may return configuration advice or diagnostics in a JSON message.
+export function displayError(message: unknown, fallback: string): string {
+  if (typeof message !== "string" || !message.trim() || message.length > 600) return fallback;
+  const diagnostic = /\b[A-Z][A-Z0-9]*(?:_[A-Z0-9]+)+\b|\.env\b|process\.env|:\/\/|-----BEGIN |\bBearer\s+\S+|[\r\n]|(?:^|\s)\/(?:home|app|tmp|usr|var)\//;
+  return diagnostic.test(message) ? fallback : message.trim();
+}
+
+export function readErrorMessage(parsed: unknown, status: number): string {
   if (
     parsed &&
     typeof parsed === "object" &&
     "message" in parsed &&
     typeof (parsed as { message?: unknown }).message === "string"
   ) {
-    return (parsed as { message: string }).message;
+    return displayError((parsed as { message: string }).message, status >= 500
+      ? "The service is temporarily unavailable. Please try again."
+      : "The request could not be completed. Please try again.");
   }
   if (status === 413) return "The server or hosting provider rejected the file size. Check the server and storage account upload limits.";
   if (status === 408 || status === 504) return "The server or hosting provider timed out during the upload. Check its request timeout settings and try again.";
@@ -55,7 +66,7 @@ export async function apiRequest<T = unknown>(
   try {
     res = await fetch(getUrl(endpoint), options);
   } catch {
-    throw new Error("Cannot reach the API. Check your connection and backend URL, then try again.");
+    throw new Error(connectionMessage);
   }
   const parsed = await parseResponse(res);
   if (!res.ok) throw new Error(readErrorMessage(parsed, res.status));

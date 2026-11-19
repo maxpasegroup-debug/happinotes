@@ -259,7 +259,7 @@ export default function ContentManagement({ activeModule }: { activeModule: Modu
       "/admin/contents/upload-media", fd, token,
     );
     if (!payload.url || !payload.mediaType) {
-      throw new Error(payload.message || "Upload failed");
+      throw new Error("The upload could not be completed. Please try again.");
     }
     return payload;
   }

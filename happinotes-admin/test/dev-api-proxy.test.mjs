@@ -88,7 +88,8 @@ test('unreachable backend produces an actionable error without leaking internal 
   });
   assert.equal(response.status, 502);
   const data = await response.json();
-  assert.match(data.message, /NEXT_PUBLIC_API_BASE_URL/);
+  assert.match(data.message, /try again/i);
+  assert.doesNotMatch(data.message, /NEXT_PUBLIC|\.env|api\.example/);
   assert.doesNotMatch(data.message, /internal-secret/);
 });
 
@@ -105,4 +106,15 @@ test('browser API client uses local proxy in development and direct URL in produ
   process.env.NODE_ENV = 'production';
   await apiRequest('/admin/contents');
   assert.match(urls[1], /^https?:\/\/.+\/admin\/contents$/);
+});
+
+test('direct requests and proxied failures discard configuration diagnostics', async () => {
+  globalThis.window = {};
+  const diagnostic = 'Missing INTERNAL_SETTING in .env.local at https://internal.invalid';
+  const upstream = () => Response.json({ message: diagnostic, debug: 'private details' }, { status: 503 });
+  mock.method(globalThis, 'fetch', upstream);
+  process.env.NODE_ENV = 'production';
+  await assert.rejects(apiRequest('/admin/contents'), { message: 'The service is temporarily unavailable. Please try again.' });
+  const result = await forwardDevelopmentApi(request('admin'), ['admin'], 'https://internal.invalid', 'development', upstream);
+  assert.deepEqual(await result.json(), { message: 'The service is temporarily unavailable. Please try again.' });
 });

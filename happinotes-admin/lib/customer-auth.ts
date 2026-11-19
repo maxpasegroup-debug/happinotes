@@ -1,3 +1,5 @@
+import { displayError } from "./api.ts";
+
 export type CustomerAuthPurpose = "signup" | "login";
 
 export type CustomerAuthUser = {
@@ -33,7 +35,7 @@ async function post<T>(
   });
   const data = await response.json().catch(() => ({})) as T & { message?: string };
   if (!response.ok) {
-    throw new Error(typeof data.message === "string" ? data.message : fallbackMessage);
+    throw new Error(displayError(data.message, fallbackMessage));
   }
   return data;
 }

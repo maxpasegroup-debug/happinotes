@@ -19,7 +19,7 @@ function mount(initial) {
     react: hooks,
     'react/jsx-runtime': { jsx: (type, props) => ({ type, props }), jsxs: (type, props) => ({ type, props }) },
     'next/image': { default: 'Image' }, 'next/navigation': { useRouter: () => ({ push() {} }) },
-    '@heroui/react': { Card: 'Card', Switch: 'Switch' },
+    '@heroui/react': { Card: 'Card', Switch: 'Switch', addToast() {} },
     '@/components/admin/LanguagePicker': { default: 'LanguagePicker' },
     '@/components/admin/ConfirmationProvider': { useAdminConfirmation: () => async () => true },
     '@/components/admin/ui': Object.fromEntries(['AdminButton', 'AdminCheckbox', 'AdminInput', 'AdminTextarea', 'AdminProgress', 'AdminSelect'].map(name => [name, name])),

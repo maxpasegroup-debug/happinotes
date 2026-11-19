@@ -1,5 +1,6 @@
 "use client";
 
+import { displayError } from "@/lib/api";
 import Link from "next/link";
 import { useEffect, useState } from "react";
 import { useRouter } from "next/navigation";
@@ -78,7 +79,7 @@ export default function ProfilePage() {
         if (res.status === 429 && Number.isFinite(retryAfter) && retryAfter > 0) {
           setForgotResendAfterSeconds(Math.ceil(retryAfter));
         }
-        setForgotMessage(data.message || "Unable to send a reset code right now. Please try again later.");
+        setForgotMessage(displayError(data.message, "Unable to send a reset code right now. Please try again later."));
         return;
       }
       setForgotResendAfterSeconds(0);
@@ -105,7 +106,7 @@ export default function ProfilePage() {
       });
       if (!res.ok) {
         const data = await res.json().catch(() => ({})) as { message?: string };
-        setForgotMessage(data.message || "Invalid or expired code. Request a new one and try again.");
+        setForgotMessage(displayError(data.message, "Invalid or expired code. Request a new one and try again."));
         return;
       }
       setForgotStep(3);
@@ -132,7 +133,7 @@ export default function ProfilePage() {
       });
       if (!res.ok) {
         const data = await res.json().catch(() => ({})) as { message?: string };
-        setForgotMessage(data.message || "Could not reset the password. Check the code and try again.");
+        setForgotMessage(displayError(data.message, "Could not reset the password. Check the code and try again."));
         return;
       }
       setForgotStep(1);

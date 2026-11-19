@@ -1,6 +1,7 @@
 'use client';
 
 import { useEffect, useState } from 'react';
+import { displayError } from "@/lib/api";
 import Image from 'next/image';
 import { Button, Chip, Modal, ModalBody, ModalContent, ModalFooter, ModalHeader, Skeleton } from '@heroui/react';
 import SecurityLocationMap from '@/components/admin/SecurityLocationMap';
@@ -78,7 +79,7 @@ function NetworkDetails({ user, network, deviceId, page, query }: { user: Securi
     void fetch(`/api/admin/user-network?${params}`, { headers: { Authorization: `Bearer ${localStorage.getItem('admin_token') || ''}` }, cache: 'no-store', signal: AbortSignal.any([controller.signal, AbortSignal.timeout(45000)]) })
       .then(async response => {
         const data = await response.json();
-        if (!response.ok) throw new Error(data.message || 'Could not load IP details.');
+        if (!response.ok) throw new Error(displayError(data.message, 'Could not load IP details.'));
         if (data.userId !== user.id || (deviceId && data.deviceId !== deviceId) || data.publicIp !== (network?.publicIp || '')) throw new Error('The network report changed. Refresh the user list to see its latest details.');
         if (active) setResult({ key, data });
       }).catch(error => { if (active) setResult({ key, error: error instanceof Error && error.name !== 'TimeoutError' ? error.message : 'Lookup timed out. Please retry.' }); });

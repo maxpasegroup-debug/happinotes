@@ -1,3 +1,5 @@
+import { readErrorMessage, connectionMessage } from "./api.ts";
+
 /** Local development bridge; it never supplies credentials or bypasses API authorization. */
 export async function forwardDevelopmentApi(
   request: Request,
@@ -42,10 +44,15 @@ export async function forwardDevelopmentApi(
       const value = upstream.headers.get(name);
       if (value) responseHeaders.set(name, value);
     }
+    if (!upstream.ok && request.method !== "HEAD") {
+      const payload: unknown = await upstream.json().catch(() => null);
+      responseHeaders.set("content-type", "application/json");
+      return Response.json({ message: readErrorMessage(payload, upstream.status) }, { status: upstream.status, headers: responseHeaders });
+    }
     return new Response(upstream.body, { status: upstream.status, headers: responseHeaders });
   } catch {
     return Response.json(
-      { message: "Cannot reach the backend. Check NEXT_PUBLIC_API_BASE_URL in .env.local and confirm the backend is running, then restart the admin dev server." },
+      { message: connectionMessage },
       { status: 502 },
     );
   }
