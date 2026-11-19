@@ -18,6 +18,7 @@ import accountDeletionRoutes from './accountDeletionRoutes';
 import happyBiteRoutes from './happyBiteRoutes';
 import adminHappyBiteRoutes from './adminHappyBiteRoutes';
 import { authenticate } from '../middleware';
+import googlePlayRoutes from './googlePlayRoutes';
 
 const router = Router();
 
@@ -28,6 +29,7 @@ router.use('/happy-bites', happyBiteRoutes);
 router.use('/collection', collectionRoutes);
 router.use('/admin/user-security', userSecurityRoutes);
 router.use('/admin/system-status', systemStatusRoutes);
+router.use('/admin/google-play', googlePlayRoutes);
 router.use('/admin', adminRoutes);
 router.use('/admin/store-products', adminStoreProductRoutes);
 router.use('/admin/subscription-plans', adminSubscriptionPlanRoutes);

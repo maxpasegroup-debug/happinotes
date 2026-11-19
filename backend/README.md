@@ -469,6 +469,53 @@ Validation: `npm run build` and `node --test test/systemStatus.test.cjs`.
 Reference: https://docs.railway.com/integrations/api and
 https://docs.railway.com/observability/metrics .
 
+## Google Play Console monitoring
+
+The admin-only `/admin/google-play` namespace reads the Android Publisher API
+and (when enabled) the Play Developer Reporting API. It is mounted under both
+`/api` and the existing root API, like the other backend routes:
+
+```text
+GET  /admin/google-play/overview
+GET  /admin/google-play/apps
+GET  /admin/google-play/apps/:packageName
+GET  /admin/google-play/apps/:packageName/releases
+GET  /admin/google-play/apps/:packageName/tracks
+GET  /admin/google-play/apps/:packageName/reviews
+GET  /admin/google-play/apps/:packageName/analytics
+GET  /admin/google-play/sync-status
+POST /admin/google-play/sync
+```
+
+Every endpoint requires the existing admin JWT and is rate limited. The service
+account is read only by the backend; the browser receives only a masked email,
+project ID, configured package names, API data and safe provider errors. The
+private key and OAuth access tokens are never returned or logged. Responses are
+cached in process for `GOOGLE_PLAY_CONSOLE_CACHE_TTL_SECONDS` (five minutes by
+default), and **Sync now** clears that cache.
+
+Configure these backend-only variables in local `.env` and Railway Variables:
+
+```dotenv
+# Use the complete JSON value or an ignored JSON file path.
+GOOGLE_PLAY_SERVICE_ACCOUNT_JSON={...}
+# Comma/newline-separated package names; the singular variable remains supported.
+GOOGLE_PLAY_PACKAGE_NAMES=com.happinotes.app
+GOOGLE_PLAY_CONSOLE_CACHE_TTL_SECONDS=300
+```
+
+The service account must be granted access to the matching app in Play Console,
+and the Android Publisher API must be enabled in its Google Cloud project. The
+dashboard shows a setup state when the JSON is missing or invalid, and reports
+permission/API errors without exposing provider diagnostics. Review approval
+and rejection states are not consistently exposed by these official APIs, so
+the UI displays `Status unavailable through API` instead of inventing a state.
+The analytics tab only shows values returned by Play Developer Reporting; an
+API-disabled or permission-denied response is shown as unavailable, never zero.
+
+Implementation: `src/services/googlePlayConsole.ts` and
+`src/routes/googlePlayRoutes.ts`.
+
 ## Google sign-in (Android client)
 
 `POST /auth/google` accepts `{ idToken, password?, deviceSecurity? }` under the existing authentication rate limiter. Set `GOOGLE_SIGN_IN_WEB_CLIENT_ID` to the same Web OAuth client ID used by the mobile build's `EXPO_PUBLIC_GOOGLE_WEB_CLIENT_ID`, then deploy the backend. The local value is configured; Railway must be configured separately. No client secret is needed.

@@ -133,7 +133,7 @@ test('push messages select the bundled sound and the versioned Android channel',
   }));
   const result = await sendPushNotification({ tokens: ['test-token'], title: 'New story', message: 'Ready to listen', target: 'all', data: { bookId: 'book-1' } });
   assert.equal(result.sent, 1);
-  assert.equal(payload.android.notification.channelId, 'happinotes_alerts_v3');
+  assert.equal(payload.android.notification.channelId, 'happinotes_alerts_v4');
   assert.equal(payload.android.notification.sound, 'push_notification');
   assert.equal(payload.apns.payload.aps.sound, 'push_notification.wav');
   assert.equal(payload.data.bookId, 'book-1');

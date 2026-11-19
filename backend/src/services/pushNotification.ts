@@ -109,7 +109,10 @@ export async function sendPushNotification(input: {
         android: {
           priority: 'high',
           notification: {
-            channelId: 'happinotes_alerts_v3',
+            // Must match the freshly-created native channel. Android keeps a
+            // channel's sound immutable, so v4 replaces the old system-sound
+            // channel instead of trying to mutate it.
+            channelId: 'happinotes_alerts_v4',
             sound: 'push_notification',
           },
         },

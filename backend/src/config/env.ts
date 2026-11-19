@@ -125,4 +125,8 @@ export const env = {
   PACKET_CAPTURE_DURATION_SECONDS: positiveInteger(process.env.PACKET_CAPTURE_DURATION_SECONDS, 5, 10),
   PACKET_CAPTURE_MAX_PACKETS: positiveInteger(process.env.PACKET_CAPTURE_MAX_PACKETS, 100, 200),
   PACKET_CAPTURE_SNAPLEN: positiveInteger(process.env.PACKET_CAPTURE_SNAPLEN, 128, 256),
+  // Google Play Console integration. Credentials are consumed only by the backend.
+  GOOGLE_PLAY_SERVICE_ACCOUNT_JSON: process.env.GOOGLE_PLAY_SERVICE_ACCOUNT_JSON ?? '',
+  GOOGLE_PLAY_PACKAGE_NAMES: process.env.GOOGLE_PLAY_PACKAGE_NAMES?.trim() || process.env.GOOGLE_PLAY_PACKAGE_NAME?.trim() || '',
+  GOOGLE_PLAY_CONSOLE_CACHE_TTL_SECONDS: positiveInteger(process.env.GOOGLE_PLAY_CONSOLE_CACHE_TTL_SECONDS, 300, 3600),
 } as const;
