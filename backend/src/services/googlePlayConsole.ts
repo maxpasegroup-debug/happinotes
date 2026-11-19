@@ -29,6 +29,13 @@ export type GooglePlayTrack = {
 };
 
 export type GooglePlayApp = {
+  store: {
+    subscriptions: 'enabled' | 'disabled' | 'unknown';
+    production: 'published' | 'unpublished' | 'unknown';
+    listingUrl: string | null;
+    subscriptionReason?: string;
+    productionReason?: string;
+  };
   packageName: string;
   appName: string;
   nameSource: 'package_name';
@@ -170,7 +177,7 @@ async function googleFetch<T>(origin: string, requestPath: string, init: Request
     const apiMessage = parsed && typeof parsed === 'object' && 'error' in parsed && typeof (parsed as JsonRecord).error === 'object'
       ? String(((parsed as JsonRecord).error as JsonRecord).message || '')
       : '';
-    throw publicGoogleError(response.status, apiMessage || 'The provider returned an error.');
+    throw Object.assign(publicGoogleError(response.status, apiMessage || 'The provider returned an error.'), { googleStatus: response.status });
   }
   return parsed as T;
 }
@@ -247,17 +254,85 @@ export async function getConnectionStatus() {
   };
 }
 
+type SubscriptionPage = {
+  subscriptions?: { basePlans?: { state?: string }[] }[];
+  nextPageToken?: string;
+};
+
+async function subscriptionStatus(base: string): Promise<GooglePlayApp['store']['subscriptions']> {
+  const query = new URLSearchParams({ pageSize: '100' });
+  const seen = new Set<string>();
+  let uncertain = false;
+  for (;;) {
+    const page = await googleFetch<SubscriptionPage | null>(ANDROID_PUBLISHER_ORIGIN, base + '/subscriptions?' + query, { signal: AbortSignal.timeout(8000) });
+    if (!page) throw new StoreCheckError('Google returned no subscription catalog.');
+    for (const product of page.subscriptions ?? []) {
+      for (const plan of product.basePlans ?? []) {
+        if (plan.state === 'ACTIVE') return 'enabled';
+        if (plan.state !== 'DRAFT' && plan.state !== 'INACTIVE') uncertain = true;
+      }
+    }
+    if (!page.nextPageToken) return uncertain ? 'unknown' : 'disabled';
+    if (seen.has(page.nextPageToken)) throw new StoreCheckError('Google returned an incomplete subscription catalog.');
+    seen.add(page.nextPageToken);
+    query.set('pageToken', page.nextPageToken);
+  }
+}
+
+async function productionStatus(base: string): Promise<GooglePlayApp['store']['production']> {
+  const data = await googleFetch<{ releases?: { releaseLifecycleState?: string }[] } | null>(
+    ANDROID_PUBLISHER_ORIGIN, base + '/tracks/production/releases', { signal: AbortSignal.timeout(8000) },
+  );
+  if (!data) throw new StoreCheckError('Google returned no production release data.');
+  const states = (data.releases ?? []).map(release => release.releaseLifecycleState);
+  if (states.includes('RELEASE_LIFECYCLE_STATE_PUBLISHED')) return 'published';
+  const pending = ['DRAFT', 'NOT_SENT_FOR_REVIEW', 'IN_REVIEW', 'APPROVED_NOT_PUBLISHED', 'NOT_APPROVED'];
+  return states.every(state => pending.some(s => state === 'RELEASE_LIFECYCLE_STATE_' + s)) ? 'unpublished' : 'unknown';
+}
+
+class StoreCheckError extends Error {}
+
+function checkFailure(error: unknown) {
+  if (error instanceof StoreCheckError) return error.message;
+  const status = error && typeof error === 'object' && 'googleStatus' in error ? error.googleStatus : null;
+  switch (status) {
+    case 401: return 'Google rejected the backend credentials.';
+    case 403: return 'Google denied this request. Check API enablement and app permissions.';
+    case 404: return 'Google could not find this resource for the configured package.';
+    case 429: return 'Google rate limited this request. Retry sync later.';
+    default: return 'The backend could not complete this Google Play request. Retry sync.';
+  }
+}
+
+export async function getStoreAvailability(packageName: string): Promise<GooglePlayApp['store']> {
+  const pkg = packageOrThrow(packageName);
+  const base = '/applications/' + encodeURIComponent(pkg);
+  const [catalog, track] = await Promise.allSettled([
+    subscriptionStatus(base),
+    productionStatus(base),
+  ]);
+  const subscriptions = catalog.status === 'fulfilled' ? catalog.value : 'unknown';
+  const production = track.status === 'fulfilled' ? track.value : 'unknown';
+  return {
+    subscriptions, production,
+    ...(subscriptions === 'unknown' && { subscriptionReason: catalog.status === 'rejected' ? checkFailure(catalog.reason) : 'Google returned an unspecified base plan state.' }),
+    ...(production === 'unknown' && { productionReason: track.status === 'rejected' ? checkFailure(track.reason) : 'Google returned an unspecified production release state.' }),
+    listingUrl: production === 'published' ? 'https://play.google.com/store/apps/details?id=' + encodeURIComponent(pkg) : null,
+  };
+}
+
 export async function getApp(packageName: string): Promise<GooglePlayApp> {
   const pkg = packageOrThrow(packageName);
   const key = `app:${pkg}`;
   const cached = getCached<GooglePlayApp>(key);
   if (cached) return cached;
+  const store = getStoreAvailability(pkg);
   try {
     const tracks = await fetchTracks(pkg);
-    return putCached(key, { packageName: pkg, appName: pkg, nameSource: 'package_name', available: true, tracks, latestRelease: latestRelease(tracks), status: 'available', statusSource: 'google_play_api' });
+    return putCached(key, { store: await store, packageName: pkg, appName: pkg, nameSource: 'package_name', available: true, tracks, latestRelease: latestRelease(tracks), status: 'available', statusSource: 'google_play_api' });
   } catch (error) {
     const reason = error instanceof Error ? error.message : 'Google Play data is unavailable.';
-    return putCached(key, { packageName: pkg, appName: pkg, nameSource: 'package_name', available: false, reason, tracks: [], status: 'unavailable_through_api', statusSource: 'unavailable_through_api' });
+    return putCached(key, { store: await store, packageName: pkg, appName: pkg, nameSource: 'package_name', available: false, reason, tracks: [], status: 'unavailable_through_api', statusSource: 'unavailable_through_api' });
   }
 }
 
