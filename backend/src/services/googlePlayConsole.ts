@@ -1,4 +1,5 @@
 import fs from 'node:fs';
+import submissionSnapshots from '../data/playSubmissionActivity.json';
 import path from 'node:path';
 import { GoogleAuth } from 'google-auth-library';
 import { BadRequestError, AppError } from '../utils/errors';
@@ -29,6 +30,8 @@ export type GooglePlayTrack = {
 };
 
 export type GooglePlayApp = {
+  submissionActivity?: (typeof submissionSnapshots)[number];
+  lifecycle: TrackLifecycle[];
   store: {
     subscriptions: 'enabled' | 'disabled' | 'unknown';
     production: 'published' | 'unpublished' | 'unknown';
@@ -174,6 +177,14 @@ async function googleFetch<T>(origin: string, requestPath: string, init: Request
   let parsed: unknown;
   try { parsed = text ? JSON.parse(text) : null; } catch { parsed = null; }
   if (!response.ok) {
+    if (origin === REPORTING_ORIGIN && response.status === 403) {
+      const details = (parsed as { error?: { details?: {reason?: string}[] } } | null)?.error?.details;
+      const disabled = Array.isArray(details) && details.some(detail => detail?.reason === 'SERVICE_DISABLED');
+      const message = disabled
+        ? 'Enable the Google Play Developer Reporting API in the Google Cloud project used by the backend.'
+        : 'Google denied access to Android vitals. Check the backend service account’s app permissions in Play Console.';
+      throw Object.assign(new AppError(message, 502), { reportingDisabled: disabled });
+    }
     const apiMessage = parsed && typeof parsed === 'object' && 'error' in parsed && typeof (parsed as JsonRecord).error === 'object'
       ? String(((parsed as JsonRecord).error as JsonRecord).message || '')
       : '';
@@ -259,13 +270,30 @@ type SubscriptionPage = {
   nextPageToken?: string;
 };
 
-async function subscriptionStatus(base: string): Promise<GooglePlayApp['store']['subscriptions']> {
+async function subscriptionStatus(base: string, pkg: string): Promise<GooglePlayApp['store']['subscriptions']> {
   const query = new URLSearchParams({ pageSize: '100' });
   const seen = new Set<string>();
   let uncertain = false;
   for (;;) {
     const page = await googleFetch<SubscriptionPage | null>(ANDROID_PUBLISHER_ORIGIN, base + '/subscriptions?' + query, { signal: AbortSignal.timeout(8000) });
-    if (!page) throw new StoreCheckError('Google returned no subscription catalog.');
+    if (!page) {
+      // A direct product read can still confirm an active plan when a list has no body.
+      // Product IDs configured for billing belong only to the billing app.
+      if (pkg === process.env.GOOGLE_PLAY_PACKAGE_NAME?.trim()) {
+        const ids = new Set([process.env.GOOGLE_PLAY_SUBSCRIPTION_MONTHLY_PRODUCT_ID, process.env.GOOGLE_PLAY_SUBSCRIPTION_YEARLY_PRODUCT_ID]);
+        for (const id of ids) {
+          if (!id?.trim()) continue;
+          try {
+            const product = await googleFetch<{basePlans?: {state?: string}[]} | null>(ANDROID_PUBLISHER_ORIGIN,
+              base + '/subscriptions/' + encodeURIComponent(id.trim()), {signal: AbortSignal.timeout(8000)});
+            if (product?.basePlans?.some(plan => plan.state === 'ACTIVE')) return 'enabled';
+          } catch {
+            // Continue with the other configured SKU. Missing reads cannot establish a negative.
+          }
+        }
+      }
+      throw new StoreCheckError('Google returned no subscription catalog or confirmed active base plan.');
+    }
     for (const product of page.subscriptions ?? []) {
       for (const plan of product.basePlans ?? []) {
         if (plan.state === 'ACTIVE') return 'enabled';
@@ -279,12 +307,31 @@ async function subscriptionStatus(base: string): Promise<GooglePlayApp['store'][
   }
 }
 
-async function productionStatus(base: string): Promise<GooglePlayApp['store']['production']> {
-  const data = await googleFetch<{ releases?: { releaseLifecycleState?: string }[] } | null>(
-    ANDROID_PUBLISHER_ORIGIN, base + '/tracks/production/releases', { signal: AbortSignal.timeout(8000) },
-  );
-  if (!data) throw new StoreCheckError('Google returned no production release data.');
-  const states = (data.releases ?? []).map(release => release.releaseLifecycleState);
+type TrackLifecycle = {
+  track: string;
+  releases: { state: string; name?: string; codes: string[] }[];
+  reason?: string;
+};
+
+async function readLifecycle(base: string, track: string): Promise<TrackLifecycle> {
+  try {
+    const data = await googleFetch<{ releases?: { releaseLifecycleState?: string; releaseName?: string; activeArtifacts?: {versionCode: number}[] }[] } | null>(
+      ANDROID_PUBLISHER_ORIGIN, base + '/tracks/' + encodeURIComponent(track) + '/releases', { signal: AbortSignal.timeout(8000) },
+    );
+    if (!data) throw new StoreCheckError('Google returned no ' + track + ' release data.');
+    return { track, releases: (data.releases ?? []).map(r => ({
+      state: r.releaseLifecycleState || 'RELEASE_LIFECYCLE_STATE_UNSPECIFIED',
+      name: r.releaseName,
+      codes: (r.activeArtifacts ?? []).map(a => String(a.versionCode)),
+    })) };
+  } catch (error) {
+    return { track, releases: [], reason: checkFailure(error) };
+  }
+}
+
+function productionStatus(summary: TrackLifecycle): GooglePlayApp['store']['production'] {
+  if (summary.reason) return 'unknown';
+  const states = summary.releases.map(release => release.state);
   if (states.includes('RELEASE_LIFECYCLE_STATE_PUBLISHED')) return 'published';
   const pending = ['DRAFT', 'NOT_SENT_FOR_REVIEW', 'IN_REVIEW', 'APPROVED_NOT_PUBLISHED', 'NOT_APPROVED'];
   return states.every(state => pending.some(s => state === 'RELEASE_LIFECYCLE_STATE_' + s)) ? 'unpublished' : 'unknown';
@@ -304,19 +351,19 @@ function checkFailure(error: unknown) {
   }
 }
 
-export async function getStoreAvailability(packageName: string): Promise<GooglePlayApp['store']> {
+export async function getStoreAvailability(packageName: string, productionRead?: Promise<TrackLifecycle>): Promise<GooglePlayApp['store']> {
   const pkg = packageOrThrow(packageName);
   const base = '/applications/' + encodeURIComponent(pkg);
   const [catalog, track] = await Promise.allSettled([
-    subscriptionStatus(base),
-    productionStatus(base),
+    subscriptionStatus(base, pkg),
+    productionRead ?? readLifecycle(base, 'production'),
   ]);
   const subscriptions = catalog.status === 'fulfilled' ? catalog.value : 'unknown';
-  const production = track.status === 'fulfilled' ? track.value : 'unknown';
+  const production = track.status === 'fulfilled' ? productionStatus(track.value) : 'unknown';
   return {
     subscriptions, production,
     ...(subscriptions === 'unknown' && { subscriptionReason: catalog.status === 'rejected' ? checkFailure(catalog.reason) : 'Google returned an unspecified base plan state.' }),
-    ...(production === 'unknown' && { productionReason: track.status === 'rejected' ? checkFailure(track.reason) : 'Google returned an unspecified production release state.' }),
+    ...(production === 'unknown' && { productionReason: track.status === 'rejected' ? checkFailure(track.reason) : track.value.reason || 'Google returned an unspecified production release state.' }),
     listingUrl: production === 'published' ? 'https://play.google.com/store/apps/details?id=' + encodeURIComponent(pkg) : null,
   };
 }
@@ -326,14 +373,28 @@ export async function getApp(packageName: string): Promise<GooglePlayApp> {
   const key = `app:${pkg}`;
   const cached = getCached<GooglePlayApp>(key);
   if (cached) return cached;
-  const store = getStoreAvailability(pkg);
+  const base = '/applications/' + encodeURIComponent(pkg);
+  const production = readLifecycle(base, 'production');
+  const store = getStoreAvailability(pkg, production);
+  let tracks: GooglePlayTrack[] = [];
+  let reason: string | undefined;
   try {
-    const tracks = await fetchTracks(pkg);
-    return putCached(key, { store: await store, packageName: pkg, appName: pkg, nameSource: 'package_name', available: true, tracks, latestRelease: latestRelease(tracks), status: 'available', statusSource: 'google_play_api' });
+    tracks = await fetchTracks(pkg);
   } catch (error) {
-    const reason = error instanceof Error ? error.message : 'Google Play data is unavailable.';
-    return putCached(key, { store: await store, packageName: pkg, appName: pkg, nameSource: 'package_name', available: false, reason, tracks: [], status: 'unavailable_through_api', statusSource: 'unavailable_through_api' });
+    reason = checkFailure(error);
   }
+  const names = new Set(['production', ...tracks.map(t => t.track), ...(reason ? ['internal','alpha','beta'] : [])]);
+  const lifecycle: TrackLifecycle[] = [];
+  const queue = Array.from(names);
+  while (queue.length) {
+    lifecycle.push(...await Promise.all(queue.splice(0, 4).map(track => track === 'production' ? production : readLifecycle(base, track))));
+  }
+  return putCached<GooglePlayApp>(key, {
+    packageName: pkg, appName: pkg, nameSource: 'package_name', store: await store, tracks, lifecycle, reason,
+    submissionActivity: submissionSnapshots.find(snapshot => snapshot.packageName === pkg),
+    available: !reason, latestRelease: latestRelease(tracks), status: reason ? 'unavailable_through_api' : 'available',
+    statusSource: reason ? 'unavailable_through_api' : 'google_play_api',
+  });
 }
 
 export async function getApps(): Promise<GooglePlayApp[]> {
@@ -349,6 +410,10 @@ export async function getOverview() {
   const available = apps.filter(app => app.available);
   const releases = available.flatMap(app => app.tracks.flatMap(track => track.releases));
   const production = releases.filter(release => release.track === 'production');
+  const summaries = apps.flatMap(app => app.lifecycle);
+  const complete = apps.length > 0 && apps.every(app => app.available) && summaries.every(summary =>
+    !summary.reason && summary.releases.every(release => release.state !== 'RELEASE_LIFECYCLE_STATE_UNSPECIFIED'));
+  const countApps = (state: string) => complete ? apps.filter(app => app.lifecycle.some(s => s.releases.some(r => r.state === state))).length : null;
   return {
     generatedAt: new Date().toISOString(),
     apps,
@@ -358,10 +423,10 @@ export async function getOverview() {
       appsUnavailable: apps.length - available.length,
       published: production.filter(release => release.status === 'completed').length,
       draft: releases.filter(release => release.status === 'draft').length,
-      inReview: null,
-      rejected: null,
+      inReview: countApps('RELEASE_LIFECYCLE_STATE_IN_REVIEW'),
+      rejected: countApps('RELEASE_LIFECYCLE_STATE_NOT_APPROVED'),
     },
-    statusNotes: ['Review and approval status are not exposed consistently by the Android Publisher API; unavailable values are shown as null.'],
+    statusNotes: ['Release lifecycle states are read per track. Review totals require complete track coverage.'],
   };
 }
 
@@ -418,7 +483,11 @@ export async function getReviews(packageName: string, options: { pageToken?: str
 function reportingWindow(): { startTime: JsonRecord; endTime: JsonRecord } {
   const end = new Date();
   const start = new Date(end.getTime() - 30 * 24 * 60 * 60 * 1000);
-  const asTimestamp = (date: Date) => ({ year: date.getUTCFullYear(), month: date.getUTCMonth() + 1, day: date.getUTCDate() });
+  const asTimestamp = (date: Date) => {
+    const parts = new Intl.DateTimeFormat('en-US', { timeZone: 'America/Los_Angeles', year: 'numeric', month: 'numeric', day: 'numeric' }).formatToParts(date);
+    const field = (name: string) => Number(parts.find(part => part.type === name)?.value);
+    return { year: field('year'), month: field('month'), day: field('day'), timeZone: { id: 'America/Los_Angeles' } };
+  };
   return { startTime: asTimestamp(start), endTime: asTimestamp(end) };
 }
 
@@ -429,19 +498,19 @@ async function queryReporting(packageName: string, metricSet: string, metric: st
 
 export async function getAnalytics(packageName: string) {
   const pkg = packageOrThrow(packageName);
-  const results: { crashRate?: unknown; anrRate?: unknown; available: boolean; reason?: string } = { available: false };
-  try {
-    results.crashRate = await queryReporting(pkg, 'crashRateMetricSet', 'crashRate');
-    results.available = true;
-  } catch (error) {
-    results.reason = error instanceof Error ? error.message : 'Crash metrics are unavailable through the Reporting API.';
-  }
-  try {
-    results.anrRate = await queryReporting(pkg, 'anrRateMetricSet', 'anrRate');
-    results.available = true;
-  } catch (error) {
-    if (!results.reason) results.reason = error instanceof Error ? error.message : 'ANR metrics are unavailable through the Reporting API.';
-  }
+  const results: { crashRate?: unknown; anrRate?: unknown; available: boolean; reason?: string; enableReporting?: boolean } = { available: false };
+  const names = ['crashRate', 'anrRate'] as const;
+  const responses = await Promise.allSettled(names.map(name => queryReporting(pkg, name + 'MetricSet', name)));
+  responses.forEach((response, index) => {
+    if (response.status === 'fulfilled') {
+      results[names[index]] = response.value;
+      results.available = true;
+    } else {
+      const error = response.reason;
+      results.reason ??= error instanceof AppError ? error.message : 'Google Play Reporting could not be reached. Retry sync.';
+      if (error?.reportingDisabled === true) results.enableReporting = true;
+    }
+  });
   return { packageName: pkg, ...results, metricsNote: 'Only metrics returned by Google Play Developer Reporting API are shown. Unavailable metrics are not treated as zero.' };
 }
 
