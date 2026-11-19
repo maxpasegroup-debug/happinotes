@@ -8,6 +8,16 @@ interface ErrorResponse {
   message: string;
 }
 
+// Operational errors are visible to clients. Replace the entire message if it
+// contains diagnostics, including a configured credential printed on its own.
+function publicMessage(message: string, fallback: string): string {
+  if (/\b[A-Z][A-Z0-9]*(?:_[A-Z0-9]+)+\b|\.env\b|process\.env|:\/\/|-----BEGIN |\bBearer\s+\S+|[\r\n]/.test(message)) return fallback;
+  for (const [key, value] of Object.entries(process.env)) {
+    if (value && value.length >= 6 && /secret|token|password|credential|api_key|private_key/i.test(key) && message.includes(value)) return fallback;
+  }
+  return message;
+}
+
 export const errorHandler = (
   err: Error | AppError,
   _req: Request,
@@ -28,7 +38,7 @@ export const errorHandler = (
   if (err instanceof AppError) {
     const payload: ErrorResponse = {
       success: false,
-      message: err.message,
+      message: publicMessage(err.message, 'The request could not be completed. Please try again.'),
     };
     res.status(err.statusCode).json(payload);
     return;
@@ -39,7 +49,7 @@ export const errorHandler = (
     const message = validationErr.errors
       ? Object.values(validationErr.errors).map((e) => e.message).join('; ')
       : 'Validation failed';
-    res.status(400).json({ success: false, message });
+    res.status(400).json({ success: false, message: publicMessage(message, 'Validation failed') });
     return;
   }
 

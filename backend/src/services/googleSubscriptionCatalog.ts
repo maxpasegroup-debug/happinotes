@@ -11,7 +11,7 @@ type PlanInput = {
 
 function required(name: string): string {
   const value = process.env[name]?.trim();
-  if (!value) throw new AppError(`${name} is not configured`, 503);
+  if (!value) throw new AppError('Google Play subscriptions are temporarily unavailable.', 503);
   return value;
 }
 

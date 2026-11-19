@@ -82,7 +82,7 @@ test('Apple refuses to verify when store credentials are absent', async () => {
   try {
     await assert.rejects(
       verifyStorePurchase('ios', 'book.one', '123', 'expected'),
-      (error) => error.statusCode === 503 && error.message.includes('APPLE_IAP_ENVIRONMENT') &&
+      (error) => error.statusCode === 503 && !error.message.includes('APPLE_IAP_ENVIRONMENT') &&
         !error.message.includes('test-private-key-do-not-disclose'),
     );
   } finally {

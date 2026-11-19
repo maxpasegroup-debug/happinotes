@@ -17,3 +17,13 @@ test('unexpected development errors return a generic response without reflecting
   assert.deepEqual(response.body, { success: false, message: 'Internal server error' });
   assert.equal(JSON.stringify(response.body).includes(sensitive), false);
 });
+
+test('operational messages keep their status and exclude environment diagnostics', () => {
+  const { AppError } = require('../dist/utils/errors');
+  const response = { status(code) { this.code = code; return this; }, json(value) { this.body = value; } };
+  for (const sensitive of ['Missing SERVICE_URL in .env.local', 'Request failed at https://internal.invalid']) {
+    errorHandler(new AppError(sensitive, 503), {}, response, () => {});
+    assert.equal(response.code, 503);
+    assert.equal(response.body.message, 'The request could not be completed. Please try again.');
+  }
+});

@@ -32,7 +32,7 @@ export function redactSystemLog(value: unknown): string {
 const cache = new Map<string, { until: number; value: Promise<unknown> }>();
 async function query<T>(key: string, ttl: number, document: string, variables: object): Promise<T> {
   const token = process.env.RAILWAY_TOKEN?.trim();
-  if (!token) throw new AppError('Set RAILWAY_TOKEN on the backend to connect Railway.', 503);
+  if (!token) throw new AppError('The Railway integration is not connected.', 503);
   const identity = createHash('sha256').update(token + JSON.stringify(railwayTarget())).digest('hex');
   const cacheKey = `${identity}:${key}`;
   const old = cache.get(cacheKey);
@@ -63,13 +63,16 @@ export async function railwayDeployments() {
 }
 export async function railwayLogs(deploymentId: string, kind: 'build' | 'runtime') {
   const scope = await railwayDeployments();
-  if (!scope.configured) throw new AppError('Set RAILWAY_TOKEN on the backend to connect Railway.', 503);
+  if (!scope.configured) throw new AppError('The Railway integration is not connected.', 503);
   // No arbitrary deployment lookup: every requested ID must belong to this service.
   if (!scope.deployments.some(item => item.id === deploymentId)) throw new BadRequestError('Choose a deployment from the recent deployment list.');
   const field = kind === 'build' ? 'buildLogs' : 'deploymentLogs';
   const result = await query<Record<string, { timestamp: string; message: string; severity?: string }[]>>(`logs:${kind}:${deploymentId}`, 5000,
     `query StatusLogs($deploymentId: String!, $limit: Int) { ${field}(deploymentId: $deploymentId, limit: $limit) { timestamp message severity } }`, { deploymentId, limit: 200 });
-  const logs = result[field].slice(-200).map(line => ({ timestamp: line.timestamp, message: redactSystemLog(line.message), severity: ['error', 'warn', 'warning', 'info', 'debug'].includes(line.severity?.toLowerCase() ?? '') ? line.severity!.toLowerCase() : 'info' }));
+  const logs = result[field].slice(-200).map(line => ({ timestamp: line.timestamp, message:
+      line.severity?.toLowerCase() === 'error' && /\b[A-Z][A-Z0-9]*(?:_[A-Z0-9]+)+\b|\.env\b|process\.env/.test(line.message)
+        ? 'Configuration error. Check the deployment settings.'
+        : redactSystemLog(line.message), severity: ['error', 'warn', 'warning', 'info', 'debug'].includes(line.severity?.toLowerCase() ?? '') ? line.severity!.toLowerCase() : 'info' }));
   logs.sort((a, b) => Date.parse(a.timestamp) - Date.parse(b.timestamp));
   return { deploymentId, kind, logs, checkedAt: new Date().toISOString() };
 }

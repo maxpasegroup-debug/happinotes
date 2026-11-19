@@ -67,6 +67,7 @@ test('logs are redacted; metrics preserve provider values', async t => {
   const result = await railway.railwayLogs(deployment.id, 'build');
   assert.equal(result.logs.length, 1); assert.equal(JSON.stringify(result).includes(process.env.RAILWAY_TOKEN), false);
   assert.equal(JSON.stringify(result).includes('mongodb://'), false);
+  assert.equal(JSON.stringify(result).includes('RAILWAY_TOKEN'), false);
   assert.equal((await railway.railwayMetrics()).metrics[0].values[0].value, .25);
 });
 test('Railway errors do not leak raw responses and are briefly cached', async t => {

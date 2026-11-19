@@ -12,7 +12,7 @@ export class ProvisioningError extends Error {
 }
 function required(name: string): string {
   const value = process.env[name]?.trim();
-  if (!value) throw new ProvisioningError('MISSING_CONFIGURATION', `${name} is required`);
+  if (!value) throw new ProvisioningError('MISSING_CONFIGURATION', 'Store setup is incomplete.');
   return value;
 }
 export function priceInPaise(value: number): number {

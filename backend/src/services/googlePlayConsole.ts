@@ -160,11 +160,11 @@ async function accessToken(): Promise<string> {
   return token.token;
 }
 
-function publicGoogleError(status: number, detail: string): Error {
+function publicGoogleError(status: number): Error {
   if (status === 401 || status === 403) return new AppError('Google Play API denied access. Grant the service account Play Console permissions for this app and API.', 502);
   if (status === 404) return new AppError('Google Play API could not find this package or resource.', 404);
   if (status === 429) return new AppError('Google Play API rate limit reached. Try again after the cache window.', 429);
-  return new AppError(`Google Play API request failed (${status}). ${detail}`, 502);
+  return new AppError('Google Play could not complete the request. Please try again.', 502);
 }
 
 async function googleFetch<T>(origin: string, requestPath: string, init: RequestInit = {}): Promise<T> {
@@ -185,10 +185,7 @@ async function googleFetch<T>(origin: string, requestPath: string, init: Request
         : 'Google denied access to Android vitals. Check the backend service account’s app permissions in Play Console.';
       throw Object.assign(new AppError(message, 502), { reportingDisabled: disabled });
     }
-    const apiMessage = parsed && typeof parsed === 'object' && 'error' in parsed && typeof (parsed as JsonRecord).error === 'object'
-      ? String(((parsed as JsonRecord).error as JsonRecord).message || '')
-      : '';
-    throw Object.assign(publicGoogleError(response.status, apiMessage || 'The provider returned an error.'), { googleStatus: response.status });
+    throw Object.assign(publicGoogleError(response.status), { googleStatus: response.status });
   }
   return parsed as T;
 }
@@ -261,7 +258,7 @@ export async function getConnectionStatus() {
     cacheTtlSeconds: Math.round(cacheTtlMs() / 1000),
     lastSyncedAt: lastSyncAt,
     lastError: lastSyncError,
-    reason: !credentials.configured ? credentials.reason : packages.length === 0 ? 'Set GOOGLE_PLAY_PACKAGE_NAMES or GOOGLE_PLAY_PACKAGE_NAME.' : undefined,
+    reason: !credentials.configured ? credentials.reason : packages.length === 0 ? 'No applications are configured for Google Play monitoring.' : undefined,
   };
 }
 
@@ -527,7 +524,7 @@ export async function syncGooglePlay() {
     lastSyncAt = overview.generatedAt;
     return { ...overview, syncStatus: await getConnectionStatus() };
   } catch (error) {
-    lastSyncError = error instanceof Error ? error.message : 'Google Play synchronization failed.';
+    lastSyncError = error instanceof AppError ? error.message : 'Google Play synchronization failed.';
     throw error;
   }
 }
