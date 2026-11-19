@@ -7,26 +7,32 @@ import { apiRequest } from '@/lib/api';
 
 type Release = { track: string; status: string; statusSource: string; versionCodes: string[]; name?: string; releaseNotes?: Array<{ language: string; text: string }>; userFraction?: number; countryTargeting?: Record<string, unknown> };
 type Track = { track: string; releases: Release[] };
-type App = { store?: { subscriptions: "enabled" | "disabled" | "unknown"; production: "published" | "unpublished" | "unknown"; subscriptionReason?: string; productionReason?: string; listingUrl: string | null }; packageName: string; appName: string; nameSource: string; available: boolean; reason?: string; tracks: Track[]; latestRelease?: Release; status: string; statusSource: string };
+type SubmissionSnapshot = {
+  capturedOn: string;
+  records: { id: number; submitted: string; areas: string[]; status: string }[];
+};
+type App = { submissionActivity?: SubmissionSnapshot; lifecycle?: { track: string; reason?: string; releases: {name?: string; state: string; codes: string[]}[] }[]; store?: { subscriptions: "enabled" | "disabled" | "unknown"; production: "published" | "unpublished" | "unknown"; subscriptionReason?: string; productionReason?: string; listingUrl: string | null }; packageName: string; appName: string; nameSource: string; available: boolean; reason?: string; tracks: Track[]; latestRelease?: Release; status: string; statusSource: string };
 
 function StoreStatus({ app }: { app: App }) {
   const store = app.store;
-  if (!store) return <p className="mt-3 text-xs text-warning">The connected backend did not return store status. Deploy the updated backend, then select Sync now.</p>;
-  const subscription = { enabled: 'Enabled', disabled: 'No active plans', unknown: store.subscriptionReason || 'Google could not confirm subscription status.' };
-  const production = { published: 'Published to production', unpublished: 'No published production release', unknown: store.productionReason || 'Google could not confirm production availability.' };
+  const missingStatus = 'The connected backend has not reported this status.';
+  const subscription = { enabled: 'Enabled', disabled: 'No active plans', unknown: store?.subscriptionReason || missingStatus };
+  const production = { published: 'Published to production', unpublished: 'No published production release', unknown: store?.productionReason || missingStatus };
+  const listing = 'https://play.google.com/store/apps/details?id=' + encodeURIComponent(app.packageName);
   return <div className="mt-3 space-y-1 text-xs">
     <p><span className="text-default-500">Subscriptions · </span>{subscription[store?.subscriptions ?? 'unknown']}</p>
     <p><span className="text-default-500">Public availability · </span>{production[store?.production ?? 'unknown']}</p>
-    {store?.production === 'published' && store.listingUrl && (
-      <a className="inline-block py-1 font-medium text-primary underline" href={store.listingUrl} target="_blank" rel="noopener noreferrer">View on Google Play ↗</a>
-    )}
+    <a className="inline-block py-1 font-medium text-primary underline" href={listing} target="_blank" rel="noopener noreferrer">
+      {store?.production === 'published' ? 'View on Google Play' : 'Check Play Store listing'} ↗
+    </a>
   </div>;
 }
 type Overview = { generatedAt: string; apps: App[]; totals: { configuredApps: number; appsWithData: number; appsUnavailable: number; published: number; draft: number; inReview: number | null; rejected: number | null }; statusNotes: string[] };
 type SyncStatus = { configured: boolean; credentials: { configured: boolean; clientEmail?: string; projectId?: string }; packageNames: string[]; scopes: string[]; cacheTtlSeconds: number; lastSyncedAt?: string; lastError?: string; reason?: string };
 type Review = { reviewId: string; authorName?: string; starRating?: number; text?: string; language?: string; appVersionCode?: string; appVersionName?: string; deviceMetadata?: Record<string, unknown>; reviewDate?: string; developerReply?: { text?: string; date?: string } };
 type Reviews = { reviews: Review[]; nextPageToken?: string; totalRetrieved: number; ratingDistribution: Record<string, number>; averageRating: number | null; averageLabel: string };
-type Analytics = { available: boolean; reason?: string; crashRate?: unknown; anrRate?: unknown; metricsNote: string };
+type MetricSet = { rows?: { startTime?: { year: number; month: number; day: number }; metrics?: { metric: string; decimalValue?: { value?: string } }[] }[] };
+type Analytics = { available: boolean; reason?: string; enableReporting?: boolean; crashRate?: MetricSet; anrRate?: MetricSet; metricsNote: string };
 
 function MetricIcon({ name, size = 18 }: { name: string; size?: number }) {
   const paths: Record<string, string> = {
@@ -110,8 +116,12 @@ export default function GooglePlayPage() {
   useEffect(() => {
     if (tab !== 'analytics' || !selectedPackage) return;
     setAnalytics(null);
-    void apiRequest<Analytics>(`/admin/google-play/apps/${encodeURIComponent(selectedPackage)}/analytics`, 'GET', undefined, token).then(setAnalytics).catch(cause => setError(cause instanceof Error ? cause.message : 'Analytics are unavailable.'));
-  }, [selectedPackage, tab, token]);
+    let current = true;
+    void apiRequest<Analytics>(`/admin/google-play/apps/${encodeURIComponent(selectedPackage)}/analytics`, 'GET', undefined, token)
+      .then(data => { if (current) setAnalytics(data); })
+      .catch(() => { if (current) setAnalytics({available:false,reason:'Unable to reach analytics. Select Sync now to retry.',metricsNote:''}); });
+    return () => { current = false; };
+  }, [selectedPackage, tab, token, overview?.generatedAt]);
 
   const handleRefresh = () => { setSyncing(true); void load(true); };
   const apps = overview?.apps || [];
@@ -125,11 +135,18 @@ export default function GooglePlayPage() {
     {error && <Alert color="danger" variant="flat" title="Google Play request failed" description={error} onClose={() => setError('')} />}
     {!busy && sync && !sync.configured && <Unavailable>{sync.reason || 'Configure the backend service-account JSON and at least one package name before connecting.'}</Unavailable>}
     {busy && !overview ? <LoadingCards /> : <>
-      <div className="grid gap-4 sm:grid-cols-2 xl:grid-cols-4"><MetricCard label="Configured apps" value={String(overview?.totals.configuredApps ?? 0)} note={`${overview?.totals.appsWithData ?? 0} returned Play data`} icon="apps" /><MetricCard label="Production releases" value={String(overview?.totals.published ?? 0)} note="Completed releases returned by the API" icon="release" tone="success" /><MetricCard label="Draft releases" value={String(overview?.totals.draft ?? 0)} note="Across configured tracks" icon="release" tone="warning" /><MetricCard label="Review / rejection" value={overview?.totals.inReview == null && overview?.totals.rejected == null ? '—' : `${overview?.totals.inReview ?? 0} / ${overview?.totals.rejected ?? 0}`} note="Exact Console review states are not exposed consistently" icon="warning" tone="danger" /></div>
+      <div className="grid gap-4 sm:grid-cols-2 xl:grid-cols-4"><MetricCard label="Configured apps" value={String(overview?.totals.configuredApps ?? 0)} note={`${overview?.totals.appsWithData ?? 0} returned Play data`} icon="apps" /><MetricCard label="Production releases" value={String(overview?.totals.published ?? 0)} note="Completed releases returned by the API" icon="release" tone="success" /><MetricCard label="Draft releases" value={String(overview?.totals.draft ?? 0)} note="Across configured tracks" icon="release" tone="warning" /><MetricCard label="Review / rejection" value={overview?.totals.inReview == null && overview?.totals.rejected == null ? '—' : `${overview?.totals.inReview ?? 0} / ${overview?.totals.rejected ?? 0}`} note="Apps in review / rejected across monitored tracks" icon="warning" tone="danger" /></div>
       <Tabs aria-label="Google Play Console views" selectedKey={tab} onSelectionChange={key => setTab(String(key))} color="primary" variant="solid" radius="lg" disableAnimation={Boolean(reduce)} classNames={{ tabList: 'gap-1 border border-divider bg-content1 p-1.5', tab: 'h-11 px-4', tabContent: 'text-xs font-semibold group-data-[selected=true]:text-primary-foreground', cursor: 'bg-primary', panel: 'px-0 pt-6' }}>
         <Tab key="overview" title={<span className="flex items-center gap-2"><MetricIcon name="chart" />Overview</span>}><OverviewPanel apps={apps} notes={overview?.statusNotes || []} /></Tab>
         <Tab key="apps" title={<span className="flex items-center gap-2"><MetricIcon name="apps" />Applications</span>}><ApplicationsPanel apps={apps} selected={selectedPackage} onSelect={packageName => { setSelectedPackage(packageName); setTab('releases'); }} /></Tab>
-        <Tab key="releases" title={<span className="flex items-center gap-2"><MetricIcon name="release" />Releases</span>}><ReleasesPanel apps={apps} selectedPackage={selectedPackage} selectedApp={selectedApp} releases={releases} onSelect={setSelectedPackage} /></Tab>
+        <Tab key="releases" title={<span className="flex items-center gap-2"><MetricIcon name="release" />Releases</span>}><ReleasesPanel apps={apps} selectedPackage={selectedPackage} selectedApp={selectedApp} releases={releases} onSelect={setSelectedPackage} /><LifecyclePanel app={selectedApp} /></Tab>
+        <Tab key="submissions" title="Submission activity">
+          <Select label="Application" selectedKeys={selectedPackage ? [selectedPackage] : []} disallowEmptySelection
+            onSelectionChange={keys => setSelectedPackage(String(Array.from(keys)[0]))} className="mb-5 max-w-md">
+            {apps.map(app => <SelectItem key={app.packageName}>{app.packageName}</SelectItem>)}
+          </Select>
+          <SubmissionActivity key={selectedPackage} snapshot={selectedApp?.submissionActivity} />
+        </Tab>
         <Tab key="reviews" title={<span className="flex items-center gap-2"><MetricIcon name="review" />Reviews</span>}><ReviewsPanel apps={apps} selectedPackage={selectedPackage} onSelect={setSelectedPackage} reviews={reviews} search={reviewSearch} rating={reviewRating} onSearch={value => { setReviewToken(''); setReviewSearch(value); }} onRating={value => { setReviewToken(''); setReviewRating(value); }} onNext={() => setReviewToken(reviews?.nextPageToken || '')} /></Tab>
         <Tab key="analytics" title={<span className="flex items-center gap-2"><MetricIcon name="chart" />Analytics</span>}><AnalyticsPanel apps={apps} selectedPackage={selectedPackage} onSelect={setSelectedPackage} analytics={analytics} /></Tab>
         <Tab key="settings" title={<span className="flex items-center gap-2"><MetricIcon name="settings" />Integration</span>}><IntegrationPanel status={sync} /></Tab>
@@ -147,7 +164,7 @@ function ApplicationsPanel({ apps, selected, onSelect }: { apps: App[]; selected
 }
 
 function ReleasesPanel({ apps, selectedPackage, selectedApp, releases, onSelect }: { apps: App[]; selectedPackage: string; selectedApp?: App; releases: Release[]; onSelect: (value: string) => void }) {
-  return <div className="space-y-5"><div className="flex flex-wrap items-end justify-between gap-4"><Select label="Application" labelPlacement="outside" selectedKeys={selectedPackage ? [selectedPackage] : []} onSelectionChange={keys => onSelect(String(Array.from(keys)[0] || ''))} className="max-w-md" disallowEmptySelection>{apps.map(app => <SelectItem key={app.packageName} textValue={app.packageName}>{app.appName} · {app.packageName}</SelectItem>)}</Select><p className="text-xs text-default-500">Track status is returned by the Android Publisher API. Exact Play Console review approval is not available here.</p></div><Card shadow="none" className="border border-divider"><CardHeader className="flex-col items-start gap-1 px-6 pt-6"><h2 className="text-lg font-semibold">Testing tracks and releases</h2><p className="text-xs text-default-500">{selectedApp?.available ? `${releases.length} release records returned for ${selectedPackage}.` : 'Select an application with available API data.'}</p></CardHeader><CardBody className="p-0">{selectedApp && !selectedApp.available ? <div className="p-6"><Unavailable>{selectedApp.reason || 'Release data is unavailable through the Google Play API.'}</Unavailable></div> : <Table aria-label="Google Play releases" removeWrapper classNames={{ th: 'bg-content2/40 text-[11px] uppercase tracking-wide text-default-500', td: 'py-4 align-top' }}><TableHeader><TableColumn>TRACK</TableColumn><TableColumn>STATUS</TableColumn><TableColumn>VERSION CODES</TableColumn><TableColumn>RELEASE NOTES</TableColumn><TableColumn>COUNTRY / FRACTION</TableColumn></TableHeader><TableBody emptyContent="No releases were returned by Google Play.">{releases.map((release, index) => <TableRow key={`${release.track}-${release.versionCodes.join('-')}-${index}`}><TableCell><Chip size="sm" variant="flat" color={release.track === 'production' ? 'success' : 'primary'}>{release.track}</Chip></TableCell><TableCell><div className="space-y-1"><p className="font-medium capitalize">{release.status}</p><p className="text-[11px] text-default-500">{release.statusSource === 'google_play_api' ? 'Google Play API' : 'Status unavailable through API'}</p></div></TableCell><TableCell><span className="font-mono text-xs">{release.versionCodes.join(', ') || 'Unavailable'}</span></TableCell><TableCell><div className="max-w-xs space-y-1 text-xs">{release.releaseNotes?.slice(0, 2).map(note => <p key={`${note.language}-${note.text}`}><span className="font-medium">{note.language}:</span> {note.text}</p>) || <span className="text-default-500">No notes returned</span>}</div></TableCell><TableCell><span className="text-xs text-default-500">{release.userFraction != null ? `${Math.round(release.userFraction * 100)}% rollout` : release.countryTargeting ? 'Country targeting returned' : 'Not returned'}</span></TableCell></TableRow>)}</TableBody></Table>}</CardBody></Card></div>;
+  return <div className="space-y-5"><div className="flex flex-wrap items-end justify-between gap-4"><Select label="Application" labelPlacement="outside" selectedKeys={selectedPackage ? [selectedPackage] : []} onSelectionChange={keys => onSelect(String(Array.from(keys)[0] || ''))} className="max-w-md" disallowEmptySelection>{apps.map(app => <SelectItem key={app.packageName} textValue={app.packageName}>{app.appName} · {app.packageName}</SelectItem>)}</Select><p className="text-xs text-default-500">Rollout status and review status are reported separately by Google Play.</p></div><Card shadow="none" className="border border-divider"><CardHeader className="flex-col items-start gap-1 px-6 pt-6"><h2 className="text-lg font-semibold">Testing tracks and releases</h2><p className="text-xs text-default-500">{selectedApp?.available ? `${releases.length} release records returned for ${selectedPackage}.` : 'Select an application with available API data.'}</p></CardHeader><CardBody className="p-0">{selectedApp && !selectedApp.available ? <div className="p-6"><Unavailable>{selectedApp.reason || 'Release data is unavailable through the Google Play API.'}</Unavailable></div> : <Table aria-label="Google Play releases" removeWrapper classNames={{ th: 'bg-content2/40 text-[11px] uppercase tracking-wide text-default-500', td: 'py-4 align-top' }}><TableHeader><TableColumn>TRACK</TableColumn><TableColumn>STATUS</TableColumn><TableColumn>VERSION CODES</TableColumn><TableColumn>RELEASE NOTES</TableColumn><TableColumn>COUNTRY / FRACTION</TableColumn></TableHeader><TableBody emptyContent="No releases were returned by Google Play.">{releases.map((release, index) => <TableRow key={`${release.track}-${release.versionCodes.join('-')}-${index}`}><TableCell><Chip size="sm" variant="flat" color={release.track === 'production' ? 'success' : 'primary'}>{release.track}</Chip></TableCell><TableCell><div className="space-y-1"><p className="font-medium capitalize">{release.status}</p><p className="text-[11px] text-default-500">{release.statusSource === 'google_play_api' ? 'Google Play API' : 'Status unavailable through API'}</p></div></TableCell><TableCell><span className="font-mono text-xs">{release.versionCodes.join(', ') || 'Unavailable'}</span></TableCell><TableCell><div className="max-w-xs space-y-1 text-xs">{release.releaseNotes?.slice(0, 2).map(note => <p key={`${note.language}-${note.text}`}><span className="font-medium">{note.language}:</span> {note.text}</p>) || <span className="text-default-500">No notes returned</span>}</div></TableCell><TableCell><span className="text-xs text-default-500">{release.userFraction != null ? `${Math.round(release.userFraction * 100)}% rollout` : release.countryTargeting ? 'Country targeting returned' : 'Not returned'}</span></TableCell></TableRow>)}</TableBody></Table>}</CardBody></Card></div>;
 }
 
 function ReviewsPanel({ apps, selectedPackage, onSelect, reviews, search, rating, onSearch, onRating, onNext }: { apps: App[]; selectedPackage: string; onSelect: (value: string) => void; reviews: Reviews | null; search: string; rating: string; onSearch: (value: string) => void; onRating: (value: string) => void; onNext: () => void }) {
@@ -155,11 +172,95 @@ function ReviewsPanel({ apps, selectedPackage, onSelect, reviews, search, rating
 }
 
 function AnalyticsPanel({ apps, selectedPackage, onSelect, analytics }: { apps: App[]; selectedPackage: string; onSelect: (value: string) => void; analytics: Analytics | null }) {
-  return <div className="space-y-5"><Select label="Application" labelPlacement="outside" selectedKeys={selectedPackage ? [selectedPackage] : []} onSelectionChange={keys => onSelect(String(Array.from(keys)[0] || ''))} className="max-w-md" disallowEmptySelection>{apps.map(app => <SelectItem key={app.packageName}>{app.packageName}</SelectItem>)}</Select><Card shadow="none" className="border border-divider"><CardHeader className="flex-col items-start gap-1 px-6 pt-6"><h2 className="text-lg font-semibold">Play Developer Reporting</h2><p className="text-xs text-default-500">Crash and ANR metric sets are requested for the most recent 30-day window.</p></CardHeader><CardBody>{!analytics ? <div className="grid gap-4 sm:grid-cols-2"><Skeleton className="h-28 rounded-2xl" /><Skeleton className="h-28 rounded-2xl" /></div> : analytics.available ? <div className="grid gap-4 sm:grid-cols-2"><MetricCard label="Crash rate" value={analytics.crashRate ? 'Returned' : 'Unavailable'} note="Raw Reporting API response is available for inspection." icon="chart" tone="success" /><MetricCard label="ANR rate" value={analytics.anrRate ? 'Returned' : 'Unavailable'} note="Raw Reporting API response is available for inspection." icon="chart" tone="success" /></div> : <Unavailable>{analytics.reason || 'Crash and ANR metrics are unavailable through the Reporting API. Enable the API and grant reporting permissions to the service account.'}</Unavailable>}<p className="mt-5 text-xs leading-5 text-default-500">{analytics?.metricsNote || 'No analytics request has completed yet.'}</p></CardBody></Card></div>;
+  const app = apps.find(item => item.packageName === selectedPackage);
+  return <div className="space-y-5">
+    <Select label="Application" labelPlacement="outside" selectedKeys={selectedPackage ? [selectedPackage] : []} onSelectionChange={keys => onSelect(String(Array.from(keys)[0] || ''))} className="max-w-md" disallowEmptySelection>
+      {apps.map(item => <SelectItem key={item.packageName}>{item.packageName}</SelectItem>)}
+    </Select>
+    {app && <StoreStatus app={app} />}
+    <Card shadow="none" className="border border-divider">
+      <CardHeader><h2 className="text-lg font-semibold">Android vitals · last 30 days</h2></CardHeader>
+      <CardBody className="gap-4">
+        {!analytics && <Skeleton className="h-28 rounded-2xl" />}
+        {analytics?.reason && <Unavailable>{analytics.reason}{analytics.enableReporting && (
+          <a href="https://console.cloud.google.com/apis/library/playdeveloperreporting.googleapis.com" target="_blank" rel="noopener noreferrer" className="ml-2 underline">Open API settings ↗</a>
+        )}</Unavailable>}
+        {analytics?.available && <div className="grid gap-4 sm:grid-cols-2">
+          {(['crashRate','anrRate'] as const).map(key => {
+            const set = analytics[key];
+            const points = (set?.rows ?? []).flatMap(row => {
+              const date = row.startTime;
+              const value = row.metrics?.find(metric => metric.metric === key)?.decimalValue?.value;
+              if (!date || value == null) return [];
+              return [{ day: [date.year, String(date.month).padStart(2,'0'), String(date.day).padStart(2,'0')].join('-'), value }];
+            }).sort((a,b) => b.day.localeCompare(a.day));
+            const latest = points[0];
+            return <MetricCard key={key} label={key === 'crashRate' ? 'Crash rate' : 'ANR rate'} icon="chart"
+              value={latest ? latest.value + '%' : '—'} note={latest ? 'Latest daily rate · ' + latest.day : set ? 'No daily samples returned' : 'Metric unavailable'} />;
+          })}
+        </div>}
+      </CardBody>
+    </Card>
+  </div>;
 }
 
 function IntegrationPanel({ status }: { status: SyncStatus | null }) {
   return <div className="grid gap-5 lg:grid-cols-[1.2fr_.8fr]"><Card shadow="none" className="border border-divider"><CardHeader className="flex-col items-start gap-1 px-6 pt-6"><h2 className="text-lg font-semibold">Connection settings</h2><p className="text-xs text-default-500">Only non-secret service-account metadata is shown here.</p></CardHeader><CardBody className="gap-4 px-6 pb-6"><div className="grid gap-4 sm:grid-cols-2"><Info label="Connection" value={status?.configured ? 'Configured' : 'Not configured'} /><Info label="Service account" value={status?.credentials.clientEmail || 'Not available'} /><Info label="Google Cloud project" value={status?.credentials.projectId || 'Not available'} /><Info label="Cache window" value={status ? `${status.cacheTtlSeconds} seconds` : 'Not available'} /></div><Divider /><div><p className="text-xs font-semibold uppercase tracking-wider text-default-500">Configured package names</p><div className="mt-3 flex flex-wrap gap-2">{status?.packageNames.length ? status.packageNames.map(packageName => <Chip key={packageName} variant="flat" className="font-mono">{packageName}</Chip>) : <span className="text-sm text-default-500">None configured</span>}</div></div>{status?.reason && <Unavailable>{status.reason}</Unavailable>}</CardBody></Card><Card shadow="none" className="border border-divider"><CardHeader className="flex-col items-start gap-1 px-6 pt-6"><h2 className="text-lg font-semibold">Required permissions</h2><p className="text-xs text-default-500">Grant these to the backend service account in Google Cloud and Play Console.</p></CardHeader><CardBody className="gap-3 px-6 pb-6">{(status?.scopes || []).map(scope => <p key={scope} className="break-all rounded-xl bg-content2/50 p-3 font-mono text-[11px] text-default-500">{scope}</p>)}<p className="text-xs leading-5 text-default-500">Private keys and access tokens never leave the backend.</p></CardBody></Card></div>;
+}
+
+function SubmissionActivity({ snapshot }: { snapshot?: SubmissionSnapshot }) {
+  const [status, setStatus] = useState('');
+  const [area, setArea] = useState('');
+  const records = snapshot?.records ?? [];
+  const filtered = records.filter(row => (!status || row.status === status) && (!area || row.areas.includes(area)));
+  return <Card shadow="none" className="border border-divider">
+    <CardHeader className="flex-col items-start gap-2 p-5">
+      <h2 className="text-lg font-semibold">Submission activity</h2>
+      <p className="text-xs text-default-500">{snapshot
+        ? `Play Console snapshot · ${snapshot.capturedOn}. Times are shown as recorded. Check Play Console for subsequent changes.`
+        : 'No submission history has been imported for this application.'}</p>
+    </CardHeader>
+    {snapshot && <CardBody className="gap-4 p-5 pt-0">
+      <div className="flex flex-wrap items-center gap-3">
+        <Select aria-label="Filter submissions by status" size="sm" className="max-w-52" selectedKeys={[status || 'all']} disallowEmptySelection
+          onSelectionChange={keys => { const key = String(Array.from(keys)[0]); setStatus(key === 'all' ? '' : key); }}>
+          {['all', ...new Set(records.map(row => row.status))].map(key => <SelectItem key={key}>{key === 'all' ? 'All statuses' : key}</SelectItem>)}
+        </Select>
+        <Select aria-label="Filter submissions by area" size="sm" className="max-w-52" selectedKeys={[area || 'all']} disallowEmptySelection
+          onSelectionChange={keys => { const key = String(Array.from(keys)[0]); setArea(key === 'all' ? '' : key); }}>
+          {['all', ...new Set(records.flatMap(row => row.areas))].map(key => <SelectItem key={key}>{key === 'all' ? 'All areas' : key}</SelectItem>)}
+        </Select>
+        <span className="text-xs text-default-500" aria-live="polite">{filtered.length} of {records.length} submissions</span>
+      </div>
+      <div className="overflow-x-auto"><Table aria-label="Submission activity" removeWrapper>
+        <TableHeader><TableColumn>ID</TableColumn><TableColumn>SUBMITTED</TableColumn><TableColumn>CHANGES</TableColumn><TableColumn>STATUS</TableColumn></TableHeader>
+        <TableBody emptyContent="No submissions match these filters.">{filtered.map(row => <TableRow key={row.id}>
+          <TableCell>#{row.id}</TableCell><TableCell>{row.submitted}</TableCell><TableCell>{row.areas.join(', ')}</TableCell>
+          <TableCell><Chip size="sm" variant="flat" color={row.status === 'In review' ? 'warning' : row.status === 'Published' ? 'success' : 'default'}>{row.status}</Chip></TableCell>
+        </TableRow>)}</TableBody>
+      </Table></div>
+    </CardBody>}
+  </Card>;
+}
+
+function LifecyclePanel({ app }: { app?: App }) {
+  if (!app?.lifecycle?.length) return null;
+  return <section className="mt-5 space-y-3">
+    <h2 className="text-lg font-semibold">Release review status</h2>
+    <div className="grid gap-3 md:grid-cols-2">
+      {app.lifecycle.map(track => <Card key={track.track} shadow="none" className="border border-divider">
+        <CardBody className="gap-2 p-4">
+          <h3 className="font-medium">{track.track}</h3>
+          {track.reason && <p className="text-xs text-warning">{track.reason}</p>}
+          {!track.reason && !track.releases.length && <p className="text-xs text-default-500">No current releases.</p>}
+          {track.releases.map((release, i) => <div key={i} className="flex flex-wrap justify-between gap-2 text-sm">
+            <span>{release.name || 'Unnamed release'} {release.codes.length > 0 && <small>· {release.codes.join(', ')}</small>}</span>
+            <Chip size="sm" variant="flat">{release.state.replace(/^RELEASE_LIFECYCLE_STATE_/, '').replaceAll('_', ' ').toLowerCase()}</Chip>
+          </div>)}
+        </CardBody>
+      </Card>)}
+    </div>
+  </section>;
 }
 
 function Info({ label, value }: { label: string; value: string }) {
