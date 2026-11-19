@@ -12,8 +12,10 @@
   "dependencies": {
     "@heroui/react": "^2.8.10",
     "@heroui/theme": "2.4.26",
+    "@ip-location-db/dbip-city-mmdb": "2.3.2026060513",
     "@lottiefiles/dotlottie-react": "^0.21.1",
     "framer-motion": "^13.4.5",
+    "mmdb-lib": "3.0.5",
     "next": "16.1.6",
     "react": "19.2.3",
     "react-dom": "19.2.3",
