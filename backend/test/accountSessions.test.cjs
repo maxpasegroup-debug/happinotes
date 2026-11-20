@@ -109,3 +109,31 @@ test('legacy clients reporting without an installation ID keep separate session 
   assert.equal(sessions.get(ids[0])['loginHistory.$.deviceModel'], 'Phone 0');
   assert.equal(sessions.get(ids[1])['loginHistory.$.deviceModel'], 'Phone 1');
 });
+
+test('admin logout rejects the old token, preserves history, and allows a fresh login', async () => {
+  const { revokeCustomerSession } = require('../dist/services/accountSessions');
+  const { user, notifications } = state();
+  const token = await startAccountSession(user);
+  const first = user.loginHistory[0];
+  mock.method(User, 'updateOne', async (filter, update) => {
+    assert.equal(filter._id, userId);
+    assert.equal(filter.role, 'user');
+    if (filter.activeLoginSessionId !== user.activeLoginSessionId) return { modifiedCount: 0 };
+    assert.equal(filter.loginHistory.$elemMatch.sessionId, first.sessionId);
+    assert.equal(filter.loginHistory.$elemMatch.endedAt, null);
+    assert.deepEqual(Object.keys(update.$set), ['loginHistory.$.endedAt']);
+    assert.deepEqual(update.$unset, { activeLoginSessionId: 1 });
+    assert.equal(update.$push.moderationHistory.$each[0].actorId, 'admin-id');
+    first.endedAt = update.$set['loginHistory.$.endedAt'];
+    user.sessionVersion += update.$inc.sessionVersion;
+    delete user.activeLoginSessionId;
+    return { modifiedCount: 1 };
+  });
+  await revokeCustomerSession(userId, first.sessionId, 'admin-id');
+  assert.equal(notifications.at(-1), userId);
+  assert.equal((await auth(token)).error.statusCode, 401);
+  const fresh = await startAccountSession(user);
+  await assert.rejects(revokeCustomerSession(userId, first.sessionId, 'admin-id'), { statusCode: 409 });
+  assert.equal((await auth(fresh)).error, undefined);
+  assert.deepEqual(sessionHistory(user).map(s => s.status), ['current', 'signed_out']);
+});

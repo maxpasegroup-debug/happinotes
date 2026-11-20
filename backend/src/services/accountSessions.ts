@@ -2,7 +2,7 @@ import jwt from 'jsonwebtoken';
 import { randomUUID } from 'crypto';
 import { User, type IUser } from '../models/User';
 import { env } from '../config/env';
-import { UnauthorizedError } from '../utils/errors';
+import { AppError, BadRequestError, UnauthorizedError } from '../utils/errors';
 import { emitUserSecurityChanged } from './realtime';
 
 /** Credentials must have been verified before calling this. One atomic account
@@ -27,6 +27,25 @@ export async function startAccountSession(user: IUser, installationKey?: string)
   const token = jwt.sign({ id: String(updated._id), sessionVersion: updated.sessionVersion, loginSessionId, ...(installationKey ? { installationKey } : {}), exp: expiry.exp }, env.JWT_SECRET, { algorithm: 'HS256' });
   emitUserSecurityChanged(String(updated._id));
   return token;
+}
+
+/** Revoke only the login the administrator saw, even if a new login races confirmation. */
+export async function revokeCustomerSession(userId: string, sessionId: unknown, actorId: string) {
+  if (typeof sessionId !== 'string' || !/^[0-9a-f]{8}-[0-9a-f]{4}-4[0-9a-f]{3}-[89ab][0-9a-f]{3}-[0-9a-f]{12}$/i.test(sessionId)) {
+    throw new BadRequestError('Select a current login session.');
+  }
+  const now = new Date();
+  const result = await User.updateOne({
+    _id: userId, role: 'user', activeLoginSessionId: sessionId,
+    loginHistory: { $elemMatch: { sessionId, endedAt: null, expiresAt: { $gt: now } } },
+  }, {
+    $inc: { sessionVersion: 1 },
+    $unset: { activeLoginSessionId: 1 },
+    $set: { 'loginHistory.$.endedAt': now },
+    $push: { moderationHistory: { $each: [{ action: 'logout', actorId, reason: 'Signed out by administrator', at: now }], $slice: -50 } },
+  });
+  if (!result.modifiedCount) throw new AppError('This login is no longer current. Refresh the user details.', 409);
+  emitUserSecurityChanged(userId);
 }
 
 export function sessionHistory(user: Pick<IUser, 'loginHistory' | 'activeLoginSessionId' | 'blocked' | 'deletionState'>, now = Date.now()) {

@@ -1,6 +1,6 @@
 import { SecurityBlock } from '../models/SecurityBlock';
 import { securityKey } from '../services/vpnSecurity';
-import { sessionHistory } from '../services/accountSessions';
+import { revokeCustomerSession, sessionHistory } from '../services/accountSessions';
 import type { Request, Response, NextFunction } from 'express';
 import { isValidObjectId } from 'mongoose';
 import { User } from '../models/User';
@@ -105,6 +105,14 @@ export async function listUserSecurity(req: Request, res: Response, next: NextFu
     }
     res.setHeader('Cache-Control', 'private, no-store');
     res.json({ capabilities: { deviceLocation: true, singleActiveSession: true, vpnDetection: true }, users: users.map(user => ({ id: user._id, name: user.name, email: user.email, ...moderationStatus(user), history: user.moderationHistory || [], loginHistory: sessionHistory(user), vpn: { count: user.vpnDetectionCount || 0, lastDetectedAt: user.vpnLastDetectedAt, lastIp: user.vpnLastIp, ipBlocked: !!user.vpnLastIp && blockedIps.has(securityKey('ip', user.vpnLastIp)) }, legacyNetwork: byUser.get(String(user._id)) || null, devices: deviceGroups.get(String(user._id)) || [], network: deviceGroups.get(String(user._id))?.[0] || byUser.get(String(user._id)) || null })), page, total, totalPages: Math.ceil(total / 7) });
+  } catch (error) { next(error); }
+}
+
+export async function signOutUser(req: Request, res: Response, next: NextFunction) {
+  try {
+    if (!isValidObjectId(req.params.id)) throw new BadRequestError('Invalid user ID.');
+    await revokeCustomerSession(req.params.id, req.body?.sessionId, String(req.user!._id));
+    res.json({ success: true, message: 'Session ended. The user can sign in again.' });
   } catch (error) { next(error); }
 }
 
