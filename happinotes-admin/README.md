@@ -171,6 +171,8 @@ The admin server searches Wikidata/Commons using only the reported **device mode
 
 IP2Location, DB-IP, IPinfo and Criminal IP are **not integrated**. VPN, proxy, Tor, hosting/cloud/mobile classification, crawler/scanner/Snort, AS name and threat/inbound/outbound scores remain **Not provided**. Missing data never appears as a negative check or a safety judgment. ipapi.co's organization field is not represented as a verified SIM carrier. ipwho.is's `connection.isp` appears separately as the ISP supplied by the location provider. Existing account ban/delete confirmations and backend workflows are unchanged.
 
+The production IP lookup runs on the Next.js server. To point it at a custom backend, set `AUTH_BACKEND_ORIGIN` to its absolute API URL on the admin web host. When the browser uses a relative proxy path, the lookup uses this server setting or the configured Railway backend, defaulting to the HappiNotes production API.
+
 Files: `app/api/admin/user-network/route.ts`, `lib/user-security.ts`, `lib/user-security-lookup.ts`, `components/admin/SecurityLocationMap.tsx`, `components/admin/UserNetworkDetails.tsx`, `app/admin/(secure)/user-security/page.tsx`; tests: `test/user-security.test.mjs`.
 
 References: [Leaflet setup](https://leafletjs.com/examples-v1/quick-start/), [OSM tile policy](https://operations.osmfoundation.org/policies/tiles/), [ipapi.co fields](https://ipapi.co/api/), [ipapi.co plans](https://ipapi.co/pricing/), [ipwho.is fields, limits and usage](https://ipwhois.io/documentation), [Wikimedia image metadata](https://www.mediawiki.org/wiki/API:Imageinfo), [Google Play supported devices](https://support.google.com/googleplay/answer/1727131).

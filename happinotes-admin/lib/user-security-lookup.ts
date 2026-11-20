@@ -402,13 +402,24 @@ export async function lookupDevice(value: unknown, retry = false, store?: Device
 }
 const requestLimits = new Map<string, { count: number; until: number }>();
 const json = (body: unknown, status = 200) => Response.json(body, { status, headers: { 'Cache-Control': 'private, no-store', Vary: 'Authorization' } });
-// Some hosts pass the target selector literally instead of expanding dotenv references.
+const defaultReportBackend = 'https://happinotes-production-6b44.up.railway.app';
+
 function reportApiBase(configured: string) {
-  const target = configured.trim().replace(/\/+$/, '');
-  let value: string | undefined = target;
-  if (target === '/api/backend') value = process.env.AUTH_BACKEND_ORIGIN;
-  for (const key of ['NEXT_PUBLIC_LOCAL_API_BASE_URL', 'NEXT_PUBLIC_RAILWAY_API_BASE_URL']) {
-    if (target === '$' + key || target === '${' + key + '}') value = process.env[key];
+  const serverOrigin = process.env.AUTH_BACKEND_ORIGIN?.trim();
+  const railway = process.env.NEXT_PUBLIC_RAILWAY_API_BASE_URL?.trim() || defaultReportBackend;
+  let value = configured.trim();
+  if (process.env.NODE_ENV === 'production' && serverOrigin) {
+    value = serverOrigin;
+  } else {
+    // Hosting dashboards can preserve dotenv references as literal strings.
+    if (['$NEXT_PUBLIC_LOCAL_API_BASE_URL', '${NEXT_PUBLIC_LOCAL_API_BASE_URL}'].includes(value)) {
+      value = process.env.NEXT_PUBLIC_LOCAL_API_BASE_URL?.trim() || '';
+      if (!value) return undefined;
+    } else if (['$NEXT_PUBLIC_RAILWAY_API_BASE_URL', '${NEXT_PUBLIC_RAILWAY_API_BASE_URL}'].includes(value)) {
+      value = railway;
+    }
+    // Relative paths belong to the browser. Never derive the upstream from request headers.
+    if (!value || (value.startsWith('/') && !value.startsWith('//'))) value = serverOrigin || railway;
   }
   try {
     const url = new URL(value || '');

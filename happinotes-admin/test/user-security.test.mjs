@@ -1195,3 +1195,36 @@ test("server resolves an unexpanded configured backend selector without trusting
   assert.equal(result.status, 200);
   assert.equal((await result.json()).geo.status, "no_public_ip");
 });
+
+test("production IP reports resolve browser proxy paths against the trusted backend", async t => {
+  t.mock.method(globalThis, "fetch", async url => {
+    assert.equal(new URL(url).pathname, "/admin/user-security");
+    return Response.json({ users: [{ id, network: { publicIp: "192.168.0.1" } }] });
+  });
+  const restore = {};
+  for (const key of ["NODE_ENV", "AUTH_BACKEND_ORIGIN", "NEXT_PUBLIC_RAILWAY_API_BASE_URL"]) {
+    restore[key] = process.env[key];
+    delete process.env[key];
+  }
+  t.after(() => {
+    for (const [key, previous] of Object.entries(restore)) {
+      if (previous === undefined) delete process.env[key];
+      else process.env[key] = previous;
+    }
+  });
+  process.env.NODE_ENV = "production";
+  const check = async (setting, origin) => {
+    const result = await handleSecurityLookup(request("", "Bearer production-fixture"), setting);
+    assert.equal(result.status, 200);
+    assert.equal(new URL(fetch.mock.calls.at(-1).arguments[0]).origin, origin);
+  };
+  await check("/api/backend", "https://happinotes-production-6b44.up.railway.app");
+  await check("${NEXT_PUBLIC_RAILWAY_API_BASE_URL}", "https://happinotes-production-6b44.up.railway.app");
+  process.env.NEXT_PUBLIC_RAILWAY_API_BASE_URL = "https://configured.example";
+  await check("/api", "https://configured.example");
+  process.env.AUTH_BACKEND_ORIGIN = "https://report.example";
+  await check("/api/backend", "https://report.example");
+  await check("https://browser.example", "https://report.example");
+  process.env.NODE_ENV = "development";
+  await check("http://localhost:3001", "http://localhost:3001");
+});
