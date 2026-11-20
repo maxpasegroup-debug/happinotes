@@ -9,14 +9,17 @@ import { apiRequest, BASE_URL, downloadCsv } from '@/lib/api';
 import UserNetworkDetails from '@/components/admin/UserNetworkDetails';
 import type { SecurityUser as UserRow } from '@/lib/user-security';
 
-type Action = 'temporary' | 'permanent' | 'unban' | 'delete' | 'ip_ban' | 'ip_unban';
+type Action = 'logout' | 'temporary' | 'permanent' | 'unban' | 'delete' | 'ip_ban' | 'ip_unban';
 type SecurityTab = 'details' | 'charts' | 'packets';
 const securityTabs: Array<{ key: SecurityTab; label: string }> = [{ key: 'details', label: 'Details' }, { key: 'charts', label: 'Charts' }, { key: 'packets', label: 'Packet-level' }];
-const labels: Record<Action, string> = { temporary: 'Temporary ban', permanent: 'Permanent ban', unban: 'Unban', delete: 'Delete account', ip_ban: 'Block reported IP', ip_unban: 'Unblock reported IP' };
+const labels: Record<Action, string> = { logout: 'Log out user', temporary: 'Temporary ban', permanent: 'Permanent ban', unban: 'Unban', delete: 'Delete account', ip_ban: 'Block reported IP', ip_unban: 'Unblock reported IP' };
 const errorText = (error: unknown) => error instanceof Error ? error.message : 'Request failed. Please try again.';
 const date = (value?: string) => value ? new Date(value).toLocaleString() : 'Unavailable';
 function NetworkIcon({ type }: { type?: string }) {
   return <svg aria-hidden="true" width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="1.8" strokeLinecap="round">{type === 'wifi' ? <><path d="M3 8a15 15 0 0 1 18 0M6 12a10 10 0 0 1 12 0M9 16a5 5 0 0 1 6 0" /><circle cx="12" cy="20" r=".6" /></> : type === 'cellular' ? <><path d="M7 3h7l4 4v14H6V3Z" /><rect x="9" y="11" width="6" height="6" rx="1" /></> : <><circle cx="12" cy="12" r="9" /><path d="M3 12h18M12 3a20 20 0 0 1 0 18 20 20 0 0 1 0-18" /></>}</svg>;
+}
+function currentLogin(user: UserRow) {
+  return user.loginHistory?.find(entry => entry.status === 'current');
 }
 export default function UserSecurityPage() {
   const [tab, setTab] = useState<SecurityTab>('details');
@@ -102,11 +105,20 @@ export default function UserSecurityPage() {
   function open(user: UserRow, action: Action) { setDialog({ user, action }); setReason(''); setExpiry(''); setConfirmation(''); setDialogError(''); }
   async function submit() {
     if (!dialog || busy.current) return;
-    if (!reason.trim()) { setDialogError('Add a reason.'); return; }
+    if (dialog.action !== 'logout' && !reason.trim()) { setDialogError('Add a reason.'); return; }
     if (dialog.action === 'temporary' && (!expiry || !Number.isFinite(Date.parse(expiry)) || Date.parse(expiry) <= Date.now())) { setDialogError('Choose a future expiry.'); return; }
     if (dialog.action === 'delete' && confirmation !== 'DELETE') { setDialogError('Type DELETE to confirm.'); return; }
     busy.current = true; setSaving(true); setDialogError('');
     try {
+      if (dialog.action === 'logout') {
+        const session = currentLogin(dialog.user);
+        if (!session) { setDialogError('There is no current login to end.'); return; }
+        await apiRequest(`/admin/user-security/${dialog.user.id}/logout`, 'POST', { sessionId: session.id }, localStorage.getItem('admin_token') || '');
+        setNotice('Session ended. The user can sign in again.');
+        setDialog(null);
+        await load();
+        return;
+      }
       const isIp = dialog.action === 'ip_ban' || dialog.action === 'ip_unban';
       const result = await apiRequest<{ message?: string }>(`/admin/user-security/${dialog.user.id}${isIp ? '/ip-ban' : dialog.action === 'delete' ? '' : '/ban'}`, isIp ? 'PUT' : dialog.action === 'delete' ? 'DELETE' : 'PATCH', { action: isIp ? (dialog.action === 'ip_ban' ? 'ban' : 'unban') : dialog.action, ip: isIp ? dialog.user.vpn?.lastIp : undefined, reason: reason.trim(), confirmation, ...(dialog.action === 'temporary' ? { expiresAt: new Date(expiry).toISOString() } : {}) }, localStorage.getItem('admin_token') || '');
       setNotice(result.message || 'Account status updated. Connected apps are notified immediately.'); setDialog(null); await load();
@@ -204,7 +216,7 @@ export default function UserSecurityPage() {
                 <TableCell><div className="flex items-center gap-2 text-sm text-default-600"><NetworkIcon type={network?.networkType} /><span className="capitalize">{network?.networkType || 'Unknown'}</span></div><p className="mt-1 max-w-[150px] truncate font-mono text-[11px] text-default-400">{network?.publicIp || 'IP not reported'}</p></TableCell>
                 <TableCell>{user.vpn?.count ? <Chip size="sm" color="danger" variant="flat">VPN · {user.vpn.count}</Chip> : <span className="text-xs text-default-400">No recorded VPN</span>}</TableCell>
                 <TableCell><span className="whitespace-nowrap text-xs text-default-400">{date(network?.lastSeen)}</span><p className="mt-1 max-w-[150px] truncate text-[11px] text-default-400">{[network?.geo?.city, network?.geo?.country].filter(Boolean).join(', ') || 'Location pending'}</p></TableCell>
-                <TableCell><div className="flex justify-end"><Button size="sm" variant="light" color="primary" onPress={() => { setSelection({ user, page, query: search }); setDetailsOpen(true); }}>View details</Button></div></TableCell>
+                <TableCell><div className="flex flex-wrap justify-end gap-1"><Button size="sm" variant="flat" isDisabled={!currentLogin(user)} onPress={() => open(user, 'logout')}>Log out user</Button><Button size="sm" variant="light" color="primary" onPress={() => { setSelection({ user, page, query: search }); setDetailsOpen(true); }}>View details</Button></div></TableCell>
               </TableRow>;
             })}
           </TableBody>
@@ -227,12 +239,12 @@ export default function UserSecurityPage() {
         </ModalBody>
         <ModalFooter className="flex-wrap justify-between gap-3 border-t border-divider">
           <Button size="sm" variant="flat" onPress={() => setDetailsOpen(false)}>Close details</Button>
-          {selectedUser && <div className="flex flex-wrap gap-2"><Button size="sm" variant="flat" color="warning" isDisabled={selectedUser.status === 'deletion_pending'} onPress={() => open(selectedUser, 'temporary')}>Temporary ban</Button><Button size="sm" variant="flat" color="danger" isDisabled={selectedUser.status === 'deletion_pending'} onPress={() => open(selectedUser, 'permanent')}>Permanent ban</Button>{selectedUser.status.includes('ban') && <Button size="sm" variant="flat" color="success" onPress={() => open(selectedUser, 'unban')}>Unban</Button>}<Button size="sm" variant="light" color="danger" isDisabled={selectedUser.status === 'deletion_pending'} onPress={() => open(selectedUser, 'delete')}>Delete account</Button></div>}
+          {selectedUser && <div className="flex flex-wrap gap-2"><Button size="sm" variant="flat" isDisabled={!currentLogin(selectedUser)} onPress={() => open(selectedUser, 'logout')}>Log out user</Button><Button size="sm" variant="flat" color="warning" isDisabled={selectedUser.status === 'deletion_pending'} onPress={() => open(selectedUser, 'temporary')}>Temporary ban</Button><Button size="sm" variant="flat" color="danger" isDisabled={selectedUser.status === 'deletion_pending'} onPress={() => open(selectedUser, 'permanent')}>Permanent ban</Button>{selectedUser.status.includes('ban') && <Button size="sm" variant="flat" color="success" onPress={() => open(selectedUser, 'unban')}>Unban</Button>}<Button size="sm" variant="light" color="danger" isDisabled={selectedUser.status === 'deletion_pending'} onPress={() => open(selectedUser, 'delete')}>Delete account</Button></div>}
         </ModalFooter>
       </ModalContent>
     </Modal>
     <Modal isOpen={Boolean(dialog)} onClose={() => { if (!saving) setDialog(null); }} isDismissable={!saving} isKeyboardDismissDisabled={saving} hideCloseButton={saving} scrollBehavior="inside" placement="center" classNames={{ base: 'admin-ui admin-modal-panel bg-content1 text-foreground', wrapper: 'admin-modal-wrapper', backdrop: 'admin-modal-backdrop' }}>
-      <ModalContent><ModalHeader>{dialog ? labels[dialog.action] : ''}</ModalHeader><ModalBody><p className="text-sm text-default-400">{dialog?.user.name} · {dialog?.user.email}</p><p className="text-sm">{dialog?.action === 'ip_ban' || dialog?.action === 'ip_unban' ? `IP: ${dialog.user.vpn?.lastIp}. This applies to all customer accounts connecting through this public IP, including unrelated people sharing a network. Administrator access is excluded.` : dialog?.action === 'delete' ? 'Account access is revoked immediately. Deletion enters the existing cleanup workflow; retained purchase records follow its existing policy.' : dialog?.action === 'unban' ? 'Restore account access, reset the VPN strike count and release associated installation/email blocks. The user must sign in again. Manual IP blocks are managed separately.' : 'Access is revoked on all sessions. Connected apps are notified; offline apps are checked when they reconnect.'}</p><Textarea label="Reason" description={dialog?.action === 'temporary' || dialog?.action === 'permanent' ? 'This reason is shown to the user when access is denied.' : dialog?.action === 'ip_ban' || dialog?.action === 'ip_unban' ? 'Saved with the IP restriction.' : 'Recorded in moderation history.'} value={reason} onValueChange={setReason} maxLength={500} isRequired isDisabled={saving} />{dialog?.action === 'temporary' && <Input type="datetime-local" label="Ban expiry (your local time)" value={expiry} onValueChange={setExpiry} isRequired isDisabled={saving} />}{dialog?.action === 'delete' && <Input label="Type DELETE to confirm" value={confirmation} onValueChange={setConfirmation} isDisabled={saving} />}{dialogError && <p role="alert" className="text-sm text-danger">{dialogError}</p>}</ModalBody><ModalFooter><Button variant="flat" isDisabled={saving} onPress={() => setDialog(null)}>Cancel</Button><Button color={dialog?.action === 'unban' ? 'success' : 'danger'} isLoading={saving} onPress={() => void submit()}>{dialog ? labels[dialog.action] : 'Confirm'}</Button></ModalFooter></ModalContent>
+      <ModalContent><ModalHeader>{dialog ? labels[dialog.action] : ''}</ModalHeader><ModalBody><p className="text-sm text-default-400">{dialog?.user.name} · {dialog?.user.email}</p><p className="text-sm">{dialog?.action === 'logout' ? `End the login on ${currentLogin(dialog.user)?.deviceModel || 'this device'}? The account stays active and the user can sign in again.` : dialog?.action === 'ip_ban'  || dialog?.action === 'ip_unban' ? `IP: ${dialog.user.vpn?.lastIp}. This applies to all customer accounts connecting through this public IP, including unrelated people sharing a network. Administrator access is excluded.` : dialog?.action === 'delete' ? 'Account access is revoked immediately. Deletion enters the existing cleanup workflow; retained purchase records follow its existing policy.' : dialog?.action === 'unban' ? 'Restore account access, reset the VPN strike count and release associated installation/email blocks. The user must sign in again. Manual IP blocks are managed separately.' : 'Access is revoked on all sessions. Connected apps are notified; offline apps are checked when they reconnect.'}</p>{dialog?.action !== 'logout' && <Textarea label="Reason" description={dialog?.action === 'temporary' || dialog?.action === 'permanent' ? 'This reason is shown to the user when access is denied.' : dialog?.action === 'ip_ban' || dialog?.action === 'ip_unban' ? 'Saved with the IP restriction.' : 'Recorded in moderation history.'} value={reason} onValueChange={setReason} maxLength={500} isRequired isDisabled={saving} />}{dialog?.action === 'temporary' && <Input type="datetime-local" label="Ban expiry (your local time)" value={expiry} onValueChange={setExpiry} isRequired isDisabled={saving} />}{dialog?.action === 'delete' && <Input label="Type DELETE to confirm" value={confirmation} onValueChange={setConfirmation} isDisabled={saving} />}{dialogError && <p role="alert" className="text-sm text-danger">{dialogError}</p>}</ModalBody><ModalFooter><Button variant="flat" isDisabled={saving} onPress={() => setDialog(null)}>Cancel</Button><Button color={dialog?.action === 'unban' ? 'success' : 'danger'} isLoading={saving} onPress={() => void submit()}>{dialog ? labels[dialog.action] : 'Confirm'}</Button></ModalFooter></ModalContent>
     </Modal>
   </section>;
 }
