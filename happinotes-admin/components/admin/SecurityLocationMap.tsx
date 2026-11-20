@@ -106,6 +106,12 @@ export default function SecurityLocationMap({ geo, kind = 'ip' }: { geo?: Securi
     </div>
     <p className="text-xs text-default-400">Scroll or pinch to zoom · Double-click to zoom in · Shift-drag to zoom an area</p>
     <p className="text-xs leading-5 text-default-400">{kind === 'device' ? 'Last location shared by the device, not a live tracker. Accuracy depends on the device and OS permission; coordinates are client-reported.' : locationMessage(geo?.status)}{!point && ' No user marker is shown.'}</p>
-    {point && <a className="inline-flex text-sm font-medium text-primary underline-offset-4 hover:underline" href={`https://www.openstreetmap.org/?${new URLSearchParams({ mlat: String(lat), mlon: String(lon) })}#map=${zoom?.key === key ? Math.round(zoom.value) : initialZoom}/${lat}/${lon}`} target="_blank" rel="noreferrer">Open full map ↗</a>}
+    {point && (
+      <a className="inline-flex text-sm font-medium text-primary underline-offset-4 hover:underline"
+        href={`https://www.google.com/maps/search/?${new URLSearchParams({ api: '1', query: point.join(',') })}`}
+        target="_blank" rel="noopener noreferrer">
+        Open full map in Google Maps ↗
+      </a>
+    )}
   </div>;
 }

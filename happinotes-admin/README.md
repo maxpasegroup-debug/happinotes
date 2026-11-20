@@ -213,7 +213,7 @@ The existing Framer Motion dependency supplies the moving tab indicator, panel t
 
 Files: `components/admin/UserSecurityCharts.tsx`, `lib/user-security-charts.ts`, `test/user-security-charts.test.mjs`, and the existing `app/admin/(secure)/user-security/page.tsx`.
 
-User Security IP and device maps now support zoom levels 0–19 (the configured OpenStreetMap tile range), mouse-wheel/pinch zoom, double-click, keyboard controls and Shift-drag area zoom. The toolbar shows the current zoom, resets the view and expands the map using browser fullscreen where available, with a taller in-panel fallback. Resize handling keeps the existing map/marker and zoom intact. The external OpenStreetMap link uses the selected zoom. Increasing zoom does not increase the accuracy of a saved IP or device coordinate.
+User Security IP and device maps now support zoom levels 0–19 (the configured OpenStreetMap tile range), mouse-wheel/pinch zoom, double-click, keyboard controls and Shift-drag area zoom. The toolbar shows the current zoom, resets the view and expands the map using browser fullscreen where available, with a taller in-panel fallback. Resize handling keeps the existing map/marker and zoom intact. Open full map opens Google Maps at the coordinates of the selected IP or device pin. Increasing zoom does not increase the accuracy of a saved IP or device coordinate.
 
 ### Application analytics and management navigation
 
