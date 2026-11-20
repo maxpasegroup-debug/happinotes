@@ -114,7 +114,7 @@ export function AdminSelect({ children, label, disabled, required, className = '
       onChange?.({ ...event, target, currentTarget: target });
     }}
     variant="bordered" radius="lg" size="sm" className={`min-w-36 ${layoutClasses(className)}`} style={layoutStyle(style)}
-    popoverProps={{ classNames: { content: 'dark bg-content1 text-foreground border border-divider' } }}
+    popoverProps={{ classNames: { content: 'bg-content1 text-foreground border border-divider' } }}
     classNames={{ trigger: 'min-h-11 border border-default-200 bg-content2/40 shadow-none', value: 'text-sm text-foreground' }}
   >
     {entries.map((entry) => <SelectItem key={keyOf(entry.value)} textValue={entry.textValue}>{entry.text}</SelectItem>)}

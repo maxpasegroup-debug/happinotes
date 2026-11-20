@@ -56,7 +56,7 @@ export default function LanguagePicker({ value, onChange, error, disabled }: Pro
           input: 'text-sm', description: 'text-xs leading-relaxed text-foreground-500',
         },
       }}
-      popoverProps={{ classNames: { content: 'dark admin-ui border border-divider bg-content1 text-foreground shadow-xl' } }}
+      popoverProps={{ classNames: { content: 'admin-ui border border-divider bg-content1 text-foreground shadow-xl' } }}
       listboxProps={{
         emptyContent: value.trim() ? `Use “${value.trim()}” as a custom language.` : 'Type a language name.',
         itemClasses: { base: 'h-14 rounded-lg data-[hover=true]:bg-default-100 data-[selected=true]:bg-primary/10', title: 'truncate text-sm', description: 'truncate text-xs text-foreground-500' },

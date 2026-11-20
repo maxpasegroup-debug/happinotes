@@ -22,7 +22,7 @@ type Content = {
   lessons?: Array<{ title?: string; description?: string; mediaUrl?: string; mediaType?: "audio" | "video"; order?: number; createdAt?: string; accessType?: "free" | "premium"; thumbnailUrl?: string }>;
 };
 
-const inputClass = "mt-2 w-full rounded-xl border border-white/10 bg-[#0d111b] px-4 py-3 text-sm text-white outline-none transition placeholder:text-slate-500 focus:border-orange-400 focus:ring-2 focus:ring-orange-400/20";
+const inputClass = "mt-2 w-full rounded-xl border border-divider bg-content1 px-4 py-3 text-sm text-foreground outline-none transition placeholder:text-slate-500 focus:border-orange-400 focus:ring-2 focus:ring-orange-400/20";
 const cardClass = "rounded-2xl border border-divider bg-content1 p-5 sm:p-6";
 const emptyLesson = (index: number, editorId: string): Lesson => ({ editorId, createdAt: new Date().toISOString(), title: `Lesson ${index + 1}`, description: "", mediaUrl: "", mediaType: "audio", file: null, error: "", accessType: "free", thumbnailUrl: "", thumbnailFile: null, thumbnailError: "" });
 
@@ -61,8 +61,8 @@ function AccessIcon({ paid, className = "h-5 w-5" }: { paid: boolean; className?
 function CoverPreview({ file, url, title }: { file: File | null; url?: string; title: string }) {
   const local = useObjectUrl(file);
   const src = local || url;
-  return src ? <Image unoptimized width={128} height={176} src={src} alt={`${title || "Book"} cover preview`} className="h-44 w-32 rounded-xl border border-white/10 object-cover shadow-lg" /> : (
-    <div className="flex h-44 w-32 items-center justify-center rounded-xl border border-dashed border-white/20 bg-black/20 px-3 text-center text-xs text-slate-500">Cover preview</div>
+  return src ? <Image unoptimized width={128} height={176} src={src} alt={`${title || "Book"} cover preview`} className="h-44 w-32 rounded-xl border border-divider object-cover shadow-lg" /> : (
+    <div className="flex h-44 w-32 items-center justify-center rounded-xl border border-dashed border-divider bg-black/20 px-3 text-center text-xs text-default-500">Cover preview</div>
   );
 }
 
@@ -75,18 +75,18 @@ function LessonCard({ lesson, index, total, bookCoverUrl, onChange, onRemove, on
   return (
     <Card as="article" shadow="none" className="rounded-xl border border-divider bg-content1 p-4 sm:p-5" aria-labelledby={`lesson-title-${index}`}>
       <div className="mb-4 flex flex-wrap items-center justify-between gap-3">
-        <h3 id={`lesson-title-${index}`} className="font-semibold text-white">Lesson {index + 1}</h3>
+        <h3 id={`lesson-title-${index}`} className="font-semibold text-foreground">Lesson {index + 1}</h3>
         <div className="flex gap-2">
-          <AdminButton type="button" aria-label={`Move lesson ${index + 1} up`} disabled={index === 0} onClick={async () => { if (await confirm({ title: 'Move lesson up?', description: `Move “${lesson.title}” one position earlier? Save the book to apply the new order.`, confirmLabel: 'Move up' })) onMove(-1); }} className="rounded-lg border border-white/10 px-3 py-2 text-xs text-slate-200 disabled:opacity-30">Move up</AdminButton>
-          <AdminButton type="button" aria-label={`Move lesson ${index + 1} down`} disabled={index === total - 1} onClick={async () => { if (await confirm({ title: 'Move lesson down?', description: `Move “${lesson.title}” one position later? Save the book to apply the new order.`, confirmLabel: 'Move down' })) onMove(1); }} className="rounded-lg border border-white/10 px-3 py-2 text-xs text-slate-200 disabled:opacity-30">Move down</AdminButton>
-          <AdminButton type="button" onClick={async () => { if (await confirm({ title: 'Remove lesson?', description: `Remove “${lesson.title || `Lesson ${index + 1}`}” from this book? Save the book to apply this change.`, confirmLabel: 'Remove lesson', tone: 'danger' })) onRemove(); }} className="rounded-lg border border-rose-400/20 px-3 py-2 text-xs text-rose-200 hover:bg-rose-400/10">Remove</AdminButton>
+          <AdminButton type="button" aria-label={`Move lesson ${index + 1} up`} disabled={index === 0} onClick={async () => { if (await confirm({ title: 'Move lesson up?', description: `Move “${lesson.title}” one position earlier? Save the book to apply the new order.`, confirmLabel: 'Move up' })) onMove(-1); }} className="rounded-lg border border-divider px-3 py-2 text-xs text-foreground disabled:opacity-30">Move up</AdminButton>
+          <AdminButton type="button" aria-label={`Move lesson ${index + 1} down`} disabled={index === total - 1} onClick={async () => { if (await confirm({ title: 'Move lesson down?', description: `Move “${lesson.title}” one position later? Save the book to apply the new order.`, confirmLabel: 'Move down' })) onMove(1); }} className="rounded-lg border border-divider px-3 py-2 text-xs text-foreground disabled:opacity-30">Move down</AdminButton>
+          <AdminButton type="button" onClick={async () => { if (await confirm({ title: 'Remove lesson?', description: `Remove “${lesson.title || `Lesson ${index + 1}`}” from this book? Save the book to apply this change.`, confirmLabel: 'Remove lesson', tone: 'danger' })) onRemove(); }} className="rounded-lg border border-rose-400/20 px-3 py-2 text-xs text-rose-700 dark:text-rose-200 hover:bg-rose-400/10">Remove</AdminButton>
         </div>
       </div>
       <div className="grid gap-4 md:grid-cols-2">
-        <label className="text-sm font-medium text-slate-300">Lesson name
+        <label className="text-sm font-medium text-default-600">Lesson name
           <AdminInput className={inputClass} value={lesson.title} maxLength={160} onChange={(event) => onChange({ title: event.target.value })} placeholder="For example, A fresh start" />
         </label>
-        <label className="text-sm font-medium text-slate-300">Short description
+        <label className="text-sm font-medium text-default-600">Short description
           <AdminInput className={inputClass} value={lesson.description} maxLength={500} onChange={(event) => onChange({ description: event.target.value })} placeholder="What will the listener hear?" />
         </label>
       </div>
@@ -98,7 +98,7 @@ function LessonCard({ lesson, index, total, bookCoverUrl, onChange, onRemove, on
       </div>
       <div className="mt-4 grid gap-4 sm:grid-cols-[1fr_auto] sm:items-center">
         <div>
-          <label className="text-sm font-medium text-slate-300" htmlFor={`lesson-thumbnail-${index}`}>Lesson thumbnail</label>
+          <label className="text-sm font-medium text-default-600" htmlFor={`lesson-thumbnail-${index}`}>Lesson thumbnail</label>
           <AdminInput id={`lesson-thumbnail-${index}`} type="file" accept=".jpg,.jpeg,.png,.webp,image/jpeg,image/png,image/webp" className={inputClass} onChange={async (event) => {
             const file = event.currentTarget.files?.[0]; event.currentTarget.value = '';
             if (!file) return;
@@ -107,8 +107,8 @@ function LessonCard({ lesson, index, total, bookCoverUrl, onChange, onRemove, on
             if (!await confirm({ title: 'Update lesson thumbnail?', description: `Use “${file.name}” for this lesson? It will upload when you save the book.`, confirmLabel: 'Use image' })) return;
             onChange({ thumbnailFile: file, thumbnailError: '' });
           }} />
-          <p className="mt-2 text-xs text-slate-500">JPG, PNG or WebP · up to 50 MB. Without a custom image, this lesson uses the book cover.</p>
-          {lesson.thumbnailError ? <p className="mt-2 text-sm text-rose-300" role="alert">{lesson.thumbnailError}</p> : null}
+          <p className="mt-2 text-xs text-default-500">JPG, PNG or WebP · up to 50 MB. Without a custom image, this lesson uses the book cover.</p>
+          {lesson.thumbnailError ? <p className="mt-2 text-sm text-rose-700 dark:text-rose-300" role="alert">{lesson.thumbnailError}</p> : null}
           {lesson.thumbnailFile || lesson.thumbnailUrl ? <AdminButton type="button" className="mt-2 text-xs" onClick={async () => {
             if (await confirm({ title: 'Use book cover?', description: 'Remove this lesson’s custom thumbnail when you save the book?', confirmLabel: 'Use book cover' })) onChange({ thumbnailFile: null, thumbnailUrl: '', thumbnailError: '' });
           }}>Use book cover</AdminButton> : null}
@@ -117,7 +117,7 @@ function LessonCard({ lesson, index, total, bookCoverUrl, onChange, onRemove, on
       </div>
       <div className="mt-4 grid gap-4 lg:grid-cols-[1fr_auto] lg:items-center">
         <div>
-          <label className="block text-sm font-medium text-slate-300" htmlFor={`lesson-file-${index}`}>MP3 audio</label>
+          <label className="block text-sm font-medium text-default-600" htmlFor={`lesson-file-${index}`}>MP3 audio</label>
           <AdminInput id={`lesson-file-${index}`} className={`${inputClass} file:mr-3 file:rounded-lg file:border-0 file:bg-orange-500/15 file:px-3 file:py-2 file:text-xs file:font-semibold file:text-orange-200`} type="file" accept=".mp3,audio/mpeg,audio/mp3,audio/x-mpeg" onChange={async (event) => {
             const file = event.currentTarget.files?.[0];
             event.currentTarget.value = "";
@@ -127,9 +127,9 @@ function LessonCard({ lesson, index, total, bookCoverUrl, onChange, onRemove, on
             if (!await confirm({ title: lesson.file || lesson.mediaUrl ? 'Replace lesson audio?' : 'Add lesson audio?', description: `Use “${file.name}” for this lesson? It will be uploaded when you save the book.`, confirmLabel: lesson.file || lesson.mediaUrl ? 'Replace audio' : 'Add audio' })) return;
             onChange({ file, mediaUrl: "", mediaType: "audio", error: "" });
           }} />
-          <p className="mt-2 text-xs text-slate-500">MP3 only · up to 50 MB.</p>
-          {lesson.error ? <p className="mt-2 text-sm text-rose-300" role="alert">{lesson.error}</p> : null}
-          {lesson.file ? <div className="mt-2 flex flex-wrap items-center gap-2"><p className="truncate text-xs text-slate-300">Selected: {lesson.file.name}</p>{lesson.error ? <AdminButton type="button" className="text-xs text-slate-400 underline" onClick={async () => { if (await confirm({ title: 'Remove selected file?', description: 'Remove this selected audio file from the form?', confirmLabel: 'Remove file', tone: 'danger' })) onChange({ file: null, error: '' }); }}>Remove selected file</AdminButton> : null}</div> : lesson.mediaUrl ? <p className="mt-2 text-xs text-emerald-300">Audio is saved and ready.</p> : <p className="mt-2 text-xs text-amber-200">No audio selected yet.</p>}
+          <p className="mt-2 text-xs text-default-500">MP3 only · up to 50 MB.</p>
+          {lesson.error ? <p className="mt-2 text-sm text-rose-700 dark:text-rose-300" role="alert">{lesson.error}</p> : null}
+          {lesson.file ? <div className="mt-2 flex flex-wrap items-center gap-2"><p className="truncate text-xs text-default-600">Selected: {lesson.file.name}</p>{lesson.error ? <AdminButton type="button" className="text-xs text-default-500 underline" onClick={async () => { if (await confirm({ title: 'Remove selected file?', description: 'Remove this selected audio file from the form?', confirmLabel: 'Remove file', tone: 'danger' })) onChange({ file: null, error: '' }); }}>Remove selected file</AdminButton> : null}</div> : lesson.mediaUrl ? <p className="mt-2 text-xs text-emerald-700 dark:text-emerald-300">Audio is saved and ready.</p> : <p className="mt-2 text-xs text-amber-700 dark:text-amber-200">No audio selected yet.</p>}
         </div>
         {lesson.error ? null : lesson.mediaType === "video" && lesson.mediaUrl ? <video controls preload="metadata" src={lesson.mediaUrl} className="w-full max-w-sm" aria-label={`Preview lesson ${index + 1} video`} /> : (lesson.file || lesson.mediaUrl) ? <audio controls preload="metadata" src={local || lesson.mediaUrl} className="w-full max-w-sm" aria-label={`Preview lesson ${index + 1} audio`} /> : null}
       </div>
@@ -147,13 +147,13 @@ function LessonTableRow({ lesson, index, total, bookCoverUrl, expanded, error, d
   const hasError = Boolean(error || lesson.error || lesson.thumbnailError);
   return <Fragment>
     <tr className={expanded ? 'bg-orange-500/5' : ''}>
-      <td className="w-14 px-3 py-3 text-xs font-medium tabular-nums text-slate-400">{String(index + 1).padStart(2, '0')}</td>
+      <td className="w-14 px-3 py-3 text-xs font-medium tabular-nums text-default-500">{String(index + 1).padStart(2, '0')}</td>
       <td className="px-3 py-3">
         <div className="flex items-center gap-3">
           {thumbnail ? <Image unoptimized src={thumbnail} width={36} height={44} alt="" className="h-11 w-9 shrink-0 rounded-md object-cover" />
-            : <span aria-hidden="true" className="flex h-11 w-9 shrink-0 items-center justify-center rounded-md bg-white/5 text-xs text-slate-500">{index + 1}</span>}
-          <div className="min-w-0"><p className="max-w-[min(36vw,440px)] truncate text-sm font-medium text-white">{lesson.title || 'Untitled lesson'}</p>
-            <p className={`mt-0.5 max-w-[min(36vw,440px)] truncate text-[11px] ${hasError ? 'text-rose-300' : 'text-slate-500'}`}>{hasError ? 'Needs attention — open details' : lesson.description || 'No description yet'}</p>
+            : <span aria-hidden="true" className="flex h-11 w-9 shrink-0 items-center justify-center rounded-md bg-foreground/5 text-xs text-default-500">{index + 1}</span>}
+          <div className="min-w-0"><p className="max-w-[min(36vw,440px)] truncate text-sm font-medium text-foreground">{lesson.title || 'Untitled lesson'}</p>
+            <p className={`mt-0.5 max-w-[min(36vw,440px)] truncate text-[11px] ${hasError ? 'text-rose-700 dark:text-rose-300' : 'text-default-500'}`}>{hasError ? 'Needs attention — open details' : lesson.description || 'No description yet'}</p>
           </div>
         </div>
       </td>
@@ -163,13 +163,13 @@ function LessonTableRow({ lesson, index, total, bookCoverUrl, expanded, error, d
           <span className="text-xs">{lesson.accessType === 'premium' ? 'Paid' : 'Free'}</span>
         </Switch>
       </td>
-      <td className="hidden w-32 px-3 py-3 sm:table-cell"><span className={`whitespace-nowrap rounded-full px-2 py-1 text-[11px] ${hasError ? 'bg-rose-500/10 text-rose-300' : lesson.file ? 'bg-orange-500/10 text-orange-200' : lesson.mediaUrl ? 'bg-emerald-500/10 text-emerald-300' : 'bg-white/5 text-slate-400'}`}>
+      <td className="hidden w-32 px-3 py-3 sm:table-cell"><span className={`whitespace-nowrap rounded-full px-2 py-1 text-[11px] ${hasError ? 'bg-rose-500/10 text-rose-700 dark:text-rose-300' : lesson.file ? 'bg-orange-500/10 text-orange-700 dark:text-orange-200' : lesson.mediaUrl ? 'bg-emerald-500/10 text-emerald-700 dark:text-emerald-300' : 'bg-foreground/5 text-default-500'}`}>
         {hasError ? 'Check file' : lesson.file ? 'Ready to upload' : lesson.mediaUrl ? 'Audio saved' : 'No audio'}
       </span></td>
       <td className="w-44 px-3 py-3 text-right">
         <div className="flex items-center justify-end gap-2">
         <button type="button" aria-label={`${expanded ? 'Collapse' : 'Expand'} lesson ${index + 1} details`} aria-expanded={expanded} aria-controls={`lesson-details-${lesson.editorId}`} onClick={onExpand}
-          className="inline-flex items-center gap-1.5 rounded-lg border border-orange-300/20 px-2.5 py-2 text-xs font-medium text-orange-200 transition-colors hover:bg-orange-500/10 focus-visible:outline-2 focus-visible:outline-orange-400 motion-reduce:transition-none">
+          className="inline-flex items-center gap-1.5 rounded-lg border border-orange-300/20 px-2.5 py-2 text-xs font-medium text-orange-700 dark:text-orange-200 transition-colors hover:bg-orange-500/10 focus-visible:outline-2 focus-visible:outline-orange-400 motion-reduce:transition-none">
           {expanded ? 'Close' : 'Details'}
           <svg aria-hidden="true" width="12" height="12" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" className={`transition-transform motion-reduce:transition-none ${expanded ? 'rotate-180' : ''}`}><path d="m6 9 6 6 6-6" /></svg>
         </button>
@@ -177,7 +177,7 @@ function LessonTableRow({ lesson, index, total, bookCoverUrl, expanded, error, d
           onClick={async () => {
             if (await confirm({ title: 'Remove lesson?', description: `Remove “${lesson.title || `Lesson ${index + 1}`}” from this book? Save the book to apply this change.`, confirmLabel: 'Remove lesson', tone: 'danger' })) onRemove();
           }}
-          className="inline-flex items-center gap-1.5 rounded-lg border border-rose-400/20 px-2.5 py-2 text-xs font-medium text-rose-200 transition-colors hover:bg-rose-400/10 focus-visible:outline-2 focus-visible:outline-rose-400 disabled:cursor-not-allowed disabled:opacity-40 motion-reduce:transition-none">
+          className="inline-flex items-center gap-1.5 rounded-lg border border-rose-400/20 px-2.5 py-2 text-xs font-medium text-rose-700 dark:text-rose-200 transition-colors hover:bg-rose-400/10 focus-visible:outline-2 focus-visible:outline-rose-400 disabled:cursor-not-allowed disabled:opacity-40 motion-reduce:transition-none">
           <svg aria-hidden="true" width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="1.8" strokeLinecap="round" strokeLinejoin="round"><path d="M3 6h18M9 6V4h6v2M5 6l1 14h12l1-14M10 10v6M14 10v6" /></svg>
           Remove
         </button>
@@ -185,9 +185,9 @@ function LessonTableRow({ lesson, index, total, bookCoverUrl, expanded, error, d
       </td>
     </tr>
     {expanded && <tr id={`lesson-details-${lesson.editorId}`}><td colSpan={5} className="bg-black/10 p-3 sm:p-4">
-      {error && <p className="mb-2 text-sm text-rose-300" role="alert">{error}</p>}
+      {error && <p className="mb-2 text-sm text-rose-700 dark:text-rose-300" role="alert">{error}</p>}
       <LessonCard lesson={lesson} index={index} total={total} bookCoverUrl={bookCoverUrl} onChange={onChange} onRemove={onRemove} onMove={onMove} />
-      <button type="button" onClick={onExpand} className="mt-3 rounded px-2 py-1 text-xs text-orange-200 hover:text-orange-100 focus-visible:outline-2 focus-visible:outline-orange-400">Collapse details</button>
+      <button type="button" onClick={onExpand} className="mt-3 rounded px-2 py-1 text-xs text-orange-700 dark:text-orange-200 hover:text-orange-100 focus-visible:outline-2 focus-visible:outline-orange-400">Collapse details</button>
     </td></tr>}
   </Fragment>;
 }
@@ -372,73 +372,73 @@ export default function BookEditor({ contentId }: { contentId?: string }) {
     [next[index], next[target]] = [next[target], next[index]]; setLessons(next);
   }
 
-  if (loading) return <Card as="div" shadow="none" className="w-full min-w-0 animate-pulse rounded-2xl border border-divider bg-content1 p-8 text-slate-300">Loading book details…</Card>;
-  if (editing && !content) return <Card as="div" shadow="none" className="w-full min-w-0 rounded-2xl border border-rose-300/20 bg-content1 p-6 text-rose-200" role="alert">{pageError || "Could not load this book."}</Card>;
+  if (loading) return <Card as="div" shadow="none" className="w-full min-w-0 animate-pulse rounded-2xl border border-divider bg-content1 p-8 text-default-600">Loading book details…</Card>;
+  if (editing && !content) return <Card as="div" shadow="none" className="w-full min-w-0 rounded-2xl border border-rose-300/20 bg-content1 p-6 text-rose-700 dark:text-rose-200" role="alert">{pageError || "Could not load this book."}</Card>;
 
   return (
-    <main className="w-full min-w-0 space-y-5 pb-10 text-slate-100">
+    <main className="w-full min-w-0 space-y-5 pb-10 text-foreground">
       <header className="flex flex-wrap items-end justify-between gap-4">
-        <div><p className="text-xs font-semibold uppercase tracking-[.2em] text-orange-300">HappiNotes · Library</p><h1 className="mt-2 text-3xl font-bold tracking-tight">{editing ? "Edit book" : "Create a book"}</h1><p className="mt-2 max-w-2xl text-sm text-slate-400">Add book details, a cover, and ordered MP3 lessons. Nothing is published until you choose Publish.</p></div>
-        <AdminButton type="button" onClick={async () => { if (await confirm({ title: 'Leave book editor?', description: 'Return to the book library? Any unsaved changes will be lost.', confirmLabel: 'Leave editor', tone: 'warning' })) router.push('/admin/story-books'); }} className="rounded-xl border border-white/10 px-4 py-2.5 text-sm text-slate-300 hover:bg-white/5">Back to books</AdminButton>
+        <div><p className="text-xs font-semibold uppercase tracking-[.2em] text-orange-700 dark:text-orange-300">HappiNotes · Library</p><h1 className="mt-2 text-3xl font-bold tracking-tight">{editing ? "Edit book" : "Create a book"}</h1><p className="mt-2 max-w-2xl text-sm text-default-500">Add book details, a cover, and ordered MP3 lessons. Nothing is published until you choose Publish.</p></div>
+        <AdminButton type="button" onClick={async () => { if (await confirm({ title: 'Leave book editor?', description: 'Return to the book library? Any unsaved changes will be lost.', confirmLabel: 'Leave editor', tone: 'warning' })) router.push('/admin/story-books'); }} className="rounded-xl border border-divider px-4 py-2.5 text-sm text-default-600 hover:bg-foreground/5">Back to books</AdminButton>
       </header>
 
       {pageError ? <div className="rounded-xl border border-rose-400/20 bg-rose-400/10 p-4 text-sm text-rose-100" role="alert">{pageError}</div> : null}
 
       <Card as="section" shadow="none" className={cardClass} aria-labelledby="book-details-heading">
-        <div className="mb-5 flex items-start justify-between gap-4"><div><h2 id="book-details-heading" className="text-lg font-semibold">Book details</h2><p className="mt-1 text-sm text-slate-400">Tell listeners what this book is about.</p></div><span className="rounded-full bg-white/5 px-3 py-1 text-xs text-slate-400">{editing ? `Current status: ${status.replace("_", " ")}` : "New book"}</span></div>
+        <div className="mb-5 flex items-start justify-between gap-4"><div><h2 id="book-details-heading" className="text-lg font-semibold">Book details</h2><p className="mt-1 text-sm text-default-500">Tell listeners what this book is about.</p></div><span className="rounded-full bg-foreground/5 px-3 py-1 text-xs text-default-500">{editing ? `Current status: ${status.replace("_", " ")}` : "New book"}</span></div>
         <div className="grid gap-5 md:grid-cols-2">
-          <label className="text-sm font-medium text-slate-300">Book title
+          <label className="text-sm font-medium text-default-600">Book title
             <AdminInput className={inputClass} value={title} maxLength={180} onChange={(event) => setTitle(event.target.value)} placeholder="Enter a clear book title" aria-invalid={Boolean(fieldErrors.title)} />
-            {fieldErrors.title ? <span className="mt-1 block text-xs text-rose-300">{fieldErrors.title}</span> : null}
+            {fieldErrors.title ? <span className="mt-1 block text-xs text-rose-700 dark:text-rose-300">{fieldErrors.title}</span> : null}
           </label>
           <LanguagePicker value={language} onChange={setLanguage} error={fieldErrors.language} disabled={saving} />
-          <label className="text-sm font-medium text-slate-300 md:col-span-2">Description
+          <label className="text-sm font-medium text-default-600 md:col-span-2">Description
             <AdminTextarea className={inputClass} value={description} maxLength={4000} onChange={(event) => setDescription(event.target.value)} rows={4} placeholder="A short description listeners can use to choose this book." />
           </label>
         </div>
-        <div className="mt-5 grid gap-5 border-t border-white/10 pt-5 sm:grid-cols-[1fr_auto] sm:items-center">
-          <div><label htmlFor="book-cover" className="block text-sm font-medium text-slate-300">Cover thumbnail</label><AdminInput id="book-cover" className={`${inputClass} file:mr-3 file:rounded-lg file:border-0 file:bg-orange-500/15 file:px-3 file:py-2 file:text-xs file:font-semibold file:text-orange-200`} type="file" accept=".jpg,.jpeg,.png,.webp,image/jpeg,image/png,image/webp" onChange={(event) => { const file = event.currentTarget.files?.[0]; event.currentTarget.value = ""; void chooseCover(file); }} /><p className="mt-2 text-xs text-slate-500">JPG, PNG, or WebP · up to 50 MB. Existing cover stays in place if you leave this empty.</p>{coverError || fieldErrors.cover ? <p className="mt-2 text-sm text-rose-300" role="alert">{coverError || fieldErrors.cover}</p> : null}{cover && coverError ? <AdminButton type="button" className="mt-2 text-xs text-slate-400 underline" onClick={async () => { if (await confirm({ title: 'Remove selected cover?', description: 'Remove this selected cover image from the form?', confirmLabel: 'Remove cover', tone: 'danger' })) { setCover(null); setCoverError(''); } }}>Remove selected cover</AdminButton> : null}</div>
+        <div className="mt-5 grid gap-5 border-t border-divider pt-5 sm:grid-cols-[1fr_auto] sm:items-center">
+          <div><label htmlFor="book-cover" className="block text-sm font-medium text-default-600">Cover thumbnail</label><AdminInput id="book-cover" className={`${inputClass} file:mr-3 file:rounded-lg file:border-0 file:bg-orange-500/15 file:px-3 file:py-2 file:text-xs file:font-semibold file:text-orange-200`} type="file" accept=".jpg,.jpeg,.png,.webp,image/jpeg,image/png,image/webp" onChange={(event) => { const file = event.currentTarget.files?.[0]; event.currentTarget.value = ""; void chooseCover(file); }} /><p className="mt-2 text-xs text-default-500">JPG, PNG, or WebP · up to 50 MB. Existing cover stays in place if you leave this empty.</p>{coverError || fieldErrors.cover ? <p className="mt-2 text-sm text-rose-700 dark:text-rose-300" role="alert">{coverError || fieldErrors.cover}</p> : null}{cover && coverError ? <AdminButton type="button" className="mt-2 text-xs text-default-500 underline" onClick={async () => { if (await confirm({ title: 'Remove selected cover?', description: 'Remove this selected cover image from the form?', confirmLabel: 'Remove cover', tone: 'danger' })) { setCover(null); setCoverError(''); } }}>Remove selected cover</AdminButton> : null}</div>
           <CoverPreview file={coverError ? null : cover} url={coverUrl} title={title} />
         </div>
-        <AdminCheckbox isSelected={featured} onValueChange={setFeatured} className="mt-5 rounded-xl border border-white/10 px-4 py-3">Show this book as featured</AdminCheckbox>
+        <AdminCheckbox isSelected={featured} onValueChange={setFeatured} className="mt-5 rounded-xl border border-divider px-4 py-3">Show this book as featured</AdminCheckbox>
       </Card>
 
       <Card as="section" shadow="none" className="rounded-2xl border border-divider bg-content1 p-4" aria-labelledby="access-heading">
         <div className="flex flex-wrap items-center justify-between gap-2">
           <h2 id="access-heading" className="text-base font-semibold">Access and publishing</h2>
-          <span className={`rounded-full px-2.5 py-1 text-[11px] font-medium capitalize ${status === 'live' ? 'bg-emerald-500/10 text-emerald-300' : status === 'coming_soon' ? 'bg-amber-500/10 text-amber-200' : 'bg-white/5 text-slate-400'}`} aria-label={`Publication status: ${status.replace('_', ' ')}`}>
+          <span className={`rounded-full px-2.5 py-1 text-[11px] font-medium capitalize ${status === 'live' ? 'bg-emerald-500/10 text-emerald-700 dark:text-emerald-300' : status === 'coming_soon' ? 'bg-amber-500/10 text-amber-700 dark:text-amber-200' : 'bg-foreground/5 text-default-500'}`} aria-label={`Publication status: ${status.replace('_', ' ')}`}>
             {status.replace('_', ' ')}
           </span>
         </div>
-        <div className="mt-3 flex flex-col gap-3 border-t border-white/10 pt-3 sm:flex-row sm:items-center sm:justify-between">
+        <div className="mt-3 flex flex-col gap-3 border-t border-divider pt-3 sm:flex-row sm:items-center sm:justify-between">
           <div className="flex items-center gap-3">
-            <span className={`flex h-8 w-8 shrink-0 items-center justify-center rounded-lg ${paidLessonCount ? 'bg-orange-500/15 text-orange-300' : 'bg-emerald-500/15 text-emerald-300'}`}>
+            <span className={`flex h-8 w-8 shrink-0 items-center justify-center rounded-lg ${paidLessonCount ? 'bg-orange-500/15 text-orange-700 dark:text-orange-300' : 'bg-emerald-500/15 text-emerald-700 dark:text-emerald-300'}`}>
               <AccessIcon paid={allPaid} className="h-4 w-4" />
             </span>
             <div aria-live="polite">
-              <p className="text-sm font-semibold text-white">All lessons <span className="ml-1 text-xs font-normal text-slate-400">· {mixedAccess ? 'Free + Premium' : allPaid ? 'Paid' : 'Free'}</span></p>
-              <p className="text-[11px] text-slate-500">{lessons.length - paidLessonCount} free · {paidLessonCount} paid</p>
+              <p className="text-sm font-semibold text-foreground">All lessons <span className="ml-1 text-xs font-normal text-default-500">· {mixedAccess ? 'Free + Premium' : allPaid ? 'Paid' : 'Free'}</span></p>
+              <p className="text-[11px] text-default-500">{lessons.length - paidLessonCount} free · {paidLessonCount} paid</p>
             </div>
           </div>
           <div className="flex items-center gap-2.5 self-end sm:self-auto">
             <button type="button" disabled={saving || !lessons.length} onClick={() => setAllLessonAccess(false)} aria-label="Set all lessons Free"
-              className="rounded px-1 py-2 text-xs text-slate-400 hover:text-emerald-300 focus-visible:outline-2 focus-visible:outline-orange-400 disabled:opacity-40">Free</button>
+              className="rounded px-1 py-2 text-xs text-default-500 hover:text-emerald-300 focus-visible:outline-2 focus-visible:outline-orange-400 disabled:opacity-40">Free</button>
             <Switch size="sm" color="warning" isSelected={allPaid} onValueChange={setAllLessonAccess} isDisabled={saving || !lessons.length}
               aria-label="Paid access for all lessons" aria-describedby="all-lessons-access-help"
               thumbIcon={<AccessIcon paid={allPaid} className="h-3 w-3 text-slate-900" />}
               classNames={{ wrapper: 'mr-0 bg-emerald-500/40 group-data-[selected=true]:bg-orange-500', base: 'shrink-0' }} />
             <button type="button" disabled={saving || !lessons.length} onClick={() => setAllLessonAccess(true)} aria-label="Set all lessons Paid"
-              className="rounded px-1 py-2 text-xs text-slate-400 hover:text-orange-300 focus-visible:outline-2 focus-visible:outline-orange-400 disabled:opacity-40">Paid</button>
+              className="rounded px-1 py-2 text-xs text-default-500 hover:text-orange-300 focus-visible:outline-2 focus-visible:outline-orange-400 disabled:opacity-40">Paid</button>
           </div>
         </div>
-        <p id="all-lessons-access-help" className="mt-2 text-xs leading-5 text-slate-400">Set every current lesson at once, then adjust individual lessons below. Save changes to apply. Paid uses Pro or existing book purchases.</p>
-        <p className="mt-1 text-[11px] leading-4 text-slate-500">Drafts are hidden. Coming soon shows book details without audio.</p>
-        {status === "live" && completeness.lessonCount === 0 ? <p className="mt-2 text-xs text-amber-200">Add at least one complete lesson before publishing.</p> : null}
+        <p id="all-lessons-access-help" className="mt-2 text-xs leading-5 text-default-500">Set every current lesson at once, then adjust individual lessons below. Save changes to apply. Paid uses Pro or existing book purchases.</p>
+        <p className="mt-1 text-[11px] leading-4 text-default-500">Drafts are hidden. Coming soon shows book details without audio.</p>
+        {status === "live" && completeness.lessonCount === 0 ? <p className="mt-2 text-xs text-amber-700 dark:text-amber-200">Add at least one complete lesson before publishing.</p> : null}
       </Card>
 
       <Card as="section" shadow="none" className={cardClass} aria-labelledby="lessons-heading">
-        <div className="mb-5 flex flex-wrap items-end justify-between gap-3"><div><h2 id="lessons-heading" className="text-lg font-semibold">Lessons</h2><p className="mt-1 text-sm text-slate-400">Search and manage your lesson list. Open Details to preview or edit a part.</p></div><span className="rounded-full bg-white/5 px-3 py-1 text-xs text-slate-400">{lessons.length} lesson{lessons.length === 1 ? "" : "s"}</span></div>
-        {fieldErrors.lessons ? <p className="mb-4 text-sm text-rose-300" role="alert">{fieldErrors.lessons}</p> : null}
+        <div className="mb-5 flex flex-wrap items-end justify-between gap-3"><div><h2 id="lessons-heading" className="text-lg font-semibold">Lessons</h2><p className="mt-1 text-sm text-default-500">Search and manage your lesson list. Open Details to preview or edit a part.</p></div><span className="rounded-full bg-foreground/5 px-3 py-1 text-xs text-default-500">{lessons.length} lesson{lessons.length === 1 ? "" : "s"}</span></div>
+        {fieldErrors.lessons ? <p className="mb-4 text-sm text-rose-700 dark:text-rose-300" role="alert">{fieldErrors.lessons}</p> : null}
         <div className="mb-3 grid gap-3 sm:grid-cols-[minmax(0,1fr)_160px_180px]">
           <AdminInput type="search" aria-label="Search lessons" placeholder="Search name or part number (e.g. Part 2)" value={lessonQuery} onChange={(event) => setLessonQuery(event.target.value)} />
           <AdminSelect aria-label="Filter lesson access" value={lessonAccessFilter} onChange={(event) => setLessonAccessFilter(event.target.value)}>
@@ -448,14 +448,14 @@ export default function BookEditor({ contentId }: { contentId?: string }) {
             <option value="part">Part order</option><option value="newest">Newest added</option><option value="oldest">Oldest added</option>
           </AdminSelect>
         </div>
-        <div className="mb-3 flex flex-wrap items-center justify-between gap-2 text-xs text-slate-400">
+        <div className="mb-3 flex flex-wrap items-center justify-between gap-2 text-xs text-default-500">
           <span role="status">{visibleLessons.length} of {lessons.length} lessons</span>
-          {(lessonQuery || lessonAccessFilter !== 'all' || lessonSort !== 'part') && <button type="button" className="rounded px-2 py-1 text-orange-300 hover:text-orange-200 focus-visible:outline-2 focus-visible:outline-orange-400" onClick={() => { setLessonQuery(''); setLessonAccessFilter('all'); setLessonSort('part'); }}>Reset filters</button>}
+          {(lessonQuery || lessonAccessFilter !== 'all' || lessonSort !== 'part') && <button type="button" className="rounded px-2 py-1 text-orange-700 dark:text-orange-300 hover:text-orange-200 focus-visible:outline-2 focus-visible:outline-orange-400" onClick={() => { setLessonQuery(''); setLessonAccessFilter('all'); setLessonSort('part'); }}>Reset filters</button>}
         </div>
-        {lessonSort !== 'part' && lessons.some((lesson) => !lesson.createdAt) && <p className="mb-3 text-xs text-slate-500">Older lessons without an added date use their part order.</p>}
-        {lessons.length === 0 ? <div className="rounded-xl border border-dashed border-white/15 bg-black/10 px-5 py-8 text-center"><p className="font-medium text-slate-200">No lessons added yet</p><p className="mt-1 text-sm text-slate-500">Add a lesson card, then choose an MP3 file.</p></div>
-          : visibleLessons.length === 0 ? <div role="status" className="rounded-xl border border-dashed border-white/15 px-5 py-10 text-center"><p className="text-sm font-medium text-slate-200">No matching lessons</p><p className="mt-1 text-xs text-slate-500">Try another name, part number, or access filter.</p></div>
-          : <div ref={lessonViewport} role="region" aria-label="Scrollable lesson list" tabIndex={0} className="relative max-h-[70dvh] overflow-auto overscroll-contain rounded-xl border border-white/10 focus-visible:outline-2 focus-visible:outline-orange-400 [scrollbar-gutter:stable]">
+        {lessonSort !== 'part' && lessons.some((lesson) => !lesson.createdAt) && <p className="mb-3 text-xs text-default-500">Older lessons without an added date use their part order.</p>}
+        {lessons.length === 0 ? <div className="rounded-xl border border-dashed border-divider bg-black/10 px-5 py-8 text-center"><p className="font-medium text-foreground">No lessons added yet</p><p className="mt-1 text-sm text-default-500">Add a lesson card, then choose an MP3 file.</p></div>
+          : visibleLessons.length === 0 ? <div role="status" className="rounded-xl border border-dashed border-divider px-5 py-10 text-center"><p className="text-sm font-medium text-foreground">No matching lessons</p><p className="mt-1 text-xs text-default-500">Try another name, part number, or access filter.</p></div>
+          : <div ref={lessonViewport} role="region" aria-label="Scrollable lesson list" tabIndex={0} className="relative max-h-[70dvh] overflow-auto overscroll-contain rounded-xl border border-divider focus-visible:outline-2 focus-visible:outline-orange-400 [scrollbar-gutter:stable]">
             <table className="w-full min-w-[480px] text-left">
               <caption className="sr-only">Book lessons. Open a row’s details to edit audio, thumbnail, description or playback order.</caption>
               <thead className="sticky top-0 z-10"><tr>
@@ -475,14 +475,14 @@ export default function BookEditor({ contentId }: { contentId?: string }) {
           setLessons((current) => [...current, emptyLesson(current.length, editorId)]);
           setExpandedLessonId(editorId);
           setLessonQuery(''); setLessonAccessFilter('all'); setLessonSort('newest');
-        }} className="mt-4 rounded-xl border border-dashed border-orange-300/30 px-4 py-3 text-sm font-semibold text-orange-200 hover:bg-orange-300/5">+ Add lesson</AdminButton>
-        <p className="mt-4 text-xs text-slate-500">Each lesson keeps its own access and thumbnail when reordered. Lessons without a custom thumbnail use the book cover.</p>
+        }} className="mt-4 rounded-xl border border-dashed border-orange-300/30 px-4 py-3 text-sm font-semibold text-orange-700 dark:text-orange-200 hover:bg-orange-300/5">+ Add lesson</AdminButton>
+        <p className="mt-4 text-xs text-default-500">Each lesson keeps its own access and thumbnail when reordered. Lessons without a custom thumbnail use the book cover.</p>
       </Card>
 
-      <footer className="sticky bottom-3 z-10 rounded-2xl border border-white/10 bg-[#0b0f17]/95 p-3 shadow-2xl backdrop-blur sm:flex sm:items-center sm:justify-between sm:p-4">
-        <div className="mb-3 min-h-5 text-xs text-slate-400 sm:mb-0" aria-live="polite">{saving ? `Saving book… ${saveProgress}%` : "Your form stays open if saving or upload needs to be retried."}{saving ? <AdminProgress className="ml-3 h-2 w-28 accent-orange-400" max={100} value={saveProgress} /> : null}</div>
+      <footer className="sticky bottom-3 z-10 rounded-2xl border border-divider bg-content1/95 p-3 shadow-2xl backdrop-blur sm:flex sm:items-center sm:justify-between sm:p-4">
+        <div className="mb-3 min-h-5 text-xs text-default-500 sm:mb-0" aria-live="polite">{saving ? `Saving book… ${saveProgress}%` : "Your form stays open if saving or upload needs to be retried."}{saving ? <AdminProgress className="ml-3 h-2 w-28 accent-orange-400" max={100} value={saveProgress} /> : null}</div>
         <div className="flex flex-wrap justify-end gap-2">
-          <AdminButton type="button" disabled={saving} onClick={() => void save(editing ? status : "draft")} className="rounded-xl border border-white/15 px-4 py-2.5 text-sm font-semibold text-slate-200 hover:bg-white/5 disabled:opacity-50">{editing ? "Save changes" : "Save draft"}</AdminButton>
+          <AdminButton type="button" disabled={saving} onClick={() => void save(editing ? status : "draft")} className="rounded-xl border border-divider px-4 py-2.5 text-sm font-semibold text-foreground hover:bg-foreground/5 disabled:opacity-50">{editing ? "Save changes" : "Save draft"}</AdminButton>
           {!editing || status !== "coming_soon" ? <AdminButton type="button" disabled={saving} onClick={() => void save("coming_soon")} className="rounded-xl border border-amber-300/25 px-4 py-2.5 text-sm font-semibold text-amber-100 hover:bg-amber-300/10 disabled:opacity-50">Coming soon</AdminButton> : null}
           {editing && status === "live" ? <AdminButton type="button" disabled={saving} onClick={() => void save("draft")} className="rounded-xl border border-rose-300/25 px-4 py-2.5 text-sm font-semibold text-rose-100 hover:bg-rose-300/10 disabled:opacity-50">Unpublish</AdminButton> : null}
           {status !== "live" ? <AdminButton type="button" disabled={saving} onClick={() => void save("live")} className="rounded-xl bg-orange-500 px-5 py-2.5 text-sm font-bold text-white shadow-lg shadow-orange-950/30 hover:bg-orange-400 disabled:opacity-50">Publish</AdminButton> : null}

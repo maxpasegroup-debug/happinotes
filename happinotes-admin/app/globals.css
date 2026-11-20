@@ -61,7 +61,7 @@ html:has(body.light .admin-ui) { --admin-scrollbar-track: #eef1f5; }
 
 /* Explicit colors and keyframes keep these placeholders visible in the dark theme. */
 .admin-ui .happy-bites-skeleton {
-  background: #2b3140;
+  background: hsl(var(--heroui-content3));
   isolation: isolate;
 }
 .admin-ui .happy-bites-skeleton::before {
@@ -217,8 +217,8 @@ section:has(table[aria-label="User security accounts"]) > .flex.items-center.jus
 .play-field-label { display: none; }
 
 @container play-console (max-width: 58rem) {
-  .play-console table, .play-console tbody { display: block; width: 100%; }
-  .play-console thead {
+  .play-record-table table, .play-record-table tbody { display: block; width: 100%; }
+  .play-record-table thead {
     position: absolute;
     width: 1px;
     height: 1px;
@@ -226,9 +226,9 @@ section:has(table[aria-label="User security accounts"]) > .flex.items-center.jus
     clip-path: inset(50%);
     white-space: nowrap;
   }
-  .play-console tbody tr { display: block; padding: .75rem 1rem; }
-  .play-console tbody tr + tr { border-top: 1px solid hsl(var(--heroui-divider)); }
-  .play-console tbody .play-record-field {
+  .play-record-table tbody tr { display: block; padding: .75rem 1rem; }
+  .play-record-table tbody tr + tr { border-top: 1px solid hsl(var(--heroui-divider)); }
+  .play-record-table tbody .play-record-field {
     display: grid;
     grid-template-columns: minmax(5.5rem, 32%) minmax(0, 1fr);
     align-items: start;
@@ -244,3 +244,12 @@ section:has(table[aria-label="User security accounts"]) > .flex.items-center.jus
     line-height: 1.5;
   }
 }
+
+
+body.light:has(.admin-ui) { --background: #f6f7fa; --foreground: #202633; color-scheme: light; }
+body.light .admin-native-input { background: #fff; color: #202633; border-color: #ccd3dd; }
+body.light .admin-file-input::file-selector-button { color: #92371f; }
+.admin-rest-gradient { background: radial-gradient(ellipse at 50% 100%, #51231c, #201314 45%, #100c0d 85%); }
+body.light .admin-rest-gradient { background: radial-gradient(ellipse at 50% 100%, #f6bea5, #fff0e5 45%, #fffaf6 85%); }
+body.light .admin-check-glass-title { background: none; color: #703421; -webkit-text-stroke: 0; }
+body.light .admin-clock-glass-body { stroke: #a66950; }

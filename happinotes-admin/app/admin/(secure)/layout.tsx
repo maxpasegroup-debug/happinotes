@@ -54,7 +54,7 @@ function SessionCheckAnimation() {
   return (
     <div aria-hidden="true" className="relative mx-auto flex h-44 w-44 items-center justify-center sm:h-52 sm:w-52">
       {(!showAnimation || !loaded) && (
-        <div className="flex h-16 w-16 items-center justify-center text-orange-100/80">
+        <div className="flex h-16 w-16 items-center justify-center text-foreground dark:text-orange-100/80">
           <svg width="30" height="30" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="1.8" strokeLinecap="round">
             <path d="M4 10v4M8 6v12M12 3v18M16 7v10M20 10v4" />
           </svg>
@@ -81,9 +81,9 @@ function SessionCheckingScreen() {
     getServerAnimationPreference,
   );
 
-  return <main className="relative isolate flex min-h-[100dvh] flex-col overflow-hidden bg-[#100c0d] px-6 py-7 text-orange-50 sm:px-12 sm:py-9" aria-busy="true">
+  return <main className="relative isolate flex min-h-[100dvh] flex-col overflow-hidden bg-background px-6 py-7 text-foreground dark:text-orange-50 sm:px-12 sm:py-9" aria-busy="true">
     <div aria-hidden="true" className="pointer-events-none absolute -inset-8 -z-10 overflow-hidden blur-2xl">
-      <div className="absolute inset-0 bg-[radial-gradient(ellipse_at_50%_90%,#51231c_0%,#201314_45%,#100c0d_85%)]" />
+      <div className="absolute inset-0 admin-rest-gradient" />
       <motion.div className="absolute -bottom-1/4 -left-1/4 h-[75vh] w-[90vw] rounded-full bg-orange-500/25 blur-[100px]"
         animate={animationEnabled ? { x: [0, 60, 0], y: [0, -40, 0] } : { x: 0, y: 0 }} transition={{ duration: 20, repeat: Infinity, ease: 'easeInOut' }} />
       <motion.div className="absolute -bottom-1/4 -right-1/4 h-[80vh] w-[80vw] rounded-full bg-red-500/20 blur-[110px]"
@@ -94,9 +94,9 @@ function SessionCheckingScreen() {
         <span aria-hidden="true" className="flex h-9 w-9 items-center justify-center rounded-xl border border-orange-200/15 bg-gradient-to-br from-orange-300/15 to-red-400/5">
           <svg width="19" height="19" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="1.6" strokeLinecap="round"><path d="M5 4v16M19 4v16M5 12h14M9 17c2 2 4 2 6 0" /></svg>
         </span>
-        <span className="text-sm font-semibold tracking-tight">HappiNotes <span className="ml-1 hidden font-normal text-orange-100/40 sm:inline">/ Admin</span></span>
+        <span className="text-sm font-semibold tracking-tight">HappiNotes <span className="ml-1 hidden font-normal text-foreground dark:text-orange-100/40 sm:inline">/ Admin</span></span>
       </div>
-      <span className="flex items-center gap-2 text-[11px] text-orange-100/50">
+      <span className="flex items-center gap-2 text-[11px] text-foreground dark:text-orange-100/50">
         <svg aria-hidden="true" width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="1.5"><rect x="5" y="10" width="14" height="11" rx="3" /><path d="M8 10V7a4 4 0 0 1 8 0v3M12 14v3" /></svg>
         Admin access
       </span>
@@ -112,21 +112,21 @@ function SessionCheckingScreen() {
         </motion.div>
         <SessionCheckAnimation />
       </div>
-      <p className="mb-4 text-[10px] font-medium uppercase tracking-[.3em] text-orange-100/45">Your workspace, coming into focus</p>
+      <p className="mb-4 text-[10px] font-medium uppercase tracking-[.3em] text-foreground dark:text-orange-100/45">Your workspace, coming into focus</p>
       <h1 className="!text-[clamp(2rem,5.5vw,3.75rem)] !font-semibold !leading-[1.12] !tracking-[-.045em]">
         <span className="admin-check-glass-title">Preparing your workspace</span>
       </h1>
-      <p className="mt-4 max-w-xs text-sm leading-6 text-orange-100/55">Checking your admin session.<br />We’ll open your workspace when it’s ready.</p>
+      <p className="mt-4 max-w-xs text-sm leading-6 text-foreground dark:text-orange-100/55">Checking your admin session.<br />We’ll open your workspace when it’s ready.</p>
       <div className="mt-8 flex items-center gap-3 rounded-full border border-orange-100/15 bg-gradient-to-r from-orange-300/10 to-red-300/5 px-5 py-3 shadow-[inset_0_1px_0_#ffffff0d,0_8px_32px_#00000012] backdrop-blur-xl">
         <span aria-hidden="true" className="flex items-center gap-1">
           {[0, 1, 2].map(index => <motion.span key={index} className="h-1 w-1 rounded-full bg-orange-200"
             animate={animationEnabled ? { opacity: [.3, 1, .3], y: [0, -2, 0] } : { opacity: .7, y: 0 }}
             transition={{ duration: 1.5, repeat: Infinity, delay: index * .18, ease: 'easeInOut' }} />)}
         </span>
-        <span className="text-xs font-medium text-orange-100/75">Verifying access</span>
+        <span className="text-xs font-medium text-foreground dark:text-orange-100/75">Verifying access</span>
       </div>
     </div>
-    <footer className="text-center text-[11px] tracking-wide text-orange-100/35">HappiNotes Studio</footer>
+    <footer className="text-center text-[11px] tracking-wide text-foreground dark:text-orange-100/35">HappiNotes Studio</footer>
   </main>;
 }
 

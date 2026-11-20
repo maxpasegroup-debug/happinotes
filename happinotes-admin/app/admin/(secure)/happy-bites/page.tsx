@@ -20,8 +20,8 @@ import {
   type HappyBite, type HappyBiteDraft, type UploadKind,
 } from "@/lib/happy-bites-admin";
 
-const inputClass = "mt-2 w-full rounded-xl border border-white/15 bg-[#141418] px-3.5 py-3 text-sm text-white outline-none transition focus:border-orange-400 focus:ring-2 focus:ring-orange-400/15 disabled:opacity-60";
-const buttonClass = "rounded-xl border border-white/15 px-4 py-2.5 text-sm font-medium transition hover:bg-white/5 focus-visible:outline-2 focus-visible:outline-orange-400 disabled:cursor-not-allowed disabled:opacity-40";
+const inputClass = "mt-2 w-full rounded-xl border border-divider bg-content1 px-3.5 py-3 text-sm text-foreground outline-none transition focus:border-orange-400 focus:ring-2 focus:ring-orange-400/15 disabled:opacity-60";
+const buttonClass = "rounded-xl border border-divider px-4 py-2.5 text-sm font-medium transition hover:bg-foreground/5 focus-visible:outline-2 focus-visible:outline-orange-400 disabled:cursor-not-allowed disabled:opacity-40";
 const primaryClass = `${buttonClass} border-transparent bg-[#F27055] text-white hover:bg-[#DE6046]`;
 const BITES_PER_PAGE = 6;
 const token = () => window.localStorage.getItem("admin_token") || "";
@@ -33,7 +33,7 @@ function Thumbnail({ src, title, large = false }: { src: string; title: string; 
   const [failed, setFailed] = useState(false);
   return <div className={`relative shrink-0 overflow-hidden rounded-2xl bg-orange-500/10 ${large ? 'aspect-square w-full' : 'h-16 w-16'}`}>
     {src && !failed ? <Image unoptimized fill sizes={large ? "360px" : "64px"} src={src} alt={title} onError={() => setFailed(true)} className="object-cover" />
-      : <div className="flex h-full items-center justify-center text-3xl text-orange-300" aria-label="Thumbnail placeholder">♪</div>}
+      : <div className="flex h-full items-center justify-center text-3xl text-orange-700 dark:text-orange-300" aria-label="Thumbnail placeholder">♪</div>}
   </div>;
 }
 
@@ -238,31 +238,31 @@ export default function HappyBitesAdminPage() {
     finally { locked.current = false; setOperation(''); }
   };
 
-  return <section className="w-full min-w-0 space-y-6 text-white">
+  return <section className="w-full min-w-0 space-y-6 text-foreground">
     <header className="flex flex-wrap items-center justify-between gap-4">
-      <div><p className="text-xs font-semibold uppercase tracking-[0.18em] text-orange-300">Content management</p>
+      <div><p className="text-xs font-semibold uppercase tracking-[0.18em] text-orange-700 dark:text-orange-300">Content management</p>
         <h1 className="mt-2 text-3xl font-bold tracking-tight">Happy Bites</h1>
-        <p className="mt-2 text-sm text-zinc-400">Small thoughts. Meaningful changes. Free and Pro listening.</p></div>
+        <p className="mt-2 text-sm text-default-500">Small thoughts. Meaningful changes. Free and Pro listening.</p></div>
       {!draft ? <AdminButton disabled={busy} onClick={() => openEditor()} className={primaryClass}>＋ New Happy Bite</AdminButton> : null}
     </header>
 
-    {error && !deleteItem ? <div role="alert" className="rounded-2xl border border-red-400/25 bg-red-950/30 p-4 text-sm text-red-200">{error}</div> : null}
+    {error && !deleteItem ? <div role="alert" className="rounded-2xl border border-red-400/25 bg-red-950/30 p-4 text-sm text-red-700 dark:text-red-200">{error}</div> : null}
 
     {draft ? <form onSubmit={(event) => { event.preventDefault(); void save(); }}>
       <AdminFieldset disabled={busy} className="min-w-0 space-y-6">
         <div className="grid gap-6 lg:grid-cols-[1fr_320px]">
           <Card as="div" shadow="none" className="min-w-0 space-y-6 rounded-none border-0 bg-transparent shadow-none">
-            <div><h2 className="text-xl font-semibold">{draft._id ? 'Edit Happy Bite' : 'Create a Happy Bite'}</h2><p className="mt-1 text-sm text-zinc-500">Add a little inspiration to someone’s day.</p></div>
-            <label className="block text-sm font-medium">Title <span className="text-orange-300">*</span><AdminInput required autoFocus className={inputClass} value={draft.title} onChange={(e) => setDraft({ ...draft, title: e.target.value })} maxLength={160} placeholder="A small step toward a calmer day" /></label>
-            <label className="block text-sm font-medium">Short description <span className="text-orange-300">*</span><AdminTextarea required className={`${inputClass} min-h-28 resize-y`} value={draft.description} onChange={(e) => setDraft({ ...draft, description: e.target.value })} maxLength={2000} placeholder="What will listeners take away from this bite?" /><span className="mt-1 block text-right text-xs text-zinc-500">{draft.description.length}/2000</span></label>
+            <div><h2 className="text-xl font-semibold">{draft._id ? 'Edit Happy Bite' : 'Create a Happy Bite'}</h2><p className="mt-1 text-sm text-default-500">Add a little inspiration to someone’s day.</p></div>
+            <label className="block text-sm font-medium">Title <span className="text-orange-700 dark:text-orange-300">*</span><AdminInput required autoFocus className={inputClass} value={draft.title} onChange={(e) => setDraft({ ...draft, title: e.target.value })} maxLength={160} placeholder="A small step toward a calmer day" /></label>
+            <label className="block text-sm font-medium">Short description <span className="text-orange-700 dark:text-orange-300">*</span><AdminTextarea required className={`${inputClass} min-h-28 resize-y`} value={draft.description} onChange={(e) => setDraft({ ...draft, description: e.target.value })} maxLength={2000} placeholder="What will listeners take away from this bite?" /><span className="mt-1 block text-right text-xs text-default-500">{draft.description.length}/2000</span></label>
             <div className="grid gap-4 sm:grid-cols-2">
               <div className="sm:col-span-2"><LanguagePicker value={draft.language} onChange={(language) => setDraft((current) => current ? { ...current, language } : current)} disabled={busy} /></div>
-              <label className="block text-sm font-medium">Category <span className="text-orange-300">*</span><AdminInput required className={inputClass} list="bite-categories" value={draft.category} onChange={(e) => setDraft({ ...draft, category: e.target.value })} maxLength={80} /><datalist id="bite-categories">{categories.map((category) => <option key={category} value={category} />)}</datalist><span className="mt-2 block text-xs text-zinc-500">Choose a category or enter a new one.</span></label>
-              <label className="block text-sm font-medium">Display order<AdminInput required className={inputClass} type="number" min="0" step="1" value={Number.isFinite(draft.displayOrder) ? draft.displayOrder : ''} onChange={(e) => setDraft({ ...draft, displayOrder: e.target.valueAsNumber })} /><span className="mt-2 block text-xs text-zinc-500">Lower numbers appear first. Newest breaks ties.</span></label>
+              <label className="block text-sm font-medium">Category <span className="text-orange-700 dark:text-orange-300">*</span><AdminInput required className={inputClass} list="bite-categories" value={draft.category} onChange={(e) => setDraft({ ...draft, category: e.target.value })} maxLength={80} /><datalist id="bite-categories">{categories.map((category) => <option key={category} value={category} />)}</datalist><span className="mt-2 block text-xs text-default-500">Choose a category or enter a new one.</span></label>
+              <label className="block text-sm font-medium">Display order<AdminInput required className={inputClass} type="number" min="0" step="1" value={Number.isFinite(draft.displayOrder) ? draft.displayOrder : ''} onChange={(e) => setDraft({ ...draft, displayOrder: e.target.valueAsNumber })} /><span className="mt-2 block text-xs text-default-500">Lower numbers appear first. Newest breaks ties.</span></label>
             </div>
-            <div className="border-t border-white/10 pt-5">
+            <div className="border-t border-divider pt-5">
               <HappyBiteUpload kind="audio" url={draft.audioUrl} title={draft.title} durationSeconds={draft.durationSeconds} disabled={busy} state={uploads.audio} onSelect={file => selected('audio', file)} onUpload={file => upload('audio', file)} />
-              <label className="mt-4 block text-sm font-medium">Duration in seconds<AdminInput className={inputClass} type="number" min="0" step="1" value={Number.isFinite(draft.durationSeconds) ? draft.durationSeconds : ''} onChange={(e) => setDraft({ ...draft, durationSeconds: e.target.valueAsNumber })} /><span className="mt-2 block text-xs text-zinc-500">Detected automatically when possible. You can correct it here.</span></label>
+              <label className="mt-4 block text-sm font-medium">Duration in seconds<AdminInput className={inputClass} type="number" min="0" step="1" value={Number.isFinite(draft.durationSeconds) ? draft.durationSeconds : ''} onChange={(e) => setDraft({ ...draft, durationSeconds: e.target.valueAsNumber })} /><span className="mt-2 block text-xs text-default-500">Detected automatically when possible. You can correct it here.</span></label>
             </div>
           </Card>
           <div className="min-w-0 space-y-5">
@@ -276,24 +276,24 @@ export default function HappyBitesAdminPage() {
             <Card as="div" shadow="none" className="rounded-3xl border border-divider bg-content1 p-5">
               <div className="block text-sm font-semibold">
                 <AdminSelect label="Publish status" className={inputClass} value={draft.published ? 'published' : 'draft'} onChange={(event) => setDraft({ ...draft, published: event.target.value === 'published' })}><option value="draft">Draft</option><option value="published">Published</option></AdminSelect></div>
-              <p className="mt-3 text-xs leading-5 text-zinc-400">{draft.published ? draft.accessType === 'premium' ? 'Listed in the library after saving. Only Pro members can listen.' : 'Visible to everyone after saving. No purchase or subscription required.' : 'Only admins can see drafts. Publish whenever your bite is ready.'}</p>
+              <p className="mt-3 text-xs leading-5 text-default-500">{draft.published ? draft.accessType === 'premium' ? 'Listed in the library after saving. Only Pro members can listen.' : 'Visible to everyone after saving. No purchase or subscription required.' : 'Only admins can see drafts. Publish whenever your bite is ready.'}</p>
             </Card>
           </div>
         </div>
         <div className="flex flex-wrap gap-3"><AdminButton type="submit" className={primaryClass}>{operation === 'save' ? 'Saving…' : draft.published ? 'Save & publish' : 'Save draft'}</AdminButton><AdminButton type="button" onClick={async () => { if (!await confirm({ title: 'Discard unsaved changes?', description: 'Leave the Happy Bite editor without saving these changes?', confirmLabel: 'Discard changes', tone: 'danger' })) return; setDraft(null); setError(''); setNotice(''); }} className={buttonClass}>Cancel</AdminButton></div>
       </AdminFieldset>
     </form> : <>
-      <div className="grid grid-cols-3 gap-3" aria-busy={loading}>{[['Total bites', items.length], ['Published', items.filter((item) => item.published).length], ['Drafts', items.filter((item) => !item.published).length]].map(([label, value]) => <Card as="div" shadow="none" key={label} className="rounded-2xl border border-divider bg-content1 p-4"><p className="text-xs text-zinc-400">{label}</p>{loading ? <Skeleton aria-hidden="true" className="happy-bites-skeleton mt-2 h-8 w-12 rounded-lg motion-reduce:before:animate-none" /> : <p className="mt-2 text-2xl font-semibold">{value}</p>}</Card>)}</div>
+      <div className="grid grid-cols-3 gap-3" aria-busy={loading}>{[['Total bites', items.length], ['Published', items.filter((item) => item.published).length], ['Drafts', items.filter((item) => !item.published).length]].map(([label, value]) => <Card as="div" shadow="none" key={label} className="rounded-2xl border border-divider bg-content1 p-4"><p className="text-xs text-default-500">{label}</p>{loading ? <Skeleton aria-hidden="true" className="happy-bites-skeleton mt-2 h-8 w-12 rounded-lg motion-reduce:before:animate-none" /> : <p className="mt-2 text-2xl font-semibold">{value}</p>}</Card>)}</div>
       <div className="flex flex-wrap items-end gap-3">
-        <label className="min-w-[160px] flex-1 text-xs text-zinc-400">Search<AdminInput className={inputClass} type="search" placeholder="Search Happy Bites…" value={search} onChange={(e) => setSearch(e.target.value)} /></label>
-        <div className="text-xs text-zinc-400">
+        <label className="min-w-[160px] flex-1 text-xs text-default-500">Search<AdminInput className={inputClass} type="search" placeholder="Search Happy Bites…" value={search} onChange={(e) => setSearch(e.target.value)} /></label>
+        <div className="text-xs text-default-500">
           <AdminSelect label="Status" className={inputClass} value={filter} onChange={(e) => setFilter(e.target.value)}><option value="all">All statuses</option><option value="published">Published</option><option value="draft">Drafts</option></AdminSelect></div>
-        <div className="text-xs text-zinc-400">
+        <div className="text-xs text-default-500">
           <AdminSelect label="Category" className={inputClass} value={categoryFilter} onChange={(e) => setCategoryFilter(e.target.value)}><option value="">All categories</option>{[...new Set(items.map((item) => item.category))].sort().map((category) => <option key={category}>{category}</option>)}</AdminSelect></div>
         <div className="flex flex-wrap gap-2"><AdminButton disabled={loading || busy || exporting || !items.length} onClick={exportHappyBites} className={buttonClass}>{exporting ? 'Exporting…' : 'Export CSV'}</AdminButton><AdminButton disabled={loading || busy} onClick={() => void load()} className={buttonClass}>Refresh</AdminButton></div>
       </div>
       <Card as="div" shadow="none" aria-busy={loading} className="w-full overflow-hidden rounded-2xl border border-divider bg-content1 p-0 shadow-sm">
-        {loading ? <HappyBitesSkeleton /> : visibleItems.length === 0 ? <div className="px-5 py-12 text-center"><p className="text-lg font-semibold">{items.length ? 'No matching Happy Bites' : error ? 'Library unavailable' : 'Make someone’s day a little brighter'}</p><p className="mt-2 text-sm text-zinc-400">{items.length ? 'Try a different search or filter.' : error ? 'Check the message above, then refresh to try again.' : 'Upload your first short audio and share it for free.'}</p></div> : <>
+        {loading ? <HappyBitesSkeleton /> : visibleItems.length === 0 ? <div className="px-5 py-12 text-center"><p className="text-lg font-semibold">{items.length ? 'No matching Happy Bites' : error ? 'Library unavailable' : 'Make someone’s day a little brighter'}</p><p className="mt-2 text-sm text-default-500">{items.length ? 'Try a different search or filter.' : error ? 'Check the message above, then refresh to try again.' : 'Upload your first short audio and share it for free.'}</p></div> : <>
           <div className="overflow-x-auto">
             <Table aria-label="Happy Bites library" removeWrapper className="min-w-[1050px]" classNames={{ table: "w-full", th: "h-12 bg-content2 px-4 text-[10px] font-bold uppercase tracking-[.12em] text-default-400 first:pl-5 last:pr-5", td: "border-b border-divider/60 px-4 py-3.5 first:pl-5 last:pr-5 last:border-0" }}>
               <TableHeader><TableColumn>Bite</TableColumn><TableColumn>Status</TableColumn><TableColumn>Access</TableColumn><TableColumn>Category / Language</TableColumn><TableColumn>Duration</TableColumn><TableColumn>Order</TableColumn><TableColumn>Updated</TableColumn><TableColumn align="end">Actions</TableColumn></TableHeader>
@@ -317,11 +317,11 @@ export default function HappyBitesAdminPage() {
       </Card>
     </>}
 
-    <AdminModal isOpen={Boolean(deleteItem)} onClose={() => setDeleteItem(null)} isDismissable={false} isKeyboardDismissDisabled={busy} hideCloseButton={busy} backdrop="blur" classNames={{ base: 'dark admin-ui bg-content1 text-foreground border border-divider' }}>
+    <AdminModal isOpen={Boolean(deleteItem)} onClose={() => setDeleteItem(null)} isDismissable={false} isKeyboardDismissDisabled={busy} hideCloseButton={busy} backdrop="blur" classNames={{ base: 'admin-ui bg-content1 text-foreground border border-divider' }}>
       <ModalContent><ModalHeader id="delete-bite-title">Delete this Happy Bite?</ModalHeader><ModalBody>
-      <p className="mt-3 text-sm leading-6 text-zinc-400">“{deleteItem?.title}” will be removed from the library. This cannot be undone. You can unpublish it instead to keep a draft.</p>
-      {error ? <p role="alert" className="mt-4 text-sm text-red-300">{error}</p> : null}
-      </ModalBody><ModalFooter><AdminButton autoFocus disabled={busy} onClick={() => setDeleteItem(null)} className={buttonClass}>Keep it</AdminButton><AdminButton disabled={busy} onClick={() => void remove()} className={`${buttonClass} border-red-400/30 bg-red-500/15 text-red-200`}>{operation === 'delete' ? 'Deleting…' : 'Delete Happy Bite'}</AdminButton></ModalFooter></ModalContent>
+      <p className="mt-3 text-sm leading-6 text-default-500">“{deleteItem?.title}” will be removed from the library. This cannot be undone. You can unpublish it instead to keep a draft.</p>
+      {error ? <p role="alert" className="mt-4 text-sm text-red-700 dark:text-red-300">{error}</p> : null}
+      </ModalBody><ModalFooter><AdminButton autoFocus disabled={busy} onClick={() => setDeleteItem(null)} className={buttonClass}>Keep it</AdminButton><AdminButton disabled={busy} onClick={() => void remove()} className={`${buttonClass} border-red-400/30 bg-red-500/15 text-red-700 dark:text-red-200`}>{operation === 'delete' ? 'Deleting…' : 'Delete Happy Bite'}</AdminButton></ModalFooter></ModalContent>
     </AdminModal>
   </section>;
 }

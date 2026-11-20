@@ -8,6 +8,7 @@ import { forwardRef, useEffect, useState, type ReactNode } from 'react';
 import { motion, useReducedMotion, type HTMLMotionProps } from 'framer-motion';
 import { Avatar, BreadcrumbItem, Breadcrumbs, Button, ButtonGroup, Divider, Drawer, DrawerBody, DrawerContent, DrawerHeader } from '@heroui/react';
 import { AdminInstallButton } from './AdminPwaProvider';
+import { AdminThemeSwitch } from './AdminProvider';
 import AdminSleepScreen from './AdminSleepScreen';
 
 // Animate the actual panel, whose width is smaller than the overlay on mobile.
@@ -28,7 +29,6 @@ const menu = [
   { label: 'Happy Bites', href: '/admin/happy-bites', icon: 'audio', group: 'Content management' },
   { label: 'Featured', href: '/admin/featured', icon: 'star', group: 'Content management' },
   { label: 'User Security', href: '/admin/user-security', icon: 'shield', group: 'Management' },
-  { label: 'Settings', href: '/admin/settings', icon: 'settings', group: 'Management' },
   { label: 'System Status', href: '/admin/system-status', icon: 'status', group: 'Management' },
   { label: 'Play Console', href: '/admin/google-play', icon: 'play', group: 'Management' },
   { label: 'Deletion requests', href: '/admin/deletion-requests', icon: 'trash', group: 'Management' },
@@ -43,7 +43,6 @@ const paths: Record<string, string> = {
   audio: 'M5 10v4 M9 6v12 M13 3v18 M17 7v10 M21 10v4',
   play: 'M7 4 20 12 7 20V4Z',
   star: 'm12 3 2.8 5.7 6.2.9-4.5 4.4 1.1 6.2-5.6-3-5.6 3 1.1-6.2L3 9.6l6.2-.9L12 3Z',
-  settings: 'M4 7h16 M4 17h16 M9 4v6 M16 14v6',
   shield: 'M12 3 4 6v6c0 5 8 9 8 9s8-4 8-9V6l-8-3Z M9 12l2 2 4-4',
   logout: 'M9 4H4v16h5 M13 8l4 4-4 4 M8 12h13',
   menu: 'M4 6h16 M4 12h16 M4 18h16',
@@ -137,13 +136,13 @@ export default function AdminShell({ children }: { children: ReactNode }) {
           <Button isIconOnly variant="light" className="hidden lg:inline-flex" aria-label={sidebarOpen ? 'Close sidebar' : 'Open sidebar'} aria-expanded={sidebarOpen} aria-controls="admin-desktop-sidebar" onPress={() => setSidebarOpen((open) => !open)}><Icon name={sidebarOpen ? 'collapse' : 'menu'} /></Button>
           <Breadcrumbs size="sm" className="min-w-0" classNames={{ list: 'flex-nowrap overflow-hidden' }}><BreadcrumbItem href="/admin/dashboard">Admin</BreadcrumbItem><BreadcrumbItem>{current}</BreadcrumbItem></Breadcrumbs>
         </div>
-        <div className="flex shrink-0 items-center gap-2 sm:gap-3">
-          <ButtonGroup size="sm" color="primary" variant="flat" radius="none" className="overflow-hidden rounded-xl border border-primary/20 bg-primary/[.06]">
-            <Button startContent={<Icon name="sleep" />} isDisabled={confirming} aria-label="Put admin workspace to sleep" aria-haspopup="dialog" onPress={() => { setMenuOpen(false); setSleeping(true); }} className="h-9 min-w-10 border-r border-primary/20 bg-transparent px-2 text-primary hover:bg-primary/10 sm:px-3"><span className="hidden sm:inline">Sleep</span></Button>
-            <AdminInstallButton />
-          </ButtonGroup></div>
+        <ButtonGroup aria-label="Workspace actions" size="sm" color="primary" variant="flat" radius="none" className="shrink-0 items-center overflow-hidden rounded-xl border border-primary/20 bg-primary/[.06]">
+          <AdminThemeSwitch grouped />
+          <Button startContent={<Icon name="sleep" />} isDisabled={confirming} aria-label="Put admin workspace to sleep" aria-haspopup="dialog" onPress={() => { setMenuOpen(false); setSleeping(true); }} className="h-9 min-w-10 border-l border-primary/20 bg-transparent px-2 text-primary hover:bg-primary/10 sm:px-3"><span className="hidden sm:inline">Sleep</span></Button>
+          <AdminInstallButton />
+        </ButtonGroup>
       </header>
-      <main className={`min-w-0 ${pathname === '/admin/users' ? 'w-full py-5 sm:py-8 lg:py-10' : `p-5 sm:p-8 lg:p-10 ${(pathname.startsWith('/admin/happy-bites') || pathname.startsWith('/admin/content/') || pathname === '/admin/story-books' || pathname === '/admin/settings' || pathname === '/admin/system-status' || pathname === '/admin/google-play') ? 'w-full' : 'mx-auto max-w-[1600px]'}`}`} >{children}</main>
+      <main className={`min-w-0 ${pathname === '/admin/users' ? 'w-full py-5 sm:py-8 lg:py-10' : `p-5 sm:p-8 lg:p-10 ${(pathname.startsWith('/admin/happy-bites') || pathname.startsWith('/admin/content/') || pathname === '/admin/story-books' || pathname === '/admin/system-status' || pathname === '/admin/google-play') ? 'w-full' : 'mx-auto max-w-[1600px]'}`}`} >{children}</main>
     </div>
     <AdminSleepScreen isOpen={sleeping} onWake={() => setSleeping(false)} />
     <Drawer

@@ -97,7 +97,7 @@ function SleepClock() {
   const minutes = now ? String(now.getMinutes()).padStart(2, '0') : '--';
   const seconds = now?.getSeconds() ?? 0;
   return <div className="flex w-full flex-col items-center">
-    <p className="mb-6 text-sm font-medium tracking-wide text-orange-100/65 sm:mb-8 sm:text-base">
+    <p className="mb-6 text-sm font-medium tracking-wide text-foreground dark:text-orange-100/65 sm:mb-8 sm:text-base">
       {now ? now.toLocaleDateString('en', { weekday: 'long', month: 'long', day: 'numeric' }) : '\u00a0'}
     </p>
     <button type="button" onClick={() => setUse24Hours(value => !value)}
@@ -125,13 +125,13 @@ function SleepClock() {
         </motion.span>
         {[false, true].map(format => <button key={String(format)} type="button" aria-pressed={use24Hours === format}
           onClick={() => setUse24Hours(format)}
-          className={`relative z-10 rounded-full px-3 py-1.5 text-[11px] font-medium outline-none transition-colors focus-visible:ring-2 focus-visible:ring-orange-200 motion-reduce:transition-none ${use24Hours === format ? 'text-orange-50' : 'text-orange-100/45 hover:text-orange-50'}`}>
+          className={`relative z-10 rounded-full px-3 py-1.5 text-[11px] font-medium outline-none transition-colors focus-visible:ring-2 focus-visible:ring-orange-200 motion-reduce:transition-none ${use24Hours === format ? 'text-foreground dark:text-orange-50' : 'text-foreground dark:text-orange-100/45 hover:text-primary dark:hover:text-orange-50'}`}>
           {format ? '24h' : '12h'}
         </button>)}
       </div>
       <span className="h-4 w-px bg-white/15" />
-      <span className="min-w-16 text-xs font-medium tracking-widest text-orange-100/60 tabular-nums" aria-hidden="true">
-        {String(seconds).padStart(2, '0')}s {!use24Hours && <span className="ml-2 text-orange-100/35">{now && now.getHours() >= 12 ? 'PM' : 'AM'}</span>}
+      <span className="min-w-16 text-xs font-medium tracking-widest text-foreground dark:text-orange-100/60 tabular-nums" aria-hidden="true">
+        {String(seconds).padStart(2, '0')}s {!use24Hours && <span className="ml-2 text-foreground dark:text-orange-100/35">{now && now.getHours() >= 12 ? 'PM' : 'AM'}</span>}
       </span>
     </div>
     <div aria-hidden="true" className="mt-6 h-px w-40 overflow-hidden bg-white/10">
@@ -146,10 +146,10 @@ export default function AdminSleepScreen({ isOpen, onWake }: { isOpen: boolean; 
   return <Modal isOpen={isOpen} onClose={onWake} size="full" hideCloseButton isDismissable={false}
     disableAnimation={Boolean(reducedMotion)} scrollBehavior="inside"
     motionProps={{ initial: { opacity: 0 }, animate: { opacity: 1 }, exit: { opacity: 0 }, transition: { duration: .3 } }}
-    classNames={{ wrapper: 'z-[100] !p-0', backdrop: 'z-[99] bg-black/70 backdrop-blur-xl', base: 'dark !m-0 !h-[100dvh] !max-h-[100dvh] !max-w-none overflow-hidden !rounded-none bg-[#100c0d] text-white' }}>
+    classNames={{ wrapper: 'z-[100] !p-0', backdrop: 'z-[99] bg-black/70 backdrop-blur-xl', base: 'admin-ui !m-0 !h-[100dvh] !max-h-[100dvh] !max-w-none overflow-hidden !rounded-none bg-background text-foreground' }}>
     <ModalContent aria-labelledby="admin-sleep-title" aria-describedby="admin-sleep-description">
       <div aria-hidden="true" className="pointer-events-none absolute -inset-8 overflow-hidden blur-2xl">
-        <div className="absolute inset-0 bg-[radial-gradient(ellipse_at_50%_100%,#51231c_0%,#201314_45%,#100c0d_85%)]" />
+        <div className="absolute inset-0 admin-rest-gradient" />
         <motion.div className="absolute bottom-[-35%] left-[-10%] h-[80vh] w-[80vw] rounded-[50%] bg-orange-500/30 blur-[120px]"
           animate={reducedMotion ? undefined : { x: [0, 60, 0], y: [0, -35, 0], scale: [1, 1.1, 1] }} transition={{ duration: 22, repeat: Infinity, ease: 'easeInOut' }} />
         <motion.div className="absolute bottom-[-30%] right-[-15%] h-[75vh] w-[70vw] rounded-[50%] bg-red-500/25 blur-[120px]"
@@ -159,29 +159,29 @@ export default function AdminSleepScreen({ isOpen, onWake }: { isOpen: boolean; 
       <ModalBody className="relative z-10 !gap-0 px-6 pb-[max(1.5rem,env(safe-area-inset-bottom))] pt-[max(1.5rem,env(safe-area-inset-top))] sm:px-12 sm:py-9">
         <header className="flex shrink-0 items-center justify-between gap-4">
           <div className="flex items-center gap-3">
-            <span className="flex h-9 w-9 items-center justify-center rounded-xl border border-orange-200/15 bg-gradient-to-br from-orange-300/15 to-red-400/5 text-orange-100">
+            <span className="flex h-9 w-9 items-center justify-center rounded-xl border border-orange-200/15 bg-gradient-to-br from-orange-300/15 to-red-400/5 text-foreground dark:text-orange-100">
               <svg aria-hidden="true" width="19" height="19" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="1.6" strokeLinecap="round" strokeLinejoin="round"><path d="M5 4v16M19 4v16M5 12h14M9 17c2 2 4 2 6 0" /></svg>
             </span>
-            <span className="text-sm font-semibold tracking-tight text-orange-50/90">HappiNotes <span className="ml-1 hidden font-normal text-orange-100/40 sm:inline">/ Admin</span></span>
+            <span className="text-sm font-semibold tracking-tight text-foreground dark:text-orange-50/90">HappiNotes <span className="ml-1 hidden font-normal text-foreground dark:text-orange-100/40 sm:inline">/ Admin</span></span>
           </div>
-          <span className="flex items-center gap-2 text-xs text-orange-100/50">
+          <span className="flex items-center gap-2 text-xs text-foreground dark:text-orange-100/50">
             <svg aria-hidden="true" width="15" height="15" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="1.5" strokeLinejoin="round"><path d="M20.5 14.5A9 9 0 0 1 9.5 3.5a9 9 0 1 0 11 11Z" /></svg>
             Sleep mode
           </span>
         </header>
         <motion.div className="flex flex-1 flex-col items-center justify-center py-12 text-center"
           initial={reducedMotion ? false : { opacity: 0, y: 12 }} animate={{ opacity: 1, y: 0 }} transition={{ duration: .7, delay: .1 }}>
-          <h2 id="admin-sleep-title" className="mb-7 text-[10px] font-medium uppercase tracking-[.32em] text-orange-100/40 sm:mb-10">A little time for yourself</h2>
+          <h2 id="admin-sleep-title" className="mb-7 text-[10px] font-medium uppercase tracking-[.32em] text-foreground dark:text-orange-100/40 sm:mb-10">A little time for yourself</h2>
           <SleepClock />
-          <p id="admin-sleep-description" className="mt-8 text-sm leading-relaxed text-orange-100/50 sm:mt-10">Everything is right where you left it.</p>
+          <p id="admin-sleep-description" className="mt-8 text-sm leading-relaxed text-foreground dark:text-orange-100/50 sm:mt-10">Everything is right where you left it.</p>
         </motion.div>
         <footer className="flex shrink-0 flex-col items-center gap-4 pb-2 sm:pb-4">
           <Button autoFocus onPress={onWake} size="lg" radius="full" startContent={<SunIcon />}
-            endContent={<span aria-hidden="true" className="ml-5 text-lg text-orange-100/65">→</span>}
-            className="h-14 min-w-52 border border-orange-100/25 bg-gradient-to-r from-orange-400/20 to-red-400/15 px-7 font-medium text-orange-50 shadow-[inset_0_1px_0_#fff2,0_8px_40px_#0002] backdrop-blur-2xl transition-[background-color,box-shadow,transform] hover:bg-orange-400/25 hover:shadow-[inset_0_1px_0_#fff3,0_8px_48px_#f9731620] data-[pressed=true]:scale-95 motion-reduce:transition-none">
+            endContent={<span aria-hidden="true" className="ml-5 text-lg text-foreground dark:text-orange-100/65">→</span>}
+            className="h-14 min-w-52 border border-orange-100/25 bg-gradient-to-r from-orange-400/20 to-red-400/15 px-7 font-medium text-foreground dark:text-orange-50 shadow-[inset_0_1px_0_#fff2,0_8px_40px_#0002] backdrop-blur-2xl transition-[background-color,box-shadow,transform] hover:bg-orange-400/25 hover:shadow-[inset_0_1px_0_#fff3,0_8px_48px_#f9731620] data-[pressed=true]:scale-95 motion-reduce:transition-none">
             Wake up
           </Button>
-          <p className="text-[11px] text-orange-100/35">or press <kbd className="ml-1 rounded border border-white/10 px-1.5 py-0.5 font-sans text-[10px] text-orange-100/55">esc</kbd></p>
+          <p className="text-[11px] text-foreground dark:text-orange-100/35">or press <kbd className="ml-1 rounded border border-white/10 px-1.5 py-0.5 font-sans text-[10px] text-foreground dark:text-orange-100/55">esc</kbd></p>
         </footer>
       </ModalBody>
     </ModalContent>

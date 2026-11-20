@@ -1,5 +1,6 @@
 "use client";
 
+import { AdminThemeSwitch } from "@/components/admin/AdminProvider";
 import { AdminButton, AdminInput } from "@/components/admin/ui";
 import { AdminInstallButton } from "@/components/admin/AdminPwaProvider";
 
@@ -48,7 +49,7 @@ export default function AdminLoginPage() {
       </section>
       <section className="flex items-center justify-center p-6 sm:p-12">
         <Card className="w-full max-w-md border border-divider bg-content1/60" shadow="sm" radius="lg"><CardBody className="p-7 sm:p-9">
-          <p className="text-xs font-semibold uppercase tracking-[.18em] text-primary">HappiNotes Studio</p>
+          <div className="flex items-center justify-between gap-3"><p className="text-xs font-semibold uppercase tracking-[.18em] text-primary">HappiNotes Studio</p><AdminThemeSwitch /></div>
           <h1 className="mt-3">Welcome back</h1>
           <p className="mt-3 text-sm leading-6 text-default-400">Sign in to manage books, episodes, users, and notifications.</p>
           <form onSubmit={submit} className="mt-8 space-y-5">

@@ -1,12 +1,11 @@
 'use client';
 
 import { useCallback, useEffect, useRef, useState } from 'react';
-import { addToast, Button, Card, CardBody, Chip, Input, Modal, ModalBody, ModalContent, ModalFooter, ModalHeader, Pagination, Skeleton, Switch, Table, TableBody, TableCell, TableColumn, TableHeader, TableRow, Textarea } from '@heroui/react';
+import { addToast, Button, Card, CardBody, Chip, Input, Modal, ModalBody, ModalContent, ModalFooter, ModalHeader, Pagination, Skeleton, Table, TableBody, TableCell, TableColumn, TableHeader, TableRow, Textarea } from '@heroui/react';
 import { io } from 'socket.io-client';
 import { AnimatePresence, motion, useReducedMotion } from 'framer-motion';
 import UserSecurityCharts, { RealPacketLevelVisualization, SecurityChartsLoading, type PacketTelemetrySnapshot } from '@/components/admin/UserSecurityCharts';
 import { apiRequest, BASE_URL, downloadCsv } from '@/lib/api';
-import { useSecurityAppearance } from '@/components/admin/AdminProvider';
 import UserNetworkDetails from '@/components/admin/UserNetworkDetails';
 import type { SecurityUser as UserRow } from '@/lib/user-security';
 
@@ -20,7 +19,6 @@ function NetworkIcon({ type }: { type?: string }) {
   return <svg aria-hidden="true" width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="1.8" strokeLinecap="round">{type === 'wifi' ? <><path d="M3 8a15 15 0 0 1 18 0M6 12a10 10 0 0 1 12 0M9 16a5 5 0 0 1 6 0" /><circle cx="12" cy="20" r=".6" /></> : type === 'cellular' ? <><path d="M7 3h7l4 4v14H6V3Z" /><rect x="9" y="11" width="6" height="6" rx="1" /></> : <><circle cx="12" cy="12" r="9" /><path d="M3 12h18M12 3a20 20 0 0 1 0 18 20 20 0 0 1 0-18" /></>}</svg>;
 }
 export default function UserSecurityPage() {
-  const { mode, select } = useSecurityAppearance();
   const [tab, setTab] = useState<SecurityTab>('details');
   const reduceMotion = useReducedMotion();
   const [total, setTotal] = useState(0);
@@ -140,12 +138,6 @@ export default function UserSecurityPage() {
   }
   return <section className="w-full min-w-0 space-y-5">
     <header className="flex flex-wrap items-start justify-between gap-3"><div><p className="text-xs font-bold uppercase tracking-widest text-primary">Account management</p><h1 className="mt-2 text-3xl font-bold">User Security</h1><p className="mt-2 text-sm text-default-400">Review account details or explore security patterns in the chart view.</p></div>
-      <Switch size="sm" color="primary" aria-label="Dark mode" isSelected={mode === 'dark'}
-        onValueChange={selected => select(selected ? 'dark' : 'light')}
-        classNames={{ base: 'm-0 min-h-11 gap-2 rounded-full border border-divider bg-content1 px-3 py-1', wrapper: 'mr-0', label: 'text-xs font-semibold text-foreground' }}
-        thumbIcon={({ isSelected, className }) => <svg aria-hidden="true" className={className} viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round">
-          {isSelected ? <path d="M20 14a8 8 0 0 1-10-10 8 8 0 1 0 10 10Z" /> : <><circle cx="12" cy="12" r="4" /><path d="M12 2v2m0 16v2M2 12h2m16 0h2M5 5l1.5 1.5m11 11L19 19M5 19l1.5-1.5m11-11L19 5" /></>}
-        </svg>}>Dark mode</Switch>
     </header>
     <div className="flex flex-wrap items-center justify-between gap-4">
     <div role="tablist" aria-label="User Security views" className="inline-flex gap-1 rounded-xl border border-divider bg-content2/50 p-1">

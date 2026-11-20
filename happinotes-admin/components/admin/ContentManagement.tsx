@@ -105,7 +105,7 @@ function UsersSkeleton() {
 function BookCover({ item, compact = false }: { item: Pick<Content, "title" | "thumbnailUrl" | "coverImageUrl">; compact?: boolean }) {
   const [failedSource, setFailedSource] = useState<string | null>(null);
   const src = item.thumbnailUrl || item.coverImageUrl;
-  return <div className={`relative flex shrink-0 items-center justify-center overflow-hidden border border-white/10 bg-gradient-to-br from-orange-400/10 to-slate-800 text-orange-300/60 shadow-md ${compact ? 'h-12 w-9 rounded-md' : 'h-36 w-24 rounded-xl'}`}>
+  return <div className={`relative flex shrink-0 items-center justify-center overflow-hidden border border-divider bg-gradient-to-br from-orange-400/10 to-slate-800 text-orange-700 dark:text-orange-300/60 shadow-md ${compact ? 'h-12 w-9 rounded-md' : 'h-36 w-24 rounded-xl'}`}>
     {src && failedSource !== src ? <Image unoptimized fill sizes="96px" src={src} alt={item.title} className="object-contain" onError={() => setFailedSource(src)} /> : <LibraryIcon name="book" className="h-9 w-9" />}
   </div>;
 }
@@ -696,10 +696,10 @@ export default function ContentManagement({ activeModule }: { activeModule: Modu
 
       {activeModule === "lifebooks" && (loading ? <StoryBooksSkeleton /> : <motion.div initial={reducedMotion ? false : { opacity: 0, y: 8 }} animate={{ opacity: 1, y: 0 }} transition={{ duration: 0.25 }} className="space-y-6">
         <div className="grid grid-cols-2 gap-3 lg:grid-cols-4" role="group" aria-label="Filter books by publication status">
-          {bookStatuses.map((status, statusIndex) => { const tone: "orange" | "green" | "slate" | "amber" = status.key === "live" ? "green" : status.key === "coming_soon" ? "amber" : status.key === "draft" ? "slate" : "orange"; const chartValues = bookStatuses.map(entry => entry.count); return <button key={status.key} type="button" aria-pressed={bookStatus === status.key} onClick={() => setBookStatus(status.key)} className={`group relative min-w-0 overflow-hidden rounded-2xl border p-4 text-left transition-colors focus-visible:outline-2 focus-visible:outline-offset-4 focus-visible:outline-orange-400 sm:p-5 ${bookStatus === status.key ? "border-orange-400/30 bg-orange-400/[.08]" : "border-white/10 bg-content1 hover:border-white/25"}`}><div className="flex items-center justify-between gap-2"><span className="text-xs font-medium text-slate-400 sm:text-sm">{status.label}</span><span className={`h-1.5 w-1.5 rounded-full ${status.key === "live" ? "bg-emerald-400" : status.key === "coming_soon" ? "bg-amber-400" : status.key === "draft" ? "bg-slate-500" : "bg-orange-400"}`} /></div><p className={`mt-3 text-2xl font-semibold tabular-nums sm:text-3xl ${bookStatus === status.key ? "text-orange-300" : "text-slate-100"}`}>{status.count}</p><p className="mt-1 text-[10px] font-medium uppercase tracking-[.14em] text-default-500">{lifebooks.length ? `${Math.round((status.count / lifebooks.length) * 100)}% of library` : "No titles yet"}</p><MiniStatusChart count={status.count} total={lifebooks.length} values={chartValues} activeIndex={statusIndex} tone={tone} /></button>; })}
+          {bookStatuses.map((status, statusIndex) => { const tone: "orange" | "green" | "slate" | "amber" = status.key === "live" ? "green" : status.key === "coming_soon" ? "amber" : status.key === "draft" ? "slate" : "orange"; const chartValues = bookStatuses.map(entry => entry.count); return <button key={status.key} type="button" aria-pressed={bookStatus === status.key} onClick={() => setBookStatus(status.key)} className={`group relative min-w-0 overflow-hidden rounded-2xl border p-4 text-left transition-colors focus-visible:outline-2 focus-visible:outline-offset-4 focus-visible:outline-orange-400 sm:p-5 ${bookStatus === status.key ? "border-orange-400/30 bg-orange-400/[.08]" : "border-divider bg-content1 hover:border-divider"}`}><div className="flex items-center justify-between gap-2"><span className="text-xs font-medium text-default-500 sm:text-sm">{status.label}</span><span className={`h-1.5 w-1.5 rounded-full ${status.key === "live" ? "bg-emerald-400" : status.key === "coming_soon" ? "bg-amber-400" : status.key === "draft" ? "bg-slate-500" : "bg-orange-400"}`} /></div><p className={`mt-3 text-2xl font-semibold tabular-nums sm:text-3xl ${bookStatus === status.key ? "text-orange-700 dark:text-orange-300" : "text-foreground"}`}>{status.count}</p><p className="mt-1 text-[10px] font-medium uppercase tracking-[.14em] text-default-500">{lifebooks.length ? `${Math.round((status.count / lifebooks.length) * 100)}% of library` : "No titles yet"}</p><MiniStatusChart count={status.count} total={lifebooks.length} values={chartValues} activeIndex={statusIndex} tone={tone} /></button>; })}
         </div>
         <section aria-labelledby="book-library-heading" className="min-w-0 space-y-4">
-          <div className="flex flex-col justify-between gap-4 xl:flex-row xl:items-center"><div><h2 id="book-library-heading" className="text-lg font-semibold text-slate-100">Your Life Book library</h2><p role="status" className="mt-1 text-xs text-slate-400">Showing {visibleBooks.length} of {lifebooks.length} Life Books</p></div><div className="flex w-full flex-col gap-3 sm:flex-row xl:w-auto"><AdminInput aria-label="Search Life Books" placeholder="Search Life Book titles…" value={bookSearch} onChange={event => setBookSearch(event.target.value)} startContent={<LibraryIcon name="search" className="h-4 w-4 shrink-0 text-slate-400" />} className="w-full xl:w-72" /><AdminSelect aria-label="Filter Life Books by access" value={bookAccess} onChange={event => setBookAccess(event.target.value)} className="w-full sm:w-44"><option value="all">All access</option><option value="free">Free</option><option value="premium">Premium</option></AdminSelect></div></div>
+          <div className="flex flex-col justify-between gap-4 xl:flex-row xl:items-center"><div><h2 id="book-library-heading" className="text-lg font-semibold text-foreground">Your Life Book library</h2><p role="status" className="mt-1 text-xs text-default-500">Showing {visibleBooks.length} of {lifebooks.length} Life Books</p></div><div className="flex w-full flex-col gap-3 sm:flex-row xl:w-auto"><AdminInput aria-label="Search Life Books" placeholder="Search Life Book titles…" value={bookSearch} onChange={event => setBookSearch(event.target.value)} startContent={<LibraryIcon name="search" className="h-4 w-4 shrink-0 text-default-500" />} className="w-full xl:w-72" /><AdminSelect aria-label="Filter Life Books by access" value={bookAccess} onChange={event => setBookAccess(event.target.value)} className="w-full sm:w-44"><option value="all">All access</option><option value="free">Free</option><option value="premium">Premium</option></AdminSelect></div></div>
           {visibleBooks.length ? <div className="overflow-hidden rounded-2xl border border-divider bg-content1 shadow-sm">
             <div className="overflow-x-auto">
               <Table aria-label="Life Books library" removeWrapper className="min-w-[920px]" classNames={{ table: "w-full", th: "h-12 bg-content2 px-4 text-[10px] font-bold uppercase tracking-[.12em] text-default-400 first:pl-5 last:pr-5", td: "border-b border-divider/60 px-4 py-3.5 first:pl-5 last:pr-5 last:border-0" }}>
@@ -749,7 +749,7 @@ export default function ContentManagement({ activeModule }: { activeModule: Modu
               </Table>
             </div>
             <div className="flex flex-wrap items-center justify-between gap-3 border-t border-divider px-5 py-3"><p className="text-xs text-default-400">Showing {visibleBooks.length ? booksStart + 1 : 0}–{Math.min(booksStart + BOOKS_PER_PAGE, visibleBooks.length)} of {visibleBooks.length} filtered Life Books</p><div className="flex items-center gap-4"><span className="hidden text-[11px] text-default-400 sm:inline">Use Actions for publishing and deletion</span>{booksPageCount > 1 ? <Pagination aria-label="Life Books pagination" page={currentBooksPage} total={booksPageCount} onChange={setBooksPage} showControls isCompact size="sm" radius="lg" color="primary" siblings={0} boundaries={1} /> : null}</div></div>
-          </div> : <div className="flex flex-col items-center rounded-2xl border border-dashed border-divider bg-content1/50 px-6 py-12 text-center"><LibraryIcon name="book" className="mb-4 h-9 w-9 text-orange-300/60" /><h3 className="font-semibold text-slate-200">{lifebooks.length ? "No Life Books match your filters" : "Your library starts here"}</h3><p className="mt-2 text-sm text-slate-400">{lifebooks.length ? "Try another title, publication status, or access type." : "Create your first Life Book to start building your library."}</p>{lifebooks.length ? <AdminButton variant="light" className="mt-4" onPress={() => { setBookSearch(""); setBookStatus("all"); setBookAccess("all"); }}>Clear filters</AdminButton> : <AdminButton color="primary" className="mt-4" onPress={() => void openCreate("lifebook")}>Add New Life Book</AdminButton>}</div>}
+          </div> : <div className="flex flex-col items-center rounded-2xl border border-dashed border-divider bg-content1/50 px-6 py-12 text-center"><LibraryIcon name="book" className="mb-4 h-9 w-9 text-orange-700 dark:text-orange-300/60" /><h3 className="font-semibold text-foreground">{lifebooks.length ? "No Life Books match your filters" : "Your library starts here"}</h3><p className="mt-2 text-sm text-default-500">{lifebooks.length ? "Try another title, publication status, or access type." : "Create your first Life Book to start building your library."}</p>{lifebooks.length ? <AdminButton variant="light" className="mt-4" onPress={() => { setBookSearch(""); setBookStatus("all"); setBookAccess("all"); }}>Clear filters</AdminButton> : <AdminButton color="primary" className="mt-4" onPress={() => void openCreate("lifebook")}>Add New Life Book</AdminButton>}</div>}
         </section>
       </motion.div>)}
 
@@ -757,8 +757,8 @@ export default function ContentManagement({ activeModule }: { activeModule: Modu
         <Card as="div" shadow="none" className="space-y-4 rounded-2xl border border-divider bg-content1 p-4">
           <div className="flex flex-wrap items-center justify-between gap-3">
             <div>
-              <h2 className="m-0 text-xl font-semibold text-white">App Views & Content Arrangement</h2>
-              <p className="mt-1 text-xs text-[#a1a1aa]">
+              <h2 className="m-0 text-xl font-semibold text-foreground">App Views & Content Arrangement</h2>
+              <p className="mt-1 text-xs text-default-600">
                 Set user-facing order for web and mobile feeds. Drag, arrange, and save.
               </p>
             </div>
@@ -768,8 +768,8 @@ export default function ContentManagement({ activeModule }: { activeModule: Modu
                 onClick={() => setViewPlatform("web")}
                 className={`rounded-lg border px-3 py-2 text-xs font-semibold ${
                   viewPlatform === "web"
-                    ? "border-[#3b3b48] bg-[#1a1f33] text-white"
-                    : "border-white/15 bg-[#101118] text-[#c8cbd3]"
+                    ? "border-divider bg-content1 text-foreground"
+                    : "border-divider bg-content1 text-default-600"
                 }`}
               >
                 Web App View
@@ -779,8 +779,8 @@ export default function ContentManagement({ activeModule }: { activeModule: Modu
                 onClick={() => setViewPlatform("mobile")}
                 className={`rounded-lg border px-3 py-2 text-xs font-semibold ${
                   viewPlatform === "mobile"
-                    ? "border-[#3b3b48] bg-[#1a1f33] text-white"
-                    : "border-white/15 bg-[#101118] text-[#c8cbd3]"
+                    ? "border-divider bg-content1 text-foreground"
+                    : "border-divider bg-content1 text-default-600"
                 }`}
               >
                 Mobile App View
@@ -796,8 +796,8 @@ export default function ContentManagement({ activeModule }: { activeModule: Modu
                   onClick={() => setWebViewport("desktop")}
                   className={`rounded-md border px-3 py-1.5 text-xs ${
                     webViewport === "desktop"
-                      ? "border-amber-400/40 bg-amber-500/10 text-amber-200"
-                      : "border-white/15 text-[#c8cbd3]"
+                      ? "border-amber-400/40 bg-amber-500/10 text-amber-700 dark:text-amber-200"
+                      : "border-divider text-default-600"
                   }`}
                 >
                   Desktop View
@@ -807,8 +807,8 @@ export default function ContentManagement({ activeModule }: { activeModule: Modu
                   onClick={() => setWebViewport("mobile")}
                   className={`rounded-md border px-3 py-1.5 text-xs ${
                     webViewport === "mobile"
-                      ? "border-amber-400/40 bg-amber-500/10 text-amber-200"
-                      : "border-white/15 text-[#c8cbd3]"
+                      ? "border-amber-400/40 bg-amber-500/10 text-amber-700 dark:text-amber-200"
+                      : "border-divider text-default-600"
                   }`}
                 >
                   Mobile View
@@ -818,13 +818,13 @@ export default function ContentManagement({ activeModule }: { activeModule: Modu
                 href="/"
                 target="_blank"
                 rel="noreferrer"
-                className="rounded-md border border-white/20 px-3 py-1.5 text-xs text-white hover:bg-white/5"
+                className="rounded-md border border-divider px-3 py-1.5 text-xs text-foreground hover:bg-foreground/5"
               >
                 Open Web Preview
               </a>
             </Card>
           ) : (
-            <Card as="div" shadow="none" className="rounded-xl border border-divider bg-content1 p-3 text-xs text-[#c8cbd3]">
+            <Card as="div" shadow="none" className="rounded-xl border border-divider bg-content1 p-3 text-xs text-default-600">
               Mobile app feed order will use this arrangement. Changes become visible after mobile refresh.
             </Card>
           )}
@@ -844,8 +844,8 @@ export default function ContentManagement({ activeModule }: { activeModule: Modu
                   onClick={() => setArrangeCategory(chip.key as "all" | Status | "free" | "premium")}
                   className={`rounded-full border px-3 py-1 text-xs ${
                     arrangeCategory === chip.key
-                      ? "border-amber-400/40 bg-amber-500/10 text-amber-200"
-                      : "border-white/15 text-[#c8cbd3]"
+                      ? "border-amber-400/40 bg-amber-500/10 text-amber-700 dark:text-amber-200"
+                      : "border-divider text-default-600"
                   }`}
                 >
                   {chip.label}
@@ -862,15 +862,15 @@ export default function ContentManagement({ activeModule }: { activeModule: Modu
             </AdminButton>
           </div>
 
-          <div className="overflow-hidden rounded-xl border border-white/10">
+          <div className="overflow-hidden rounded-xl border border-divider">
             <table className="w-full border-collapse text-sm">
-              <thead className="bg-[#101118]">
+              <thead className="bg-content1">
                 <tr>
-                  <th className="px-3 py-2 text-left text-xs text-[#a1a1aa]">Order</th>
-                  <th className="px-3 py-2 text-left text-xs text-[#a1a1aa]">Title</th>
-                  <th className="px-3 py-2 text-left text-xs text-[#a1a1aa]">Category</th>
-                  <th className="px-3 py-2 text-left text-xs text-[#a1a1aa]">Type</th>
-                  <th className="px-3 py-2 text-left text-xs text-[#a1a1aa]">Status</th>
+                  <th className="px-3 py-2 text-left text-xs text-default-600">Order</th>
+                  <th className="px-3 py-2 text-left text-xs text-default-600">Title</th>
+                  <th className="px-3 py-2 text-left text-xs text-default-600">Category</th>
+                  <th className="px-3 py-2 text-left text-xs text-default-600">Type</th>
+                  <th className="px-3 py-2 text-left text-xs text-default-600">Status</th>
                 </tr>
               </thead>
               <tbody>
@@ -892,11 +892,11 @@ export default function ContentManagement({ activeModule }: { activeModule: Modu
                       const fromId = e.dataTransfer.getData("text/plain");
                       moveArrangementItem(fromId, item._id);
                     }}
-                    className="cursor-move border-t border-[#1f1f26] hover:bg-white/[0.02]"
+                    className="cursor-move border-t border-divider hover:bg-foreground/[0.02]"
                   >
-                    <td className="px-3 py-2 text-xs text-[#d4d4d8]">{index + 1}</td>
-                    <td className="px-3 py-2 text-white">{item.title}</td>
-                    <td className="px-3 py-2 text-[#c8cbd3]">Lifebooks</td>
+                    <td className="px-3 py-2 text-xs text-default-600">{index + 1}</td>
+                    <td className="px-3 py-2 text-foreground">{item.title}</td>
+                    <td className="px-3 py-2 text-default-600">Lifebooks</td>
                     <td className="px-3 py-2">
                       <Badge text={item.type} tone={item.type === "premium" ? "purple" : "blue"} />
                     </td>
@@ -906,8 +906,8 @@ export default function ContentManagement({ activeModule }: { activeModule: Modu
                   </tr>
                 ))}
                 {arrangeVisible.length === 0 ? (
-                  <tr className="border-t border-[#1f1f26]">
-                    <td colSpan={5} className="px-3 py-6 text-center text-sm text-[#a1a1aa]">
+                  <tr className="border-t border-divider">
+                    <td colSpan={5} className="px-3 py-6 text-center text-sm text-default-600">
                       No items found for this filter.
                     </td>
                   </tr>
@@ -916,7 +916,7 @@ export default function ContentManagement({ activeModule }: { activeModule: Modu
             </table>
           </div>
           {arrangeCategory !== "all" ? (
-            <p className="text-xs text-amber-200">
+            <p className="text-xs text-amber-700 dark:text-amber-200">
               Drag and drop is enabled only on &quot;All&quot; filter to preserve a single global order.
             </p>
           ) : null}
@@ -928,7 +928,7 @@ export default function ContentManagement({ activeModule }: { activeModule: Modu
           <Table aria-label="User accounts" className="w-full min-w-[600px]" removeWrapper classNames={{ table: "w-full", th: "bg-content2 text-default-400 first:pl-5 last:pr-5 sm:first:pl-8 sm:last:pr-8 lg:first:pl-10 lg:last:pr-10", td: "py-4 first:pl-5 last:pr-5 sm:first:pl-8 sm:last:pr-8 lg:first:pl-10 lg:last:pr-10" }}>
             <TableHeader>
                 {["Email", "Join date", "Blocked", "Actions"].map((h) => (
-                  <TableColumn key={h} className="px-3 py-3 text-left text-xs text-[#a1a1aa]">
+                  <TableColumn key={h} className="px-3 py-3 text-left text-xs text-default-600">
                     {h}
                   </TableColumn>
                 ))}
@@ -937,9 +937,9 @@ export default function ContentManagement({ activeModule }: { activeModule: Modu
               {visibleUsers.map((u) => {
                 const id = u.id || u._id || "";
                 return (
-                  <TableRow key={id} className="border-t border-[#1f1f26]">
-                    <TableCell className="px-3 py-3 text-white">{u.email}</TableCell>
-                    <TableCell className="px-3 py-3 text-[#c8cbd3]">{u.createdAt ? new Date(u.createdAt).toLocaleDateString() : "-"}</TableCell>
+                  <TableRow key={id} className="border-t border-divider">
+                    <TableCell className="px-3 py-3 text-foreground">{u.email}</TableCell>
+                    <TableCell className="px-3 py-3 text-default-600">{u.createdAt ? new Date(u.createdAt).toLocaleDateString() : "-"}</TableCell>
                     <TableCell className="px-3 py-3">
                       <Badge text={u.blocked ? "Blocked" : "No"} tone={u.blocked ? "rose" : "blue"} />
                     </TableCell>
@@ -948,7 +948,7 @@ export default function ContentManagement({ activeModule }: { activeModule: Modu
                         <AdminButton
                           onClick={() => userAction(id, u.blocked ? "unblock" : "block")}
                           disabled={busyId === id}
-                          className="rounded-md border border-white/15 px-3 py-1.5 text-xs text-white hover:bg-white/5"
+                          className="rounded-md border border-divider px-3 py-1.5 text-xs text-foreground hover:bg-foreground/5"
                         >
                         {u.blocked ? "Unblock" : "Block"}
                         </AdminButton>
@@ -971,12 +971,12 @@ export default function ContentManagement({ activeModule }: { activeModule: Modu
       )}
 
       {(createOpen || editOpen) && (
-        <AdminModal aria-labelledby="content-editor-title" isOpen size="3xl" scrollBehavior="inside" isDismissable={false} isKeyboardDismissDisabled hideCloseButton backdrop="blur" classNames={{ base: "dark admin-ui border border-divider bg-content1 text-foreground" }}>
+        <AdminModal aria-labelledby="content-editor-title" isOpen size="3xl" scrollBehavior="inside" isDismissable={false} isKeyboardDismissDisabled hideCloseButton backdrop="blur" classNames={{ base: "admin-ui border border-divider bg-content1 text-foreground" }}>
           <ModalContent><ModalBody className="p-6">
-            <h3 id="content-editor-title" className="m-0 text-xl font-semibold text-white">
+            <h3 id="content-editor-title" className="m-0 text-xl font-semibold text-foreground">
               {createOpen ? `Add ${createKind === "lifebook" ? "New Book" : createKind === "note" ? "Note" : "Happiness"}` : "Edit Content"}
             </h3>
-            <p className="mt-2 text-sm text-[#a1a1aa]">
+            <p className="mt-2 text-sm text-default-600">
               {isLifebookFlow && isLiveFlow
                 ? "Add the book details, cover image, and as many episode MP3 files as you need."
                 : "Simple content flow: fill details and save"}
@@ -991,8 +991,8 @@ export default function ContentManagement({ activeModule }: { activeModule: Modu
                     onClick={() => setStep(n as Step)}
                     className={`rounded-lg border px-3 py-2 text-xs ${
                       step === n
-                        ? "border-[#f97316] bg-[#2a1a12] text-white"
-                        : "border-white/10 bg-[#12131a] text-[#a1a1aa]"
+                        ? "border-[#f97316] bg-primary/10 text-foreground"
+                        : "border-divider bg-content1 text-default-600"
                     }`}
                   >
                     {n === 1 ? "Basic" : n === 2 ? "Intro" : n === 3 ? "Episodes" : "Review"}
@@ -1005,22 +1005,22 @@ export default function ContentManagement({ activeModule }: { activeModule: Modu
               {(createOpen || editOpen) && (
                 <>
                   <div className="grid grid-cols-1 gap-3 md:grid-cols-2">
-                    <div className="grid gap-1 text-sm text-[#d4d4d8]">
+                    <div className="grid gap-1 text-sm text-default-600">
                       <AdminSelect label="Status"
                         value={form.status}
                         onChange={(e) => setForm((prev) => ({ ...prev, status: e.target.value as Status }))}
-                        className="rounded-lg border border-white/10 bg-[#12131a] px-3 py-2 text-white outline-none"
+                        className="rounded-lg border border-divider bg-content1 px-3 py-2 text-foreground outline-none"
                       >
                         <option value="coming_soon">Coming Soon</option>
                         <option value="live">Live</option>
                         <option value="draft">Draft</option>
                       </AdminSelect>
                     </div>
-                    <div className="grid gap-1 text-sm text-[#d4d4d8]">
+                    <div className="grid gap-1 text-sm text-default-600">
                       <AdminSelect label="Access"
                         value={form.type}
                         onChange={(e) => setForm((prev) => ({ ...prev, type: e.target.value as "free" | "premium" }))}
-                        className="rounded-lg border border-white/10 bg-[#12131a] px-3 py-2 text-white outline-none"
+                        className="rounded-lg border border-divider bg-content1 px-3 py-2 text-foreground outline-none"
                       >
                         <option value="free">Free</option>
                         <option value="premium">Premium</option>
@@ -1028,27 +1028,27 @@ export default function ContentManagement({ activeModule }: { activeModule: Modu
                     </div>
                   </div>
                   {form.type === "premium" ? (
-                    <p className="rounded-lg border border-amber-400/20 bg-amber-400/5 px-3 py-2 text-sm text-amber-200">
+                    <p className="rounded-lg border border-amber-400/20 bg-amber-400/5 px-3 py-2 text-sm text-amber-700 dark:text-amber-200">
                       Premium access is provided through the monthly subscription plan. This story has no individual price.
                     </p>
                   ) : null}
-                  <label className="grid gap-1 text-sm text-[#d4d4d8]">
+                  <label className="grid gap-1 text-sm text-default-600">
                     Title
                     <AdminInput
                       value={form.title}
                       onChange={(e) => setForm((prev) => ({ ...prev, title: e.target.value }))}
                       placeholder="Title"
-                      className="rounded-lg border border-white/10 bg-[#12131a] px-3 py-2 text-white outline-none"
+                      className="rounded-lg border border-divider bg-content1 px-3 py-2 text-foreground outline-none"
                     />
                   </label>
-                  <label className="grid gap-1 text-sm text-[#d4d4d8]">
+                  <label className="grid gap-1 text-sm text-default-600">
                     Description
                     <AdminTextarea
                       value={form.description}
                       onChange={(e) => setForm((prev) => ({ ...prev, description: e.target.value }))}
                       rows={3}
                       placeholder="Description"
-                      className="rounded-lg border border-white/10 bg-[#12131a] px-3 py-2 text-white outline-none"
+                      className="rounded-lg border border-divider bg-content1 px-3 py-2 text-foreground outline-none"
                     />
                   </label>
                   <div className="grid grid-cols-1 gap-3 md:grid-cols-2">
@@ -1056,28 +1056,28 @@ export default function ContentManagement({ activeModule }: { activeModule: Modu
                     <AdminCheckbox
                       isSelected={form.featured}
                       onValueChange={(featured) => setForm((prev) => ({ ...prev, featured }))}
-                      className="rounded-lg border border-white/10 bg-[#12131a] px-3 py-2"
+                      className="rounded-lg border border-divider bg-content1 px-3 py-2"
                     >Featured</AdminCheckbox>
                   </div>
-                  <label className="grid gap-1 text-sm text-[#d4d4d8]">
+                  <label className="grid gap-1 text-sm text-default-600">
                     Book Image
                     <AdminInput
                       type="file"
                       accept="image/*"
                       onChange={(e) => setForm((prev) => ({ ...prev, thumbnail: e.target.files?.[0] || null }))}
-                      className="rounded-lg border border-white/10 bg-[#12131a] px-3 py-2 text-white outline-none"
+                      className="rounded-lg border border-divider bg-content1 px-3 py-2 text-foreground outline-none"
                     />
-                    <p className="text-xs text-[#a1a1aa]">{form.thumbnail?.name || (editing?.thumbnailUrl || editing?.coverImageUrl ? "Saved cover image attached" : "Choose a cover image")}</p>
+                    <p className="text-xs text-default-600">{form.thumbnail?.name || (editing?.thumbnailUrl || editing?.coverImageUrl ? "Saved cover image attached" : "Choose a cover image")}</p>
                     {form.thumbnail ? <Image unoptimized width={80} height={112} src={URL.createObjectURL(form.thumbnail)} alt="Selected cover preview" className="mt-1 h-28 w-20 rounded-lg object-cover" /> : (editing?.thumbnailUrl || editing?.coverImageUrl) ? <Image unoptimized width={80} height={112} src={editing.thumbnailUrl || editing.coverImageUrl || ""} alt="Saved cover preview" className="mt-1 h-28 w-20 rounded-lg object-cover" /> : null}
                   </label>
                   {(createOpen ? createKind : editing?.contentType) === "silence" ? (
-                    <label className="grid gap-1 text-sm text-[#d4d4d8]">
+                    <label className="grid gap-1 text-sm text-default-600">
                       Category
                       <AdminInput
                         value={form.category}
                         onChange={(e) => setForm((prev) => ({ ...prev, category: e.target.value }))}
                         placeholder="Category"
-                        className="rounded-lg border border-white/10 bg-[#12131a] px-3 py-2 text-white outline-none"
+                        className="rounded-lg border border-divider bg-content1 px-3 py-2 text-foreground outline-none"
                       />
                     </label>
                   ) : null}
@@ -1086,16 +1086,16 @@ export default function ContentManagement({ activeModule }: { activeModule: Modu
 
               {false && isLifebookFlow && isLiveFlow && step === 2 ? (
                 <>
-                  <label className="grid gap-1 text-sm text-[#d4d4d8]">
+                  <label className="grid gap-1 text-sm text-default-600">
                     Intro Title
                     <AdminInput
                       value={form.introTitle}
                       onChange={(e) => setForm((prev) => ({ ...prev, introTitle: e.target.value }))}
                       placeholder="Intro title"
-                      className="rounded-lg border border-white/10 bg-[#12131a] px-3 py-2 text-white outline-none"
+                      className="rounded-lg border border-divider bg-content1 px-3 py-2 text-foreground outline-none"
                     />
                   </label>
-                  <label className="grid gap-1 text-sm text-[#d4d4d8]">
+                  <label className="grid gap-1 text-sm text-default-600">
                     Intro Audio/Video
                     <AdminInput
                       type="file"
@@ -1108,7 +1108,7 @@ export default function ContentManagement({ activeModule }: { activeModule: Modu
                           introMediaType: undefined,
                         }))
                       }
-                      className="rounded-lg border border-white/10 bg-[#12131a] px-3 py-2 text-white outline-none"
+                      className="rounded-lg border border-divider bg-content1 px-3 py-2 text-foreground outline-none"
                     />
                   </label>
                   <div className="flex flex-wrap items-center gap-2">
@@ -1134,11 +1134,11 @@ export default function ContentManagement({ activeModule }: { activeModule: Modu
                           setMessage(err instanceof Error ? err.message : "Intro upload failed");
                         }
                       }}
-                      className="rounded-md border border-blue-400/30 px-3 py-1.5 text-xs text-blue-200 hover:bg-blue-500/10 disabled:opacity-60"
+                      className="rounded-md border border-blue-400/30 px-3 py-1.5 text-xs text-blue-700 dark:text-blue-200 hover:bg-blue-500/10 disabled:opacity-60"
                     >
                       {form.introUploading ? "Uploading..." : "Upload Intro Now"}
                     </AdminButton>
-                    {form.introMediaUrl ? <p className="text-xs text-emerald-300">Intro ready for publish.</p> : null}
+                    {form.introMediaUrl ? <p className="text-xs text-emerald-700 dark:text-emerald-300">Intro ready for publish.</p> : null}
                   </div>
                 </>
               ) : null}
@@ -1147,7 +1147,7 @@ export default function ContentManagement({ activeModule }: { activeModule: Modu
                 <>
                   {form.chapters.map((chapter, index) => (
                     <Card as="div" shadow="none" key={index} className="rounded-xl border border-divider bg-content1 p-3">
-                      <p className="mb-2 text-xs font-semibold text-[#a1a1aa]">Episode {index + 1}</p>
+                      <p className="mb-2 text-xs font-semibold text-default-600">Episode {index + 1}</p>
                       <div className="grid gap-2">
                         <AdminInput
                           value={chapter.title}
@@ -1158,7 +1158,7 @@ export default function ContentManagement({ activeModule }: { activeModule: Modu
                             }))
                           }
                           placeholder={`Episode ${index + 1} title`}
-                          className="rounded-lg border border-white/10 bg-[#0f1016] px-3 py-2 text-white outline-none"
+                          className="rounded-lg border border-divider bg-content1 px-3 py-2 text-foreground outline-none"
                         />
                         <AdminTextarea
                           value={chapter.description}
@@ -1172,9 +1172,9 @@ export default function ContentManagement({ activeModule }: { activeModule: Modu
                           }
                           placeholder={`Episode ${index + 1} description`}
                           rows={3}
-                          className="rounded-lg border border-white/10 bg-[#0f1016] px-3 py-2 text-sm text-white outline-none"
+                          className="rounded-lg border border-divider bg-content1 px-3 py-2 text-sm text-foreground outline-none"
                         />
-                        <p className="text-xs text-[#a1a1aa]">
+                        <p className="text-xs text-default-600">
                           {chapter.file?.name || (chapter.mediaUrl ? (chapter.mediaUrl.split("/").pop() || "Saved MP3 attached") : "Choose an MP3 file")}
                         </p>
                         {chapter.file || chapter.mediaUrl ? <audio controls preload="metadata" src={chapter.file ? URL.createObjectURL(chapter.file) : chapter.mediaUrl} className="w-full" /> : null}
@@ -1196,7 +1196,7 @@ export default function ContentManagement({ activeModule }: { activeModule: Modu
                               ),
                             }))
                           }
-                          className="rounded-lg border border-white/10 bg-[#0f1016] px-3 py-2 text-white outline-none"
+                          className="rounded-lg border border-divider bg-content1 px-3 py-2 text-foreground outline-none"
                         />
                         <div className="flex flex-wrap items-center gap-2">
                           <AdminButton
@@ -1238,11 +1238,11 @@ export default function ContentManagement({ activeModule }: { activeModule: Modu
                                 setMessage(err instanceof Error ? err.message : "Episode upload failed");
                               }
                             }}
-                            className="rounded-md border border-blue-400/30 px-3 py-1.5 text-xs text-blue-200 hover:bg-blue-500/10 disabled:opacity-60"
+                            className="rounded-md border border-blue-400/30 px-3 py-1.5 text-xs text-blue-700 dark:text-blue-200 hover:bg-blue-500/10 disabled:opacity-60"
                           >
                             {chapter.uploading ? "Uploading..." : "Upload MP3"}
                           </AdminButton>
-                          {chapter.mediaUrl ? <p className="text-xs text-emerald-300">Episode ready.</p> : null}
+                          {chapter.mediaUrl ? <p className="text-xs text-emerald-700 dark:text-emerald-300">Episode ready.</p> : null}
                         </div>
                         <AdminButton
                           type="button"
@@ -1252,7 +1252,7 @@ export default function ContentManagement({ activeModule }: { activeModule: Modu
                               chapters: prev.chapters.filter((_, i) => i !== index),
                             }))
                           }
-                          className="w-fit rounded-md border border-rose-400/30 px-3 py-1 text-xs text-rose-200 hover:bg-rose-500/10"
+                          className="w-fit rounded-md border border-rose-400/30 px-3 py-1 text-xs text-rose-700 dark:text-rose-200 hover:bg-rose-500/10"
                         >
                           Remove Episode
                         </AdminButton>
@@ -1267,7 +1267,7 @@ export default function ContentManagement({ activeModule }: { activeModule: Modu
                         chapters: [...prev.chapters, { title: `Episode ${prev.chapters.length + 1}`, description: "", file: null, mediaUrl: "" }],
                       }))
                     }
-                    className="w-fit rounded-md border border-white/20 px-3 py-2 text-xs text-white hover:bg-white/5"
+                    className="w-fit rounded-md border border-divider px-3 py-2 text-xs text-foreground hover:bg-foreground/5"
                   >
                     + Add Episode MP3
                   </AdminButton>
@@ -1275,7 +1275,7 @@ export default function ContentManagement({ activeModule }: { activeModule: Modu
               ) : null}
 
               {false && isLifebookFlow && isLiveFlow && step === 4 ? (
-                <Card as="div" shadow="none" className="rounded-xl border border-divider bg-content1 p-4 text-sm text-[#d4d4d8]">
+                <Card as="div" shadow="none" className="rounded-xl border border-divider bg-content1 p-4 text-sm text-default-600">
                   <p><strong>Title:</strong> {form.title || "-"}</p>
                   <p><strong>Status:</strong> {form.status}</p>
                   <p><strong>Type:</strong> {form.type}</p>
@@ -1285,7 +1285,7 @@ export default function ContentManagement({ activeModule }: { activeModule: Modu
               ) : null}
 
               {(!isLifebookFlow || !isLiveFlow) && (createOpen ? createKind : editing?.contentType) !== "lifebook" && form.status === "live" ? (
-                <label className="grid gap-1 text-sm text-[#d4d4d8]">
+                <label className="grid gap-1 text-sm text-default-600">
                   Media (audio/video)
                   <AdminInput
                     type="file"
@@ -1298,7 +1298,7 @@ export default function ContentManagement({ activeModule }: { activeModule: Modu
                         mediaUploadedType: undefined,
                       }))
                     }
-                    className="rounded-lg border border-white/10 bg-[#12131a] px-3 py-2 text-white outline-none"
+                    className="rounded-lg border border-divider bg-content1 px-3 py-2 text-foreground outline-none"
                   />
                   <div className="mt-2 flex flex-wrap items-center gap-2">
                     <AdminButton
@@ -1324,11 +1324,11 @@ export default function ContentManagement({ activeModule }: { activeModule: Modu
                           setMessage(err instanceof Error ? err.message : "Media upload failed");
                         }
                       }}
-                      className="rounded-md border border-blue-400/30 px-3 py-1.5 text-xs text-blue-200 hover:bg-blue-500/10 disabled:opacity-60"
+                      className="rounded-md border border-blue-400/30 px-3 py-1.5 text-xs text-blue-700 dark:text-blue-200 hover:bg-blue-500/10 disabled:opacity-60"
                     >
                       {form.mediaUploading ? "Uploading..." : "Upload Media Now"}
                     </AdminButton>
-                    {form.mediaUploadedUrl ? <span className="text-xs text-emerald-300">Media ready.</span> : null}
+                    {form.mediaUploadedUrl ? <span className="text-xs text-emerald-700 dark:text-emerald-300">Media ready.</span> : null}
                   </div>
                 </label>
               ) : null}
@@ -1349,14 +1349,14 @@ export default function ContentManagement({ activeModule }: { activeModule: Modu
                     setMessage("");
                     setStep(1);
                   }}
-                  className="rounded-lg border border-white/20 px-4 py-2 text-sm text-white hover:bg-white/5"
+                  className="rounded-lg border border-divider px-4 py-2 text-sm text-foreground hover:bg-foreground/5"
                 >
                   Close
                 </AdminButton>
                 {false && isLifebookFlow && isLiveFlow && step > 1 ? (
                   <AdminButton
                     onClick={() => setStep((prev) => (Math.max(1, prev - 1) as Step))}
-                    className="rounded-lg border border-white/20 px-4 py-2 text-sm text-white hover:bg-white/5"
+                    className="rounded-lg border border-divider px-4 py-2 text-sm text-foreground hover:bg-foreground/5"
                   >
                     Previous
                   </AdminButton>
@@ -1364,7 +1364,7 @@ export default function ContentManagement({ activeModule }: { activeModule: Modu
                 {false && isLifebookFlow && isLiveFlow && step < 4 ? (
                   <AdminButton
                     onClick={() => setStep((prev) => (Math.min(4, prev + 1) as Step))}
-                    className="rounded-lg border border-white/20 px-4 py-2 text-sm text-white hover:bg-white/5"
+                    className="rounded-lg border border-divider px-4 py-2 text-sm text-foreground hover:bg-foreground/5"
                   >
                     Next
                   </AdminButton>
