@@ -48,6 +48,17 @@ body {
 /* Admin-only presentation: public reader pages keep their existing styling. */
 .admin-ui { --background: #090b10; --foreground: #f4f4f5; color-scheme: dark; font-family: Arial, Helvetica, sans-serif; }
 
+body.light .admin-ui {
+  --background: #f6f7fa;
+  --foreground: #202633;
+  color-scheme: light;
+}
+body.light .admin-ui th { background: #eef1f5; color: #485364; }
+body.light .admin-ui td { border-bottom-color: #d4dae2; }
+body.light .admin-ui tbody tr:hover { background: #eef1f5; }
+body.light .admin-ui summary { color: #545e6e; }
+html:has(body.light .admin-ui) { --admin-scrollbar-track: #eef1f5; }
+
 /* Explicit colors and keyframes keep these placeholders visible in the dark theme. */
 .admin-ui .happy-bites-skeleton {
   background: #2b3140;
@@ -200,3 +211,36 @@ table[aria-label="Featured content library"] td:last-child { width: 12rem; }
    visible list and pagination controls. */
 div[aria-label="User security list"] { display: none; }
 section:has(table[aria-label="User security accounts"]) > .flex.items-center.justify-center.gap-4 { display: none; }
+
+/* The desktop sidebar changes how much width the Play Console actually gets. */
+.play-console { container: play-console / inline-size; }
+.play-field-label { display: none; }
+
+@container play-console (max-width: 58rem) {
+  .play-console table, .play-console tbody { display: block; width: 100%; }
+  .play-console thead {
+    position: absolute;
+    width: 1px;
+    height: 1px;
+    overflow: hidden;
+    clip-path: inset(50%);
+    white-space: nowrap;
+  }
+  .play-console tbody tr { display: block; padding: .75rem 1rem; }
+  .play-console tbody tr + tr { border-top: 1px solid hsl(var(--heroui-divider)); }
+  .play-console tbody .play-record-field {
+    display: grid;
+    grid-template-columns: minmax(5.5rem, 32%) minmax(0, 1fr);
+    align-items: start;
+    gap: .75rem;
+    padding: .375rem 0;
+    border: 0;
+  }
+  .play-console .play-field-label {
+    display: block;
+    color: hsl(var(--heroui-default-500));
+    font-size: .75rem;
+    font-weight: 600;
+    line-height: 1.5;
+  }
+}

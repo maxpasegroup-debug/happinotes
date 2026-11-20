@@ -133,7 +133,7 @@ function NetworkDetails({ user, network, deviceId, page, query }: { user: Securi
     <section className="border-t border-divider pt-5"><h3 className="mb-4 font-semibold">Device & connection</h3><div className="grid gap-6 lg:grid-cols-[1fr_1.1fr]"><DeviceReference key={`${user.id}:${network?.deviceModel || ''}:${attempt}`} model={network?.deviceModel} os={network?.os} photo={lookup?.device} loading={loading} onRetry={() => refresh(true)} /><div className="min-w-0"><Fields items={[
       ['Operating system', network?.os], ['OS version', network?.osVersion], ['Connection type (reported)', network?.networkType], ['Last report', network?.lastSeen ? new Date(network.lastSeen).toLocaleString() : undefined],
     ]} /><Button className="mt-4" size="sm" color="primary" variant="flat" onPress={() => setDeviceDetailsOpen(true)}>View device details</Button></div></div></section>
-    <Modal size="3xl" isOpen={deviceDetailsOpen} onClose={() => setDeviceDetailsOpen(false)} scrollBehavior="inside" placement="center" classNames={{ base: 'dark admin-ui admin-modal-panel bg-content1 text-foreground', wrapper: 'admin-modal-wrapper', backdrop: 'admin-modal-backdrop' }}>
+    <Modal size="3xl" isOpen={deviceDetailsOpen} onClose={() => setDeviceDetailsOpen(false)} scrollBehavior="inside" placement="center" classNames={{ base: 'admin-ui admin-modal-panel bg-content1 text-foreground', wrapper: 'admin-modal-wrapper', backdrop: 'admin-modal-backdrop' }}>
       <ModalContent>
         <ModalHeader className="flex flex-col gap-1 border-b border-divider pr-12"><span>Device details</span><span className="text-sm font-normal text-default-400">{network?.deviceModel || 'Model not reported'}</span></ModalHeader>
         <ModalBody className="space-y-5 py-5">

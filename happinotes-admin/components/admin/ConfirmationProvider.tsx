@@ -37,7 +37,7 @@ export default function ConfirmationProvider({ children }: { children: ReactNode
   return <ConfirmationContext.Provider value={controller.request}>
     <ConfirmationOpenContext.Provider value={Boolean(decision?.isOpen)}>{children}</ConfirmationOpenContext.Provider>
     <Modal key={decision?.id ?? 'empty'} isOpen={Boolean(decision?.isOpen)} onClose={() => settle(false)} isDismissable={false} backdrop="opaque" placement="center" scrollBehavior="inside" disableAnimation
-      classNames={{ base: 'dark admin-ui admin-modal-panel border border-divider bg-content1 text-foreground', wrapper: 'admin-modal-wrapper admin-confirm-wrapper', backdrop: 'admin-modal-backdrop admin-confirm-backdrop' }}>
+      classNames={{ base: 'admin-ui admin-modal-panel border border-divider bg-content1 text-foreground', wrapper: 'admin-modal-wrapper admin-confirm-wrapper', backdrop: 'admin-modal-backdrop admin-confirm-backdrop' }}>
       <ModalContent>
         <ModalHeader className="gap-3 pt-6">
           <span className={`flex h-9 w-9 shrink-0 items-center justify-center rounded-xl ${decision?.tone === 'danger' ? 'bg-danger/10 text-danger' : decision?.tone === 'warning' ? 'bg-warning/10 text-warning' : 'bg-primary/10 text-primary'}`}>
