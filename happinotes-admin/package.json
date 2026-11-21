@@ -14,6 +14,7 @@
     "@heroui/theme": "2.4.26",
     "@ip-location-db/dbip-city-mmdb": "2.3.2026060513",
     "@lottiefiles/dotlottie-react": "^0.21.1",
+    "@tiptap/extension-text-align": "3.35.0",
     "@tiptap/pm": "^3.35.0",
     "@tiptap/react": "^3.35.0",
     "@tiptap/starter-kit": "^3.35.0",
