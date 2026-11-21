@@ -24,11 +24,7 @@ const playViews = {
 
 type Release = { track: string; status: string; statusSource: string; versionCodes: string[]; name?: string; releaseNotes?: Array<{ language: string; text: string }>; userFraction?: number; countryTargeting?: Record<string, unknown> };
 type Track = { track: string; releases: Release[] };
-type SubmissionSnapshot = {
-  capturedOn: string;
-  records: { id: number; submitted: string; areas: string[]; status: string }[];
-};
-type App = { submissionActivity?: SubmissionSnapshot; lifecycle?: { track: string; reason?: string; releases: {name?: string; state: string; codes: string[]}[] }[]; store?: { subscriptions: "enabled" | "disabled" | "unknown"; production: "published" | "unpublished" | "unknown"; subscriptionReason?: string; productionReason?: string; listingUrl: string | null }; packageName: string; appName: string; nameSource: string; available: boolean; reason?: string; tracks: Track[]; latestRelease?: Release; status: string; statusSource: string };
+type App = { lifecycle?: { track: string; reason?: string; releases: {name?: string; state: string; codes: string[]}[] }[]; store?: { subscriptions: "enabled" | "disabled" | "unknown"; production: "published" | "unpublished" | "unknown"; subscriptionReason?: string; productionReason?: string; listingUrl: string | null }; packageName: string; appName: string; nameSource: string; available: boolean; reason?: string; tracks: Track[]; latestRelease?: Release; status: string; statusSource: string };
 
 function StoreStatus({ app }: { app: App }) {
   const store = app.store;
@@ -177,7 +173,19 @@ function GooglePlayDashboard() {
             onSelectionChange={keys => setSelectedPackage(String(Array.from(keys)[0]))} className="mb-5 max-w-md">
             {apps.map(app => <SelectItem key={app.packageName}>{app.packageName}</SelectItem>)}
           </Select>
-          <SubmissionActivity key={selectedPackage} snapshot={selectedApp?.submissionActivity} />
+          <Card shadow="none" className="border border-divider">
+            <CardBody className="items-start gap-3 p-5">
+              <h2 className="text-lg font-semibold">Submission activity</h2>
+              <p className="text-sm text-default-500">
+                Google’s API does not provide the full submission history. To see submission IDs, dates and changes,
+                open your app in Play Console and select Publishing overview → Submission activity.
+              </p>
+              <Button as="a" href="https://play.google.com/console/" target="_blank" rel="noopener noreferrer" variant="flat" color="primary">
+                Open Google Play Console ↗
+              </Button>
+            </CardBody>
+          </Card>
+          <LifecyclePanel app={selectedApp} />
         </Tab>
         <Tab key="reviews" title={<span className="flex items-center gap-2"><MetricIcon name="review" />{playViews.reviews}</span>}><ReviewsPanel apps={apps} selectedPackage={selectedPackage} onSelect={setSelectedPackage} reviews={reviews} search={reviewSearch} rating={reviewRating} onSearch={value => { setReviewToken(''); setReviewSearch(value); }} onRating={value => { setReviewToken(''); setReviewRating(value); }} onNext={() => setReviewToken(reviews?.nextPageToken || '')} /></Tab>
         <Tab key="analytics" title={<span className="flex items-center gap-2"><MetricIcon name="chart" />{playViews.analytics}</span>}><AnalyticsPanel apps={apps} selectedPackage={selectedPackage} onSelect={setSelectedPackage} analytics={analytics} /></Tab>
@@ -299,48 +307,6 @@ function StoreSearch({ token, apps }: { token: string; apps: App[] }) {
       {item.summary && <p className="mt-1 text-sm">{item.summary}</p>}
     </li>)}</ul>}
   </CardBody></Card>;
-}
-
-function SubmissionActivity({ snapshot }: { snapshot?: SubmissionSnapshot }) {
-  const [status, setStatus] = useState('');
-  const [area, setArea] = useState('');
-  const [query, setQuery] = useState('');
-  const terms = query.toLowerCase().trim().split(/\s+/).filter(Boolean);
-  const records = snapshot?.records ?? [];
-  const filtered = records.filter(row => {
-    const text = [`#${row.id}`, row.submitted, row.status, ...row.areas].join(' ').toLowerCase();
-    return (!status || row.status === status) && (!area || row.areas.includes(area)) && terms.every(term => text.includes(term));
-  });
-  return <Card shadow="none" className="border border-divider">
-    <CardHeader className="flex-col items-start gap-2 p-5">
-      <h2 className="text-lg font-semibold">Submission activity</h2>
-      <p className="text-xs text-default-500">{snapshot
-        ? `Play Console snapshot · ${snapshot.capturedOn}. Times are shown as recorded. Check Play Console for subsequent changes.`
-        : 'No submission history has been imported for this application.'}</p>
-    </CardHeader>
-    {snapshot && <CardBody className="gap-4 p-5 pt-0">
-      <div className="flex flex-wrap items-center gap-3">
-        <Input aria-label="Search submission activity" placeholder="Search submissions" size="sm" className="max-w-64"
-          isClearable value={query} onValueChange={setQuery} onClear={() => setQuery('')} />
-        <Select aria-label="Filter submissions by status" size="sm" className="max-w-52" selectedKeys={[status || 'all']} disallowEmptySelection
-          onSelectionChange={keys => { const key = String(Array.from(keys)[0]); setStatus(key === 'all' ? '' : key); }}>
-          {['all', ...new Set(records.map(row => row.status))].map(key => <SelectItem key={key}>{key === 'all' ? 'All statuses' : key}</SelectItem>)}
-        </Select>
-        <Select aria-label="Filter submissions by area" size="sm" className="max-w-52" selectedKeys={[area || 'all']} disallowEmptySelection
-          onSelectionChange={keys => { const key = String(Array.from(keys)[0]); setArea(key === 'all' ? '' : key); }}>
-          {['all', ...new Set(records.flatMap(row => row.areas))].map(key => <SelectItem key={key}>{key === 'all' ? 'All areas' : key}</SelectItem>)}
-        </Select>
-        <span className="text-xs text-default-500" aria-live="polite">{filtered.length} of {records.length} submissions</span>
-      </div>
-      <div className="overflow-x-auto"><Table className="play-record-table" aria-label="Submission activity" removeWrapper>
-        <TableHeader><TableColumn>ID</TableColumn><TableColumn>SUBMITTED</TableColumn><TableColumn>CHANGES</TableColumn><TableColumn>STATUS</TableColumn></TableHeader>
-        <TableBody emptyContent="No submissions match these filters.">{filtered.map(row => <TableRow key={row.id}>
-          <TableCell className="play-record-field"><span aria-hidden="true" className="play-field-label">ID</span><div className="min-w-0">#{row.id}</div></TableCell><TableCell className="play-record-field"><span aria-hidden="true" className="play-field-label">Submitted</span><div className="min-w-0">{row.submitted}</div></TableCell><TableCell className="play-record-field"><span aria-hidden="true" className="play-field-label">Changes</span><div className="min-w-0">{row.areas.join(', ')}</div></TableCell>
-          <TableCell className="play-record-field"><span aria-hidden="true" className="play-field-label">Status</span><div className="min-w-0"><Chip size="sm" variant="flat" color={row.status === 'In review' ? 'warning' : row.status === 'Published' ? 'success' : 'default'}>{row.status}</Chip></div></TableCell>
-        </TableRow>)}</TableBody>
-      </Table></div>
-    </CardBody>}
-  </Card>;
 }
 
 function LifecyclePanel({ app }: { app?: App }) {

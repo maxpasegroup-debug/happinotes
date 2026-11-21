@@ -103,7 +103,7 @@ export default function AdminShell({ children }: { children: ReactNode }) {
   const navigation = <nav aria-label="Admin navigation" className="space-y-7">
     {['Workspace', 'Content management', 'Management'].map((group) => <div key={group}><p className="mb-3 px-3 text-[10px] font-semibold uppercase tracking-[.16em] text-default-400">{group}</p><div className="space-y-1">{menu.filter((item) => item.group === group).map((item) => {
       const active = pathname === item.href;
-      return <Button key={item.href} as={Link} href={item.href} onPress={() => setMenuOpen(false)} aria-current={active ? 'page' : undefined} fullWidth startContent={<Icon name={item.icon} />} variant={active ? 'flat' : 'light'} color={active ? 'primary' : 'default'} className={`h-11 justify-start gap-3 rounded-xl px-3 text-sm font-medium ${active ? 'bg-primary/15 text-primary ring-1 ring-primary/20 shadow-sm shadow-primary/5' : 'text-default-500 hover:text-foreground'}`}>{item.label}</Button>;
+      return <Button key={item.href} as={Link} href={item.href} onPress={() => setMenuOpen(false)} aria-current={active ? 'page' : undefined} fullWidth startContent={<Icon name={item.icon} />} variant={active ? 'flat' : 'light'} color={active ? 'primary' : 'default'} className={`admin-menu-icon h-11 justify-start gap-3 rounded-xl px-3 text-sm font-medium ${active ? 'bg-primary/15 text-primary ring-1 ring-primary/20 shadow-sm shadow-primary/5' : 'text-default-500 hover:text-foreground'}`}>{item.label}</Button>;
     })}</div></div>)}
   </nav>;
   return <div className="min-h-screen lg:flex">
@@ -132,8 +132,8 @@ export default function AdminShell({ children }: { children: ReactNode }) {
     <div className="min-w-0 flex-1">
       <header className="sticky top-0 z-30 flex min-h-[76px] items-center justify-between gap-4 border-b border-divider bg-background/90 px-5 backdrop-blur-xl sm:px-8">
         <div className="flex min-w-0 items-center gap-2 sm:gap-3">
-          <Button isIconOnly variant="light" className="lg:hidden" aria-label="Open navigation" aria-haspopup="dialog" aria-expanded={menuOpen && !confirming} onPress={() => setMenuOpen(true)}><Icon name="menu" /></Button>
-          <Button isIconOnly variant="light" className="hidden lg:inline-flex" aria-label={sidebarOpen ? 'Close sidebar' : 'Open sidebar'} aria-expanded={sidebarOpen} aria-controls="admin-desktop-sidebar" onPress={() => setSidebarOpen((open) => !open)}><Icon name={sidebarOpen ? 'collapse' : 'menu'} /></Button>
+          <Button isIconOnly variant="light" className="admin-menu-icon lg:hidden" aria-label="Open navigation" aria-haspopup="dialog" aria-expanded={menuOpen && !confirming} onPress={() => setMenuOpen(true)}><Icon name="menu" /></Button>
+          <Button isIconOnly variant="light" className="admin-menu-icon hidden lg:inline-flex" aria-label={sidebarOpen ? 'Close sidebar' : 'Open sidebar'} aria-expanded={sidebarOpen} aria-controls="admin-desktop-sidebar" onPress={() => setSidebarOpen((open) => !open)}><Icon name={sidebarOpen ? 'collapse' : 'menu'} /></Button>
           <Breadcrumbs size="sm" className="min-w-0" classNames={{ list: 'flex-nowrap overflow-hidden' }}><BreadcrumbItem href="/admin/dashboard">Admin</BreadcrumbItem><BreadcrumbItem>{current}</BreadcrumbItem></Breadcrumbs>
         </div>
         <ButtonGroup aria-label="Workspace actions" size="sm" color="primary" variant="flat" radius="none" className="shrink-0 items-center overflow-hidden rounded-xl border border-primary/20 bg-primary/[.06]">
@@ -152,7 +152,7 @@ export default function AdminShell({ children }: { children: ReactNode }) {
       placement="left"
       size="xs"
       motionProps={{ initial: false, animate: { x: 0 }, exit: { x: 0 }, transition: { duration: 0 } }}
-      classNames={{ base: 'admin-ui admin-mobile-drawer bg-content1 text-foreground', wrapper: 'overflow-hidden' }}
+      classNames={{ closeButton: 'admin-menu-icon', base: 'admin-ui admin-mobile-drawer bg-content1 text-foreground', wrapper: 'overflow-hidden' }}
     >
       <DrawerContent as={MobileDrawerPanel} aria-label="Admin navigation"><DrawerHeader className="admin-mobile-drawer-header px-6 pt-8"><Brand /></DrawerHeader><DrawerBody className="admin-mobile-drawer-body p-6">{navigation}<Divider className="my-4" /><Button onPress={logout} startContent={<Icon name="logout" />} color="danger" variant="flat">Log out</Button></DrawerBody></DrawerContent>
     </Drawer>

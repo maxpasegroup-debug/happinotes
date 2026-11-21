@@ -729,16 +729,16 @@ export default function ContentManagement({ activeModule }: { activeModule: Modu
                       <div className="flex items-center justify-end gap-1">
                         <AdminButton size="sm" variant="light" disabled={busyId === item._id} onPress={() => void openEdit(item)} aria-label={`Edit ${item.title}`}>Edit</AdminButton>
                         <Dropdown placement="bottom-end">
-                          <DropdownTrigger><Button isIconOnly size="sm" variant="light" aria-label={`More actions for ${item.title}`} className="text-default-500">•••</Button></DropdownTrigger>
+                          <DropdownTrigger><Button isIconOnly size="sm" variant="light" aria-label={`More actions for ${item.title}`} className="admin-menu-icon text-default-500">•••</Button></DropdownTrigger>
                           <DropdownMenu aria-label={`Actions for ${item.title}`} onAction={(key) => {
                             if (key === 'delete') void removeContent(item._id);
                             if (key === 'publish') void setStatus(item._id, 'live');
                             if (key === 'coming') void setStatus(item._id, 'coming_soon');
                           }}>
                             {[
-                              ...(item.status !== 'live' ? [<DropdownItem key="publish" color="success">Publish</DropdownItem>] : []),
-                              ...(item.status !== 'coming_soon' ? [<DropdownItem key="coming" color="warning">Mark coming soon</DropdownItem>] : []),
-                              <DropdownItem key="delete" color="danger" className="text-danger">Delete</DropdownItem>,
+                              ...(item.status !== 'live' ? [<DropdownItem key="publish" aria-label={`Publish ${item.title}`} color="success">Publish</DropdownItem>] : []),
+                              ...(item.status !== 'coming_soon' ? [<DropdownItem key="coming" aria-label={`Mark as coming soon: ${item.title}`} color="warning">Mark coming soon</DropdownItem>] : []),
+                              <DropdownItem key="delete" aria-label={`Delete ${item.title}`} color="danger" className="text-danger">Delete</DropdownItem>,
                             ]}
                           </DropdownMenu>
                         </Dropdown>

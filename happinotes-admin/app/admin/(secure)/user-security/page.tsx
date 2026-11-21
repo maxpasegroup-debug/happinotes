@@ -12,7 +12,7 @@ import type { SecurityUser as UserRow } from '@/lib/user-security';
 type Action = 'logout' | 'temporary' | 'permanent' | 'unban' | 'delete' | 'ip_ban' | 'ip_unban';
 type SecurityTab = 'details' | 'charts' | 'packets';
 const securityTabs: Array<{ key: SecurityTab; label: string }> = [{ key: 'details', label: 'Details' }, { key: 'charts', label: 'Charts' }, { key: 'packets', label: 'Packet-level' }];
-const labels: Record<Action, string> = { logout: 'Log out user', temporary: 'Temporary ban', permanent: 'Permanent ban', unban: 'Unban', delete: 'Delete account', ip_ban: 'Block reported IP', ip_unban: 'Unblock reported IP' };
+const labels: Record<Action, string> = { logout: 'Log out user', temporary: 'Temporary ban', permanent: 'Permanent ban', unban: 'Unban', delete: 'Delete user', ip_ban: 'Block reported IP', ip_unban: 'Unblock reported IP' };
 const errorText = (error: unknown) => error instanceof Error ? error.message : 'Request failed. Please try again.';
 const date = (value?: string) => value ? new Date(value).toLocaleString() : 'Unavailable';
 function NetworkIcon({ type }: { type?: string }) {
@@ -65,7 +65,9 @@ export default function UserSecurityPage() {
         vpnCounts.current.set(user.id, count);
       }
       setTotal(result.total); setLoadedAt(Date.now());
-      setUsers(result.users); setPages(Math.max(1, result.totalPages)); setError('');
+      const lastPage = Math.max(1, result.totalPages);
+      setUsers(result.users); setPages(lastPage); setError('');
+      if (page > lastPage) setPage(lastPage);
     } catch (exception) { if (requestId === generation.current) setError(errorText(exception)); }
     finally { if (requestId === generation.current) setLoading(false); }
   }, [page, search]);
@@ -105,7 +107,7 @@ export default function UserSecurityPage() {
   function open(user: UserRow, action: Action) { setDialog({ user, action }); setReason(''); setExpiry(''); setConfirmation(''); setDialogError(''); }
   async function submit() {
     if (!dialog || busy.current) return;
-    if (dialog.action !== 'logout' && !reason.trim()) { setDialogError('Add a reason.'); return; }
+    if (dialog.action !== 'logout' && dialog.action !== 'delete' && !reason.trim()) { setDialogError('Add a reason.'); return; }
     if (dialog.action === 'temporary' && (!expiry || !Number.isFinite(Date.parse(expiry)) || Date.parse(expiry) <= Date.now())) { setDialogError('Choose a future expiry.'); return; }
     if (dialog.action === 'delete' && confirmation !== 'DELETE') { setDialogError('Type DELETE to confirm.'); return; }
     busy.current = true; setSaving(true); setDialogError('');
@@ -119,8 +121,18 @@ export default function UserSecurityPage() {
         await load();
         return;
       }
+      if (dialog.action === 'delete') {
+        const result = await apiRequest<{ status?: string }>(`/admin/user-security/${dialog.user.id}/personal-data`, 'DELETE', { confirmation }, localStorage.getItem('admin_token') || '');
+        if (result?.status !== 'deleted') throw new Error('The server did not confirm deletion. Refresh the user list before retrying.');
+        setDetailsOpen(false); setSelection(null); setDialog(null);
+        vpnCounts.current.delete(dialog.user.id);
+        setUsers(current => current.filter(user => user.id !== dialog.user.id));
+        setNotice(`${dialog.user.name} and their personal app data were deleted.`);
+        await load();
+        return;
+      }
       const isIp = dialog.action === 'ip_ban' || dialog.action === 'ip_unban';
-      const result = await apiRequest<{ message?: string }>(`/admin/user-security/${dialog.user.id}${isIp ? '/ip-ban' : dialog.action === 'delete' ? '' : '/ban'}`, isIp ? 'PUT' : dialog.action === 'delete' ? 'DELETE' : 'PATCH', { action: isIp ? (dialog.action === 'ip_ban' ? 'ban' : 'unban') : dialog.action, ip: isIp ? dialog.user.vpn?.lastIp : undefined, reason: reason.trim(), confirmation, ...(dialog.action === 'temporary' ? { expiresAt: new Date(expiry).toISOString() } : {}) }, localStorage.getItem('admin_token') || '');
+      const result = await apiRequest<{ message?: string }>(`/admin/user-security/${dialog.user.id}${isIp ? '/ip-ban' : '/ban'}`, isIp ? 'PUT' : 'PATCH', { action: isIp ? (dialog.action === 'ip_ban' ? 'ban' : 'unban') : dialog.action, ip: isIp ? dialog.user.vpn?.lastIp : undefined, reason: reason.trim(), confirmation, ...(dialog.action === 'temporary' ? { expiresAt: new Date(expiry).toISOString() } : {}) }, localStorage.getItem('admin_token') || '');
       setNotice(result.message || 'Account status updated. Connected apps are notified immediately.'); setDialog(null); await load();
     } catch (exception) { setDialogError(errorText(exception)); }
     finally { busy.current = false; setSaving(false); }
@@ -216,7 +228,7 @@ export default function UserSecurityPage() {
                 <TableCell><div className="flex items-center gap-2 text-sm text-default-600"><NetworkIcon type={network?.networkType} /><span className="capitalize">{network?.networkType || 'Unknown'}</span></div><p className="mt-1 max-w-[150px] truncate font-mono text-[11px] text-default-400">{network?.publicIp || 'IP not reported'}</p></TableCell>
                 <TableCell>{user.vpn?.count ? <Chip size="sm" color="danger" variant="flat">VPN · {user.vpn.count}</Chip> : <span className="text-xs text-default-400">No recorded VPN</span>}</TableCell>
                 <TableCell><span className="whitespace-nowrap text-xs text-default-400">{date(network?.lastSeen)}</span><p className="mt-1 max-w-[150px] truncate text-[11px] text-default-400">{[network?.geo?.city, network?.geo?.country].filter(Boolean).join(', ') || 'Location pending'}</p></TableCell>
-                <TableCell><div className="flex flex-wrap justify-end gap-1"><Button size="sm" variant="flat" isDisabled={!currentLogin(user)} onPress={() => open(user, 'logout')}>Log out user</Button><Button size="sm" variant="light" color="primary" onPress={() => { setSelection({ user, page, query: search }); setDetailsOpen(true); }}>View details</Button></div></TableCell>
+                <TableCell><div className="flex flex-wrap justify-end gap-1"><Button size="sm" variant="flat" isDisabled={!currentLogin(user)} aria-label={`Log out ${user.name} from their current device`} onPress={() => open(user, 'logout')}>Log out user</Button><Button size="sm" variant="light" color="primary" aria-label={`View security details for ${user.name}`} onPress={() => { setSelection({ user, page, query: search }); setDetailsOpen(true); }}>View details</Button><Button size="sm" variant="flat" color="danger" aria-label={`Delete user ${user.name}`} onPress={() => open(user, 'delete')}>Delete user</Button></div></TableCell>
               </TableRow>;
             })}
           </TableBody>
@@ -239,12 +251,12 @@ export default function UserSecurityPage() {
         </ModalBody>
         <ModalFooter className="flex-wrap justify-between gap-3 border-t border-divider">
           <Button size="sm" variant="flat" onPress={() => setDetailsOpen(false)}>Close details</Button>
-          {selectedUser && <div className="flex flex-wrap gap-2"><Button size="sm" variant="flat" isDisabled={!currentLogin(selectedUser)} onPress={() => open(selectedUser, 'logout')}>Log out user</Button><Button size="sm" variant="flat" color="warning" isDisabled={selectedUser.status === 'deletion_pending'} onPress={() => open(selectedUser, 'temporary')}>Temporary ban</Button><Button size="sm" variant="flat" color="danger" isDisabled={selectedUser.status === 'deletion_pending'} onPress={() => open(selectedUser, 'permanent')}>Permanent ban</Button>{selectedUser.status.includes('ban') && <Button size="sm" variant="flat" color="success" onPress={() => open(selectedUser, 'unban')}>Unban</Button>}<Button size="sm" variant="light" color="danger" isDisabled={selectedUser.status === 'deletion_pending'} onPress={() => open(selectedUser, 'delete')}>Delete account</Button></div>}
+          {selectedUser && <div className="flex flex-wrap gap-2"><Button size="sm" variant="flat" isDisabled={!currentLogin(selectedUser)} onPress={() => open(selectedUser, 'logout')}>Log out user</Button><Button size="sm" variant="flat" color="warning" isDisabled={selectedUser.status === 'deletion_pending'} onPress={() => open(selectedUser, 'temporary')}>Temporary ban</Button><Button size="sm" variant="flat" color="danger" isDisabled={selectedUser.status === 'deletion_pending'} onPress={() => open(selectedUser, 'permanent')}>Permanent ban</Button>{selectedUser.status.includes('ban') && <Button size="sm" variant="flat" color="success" onPress={() => open(selectedUser, 'unban')}>Unban</Button>}<Button size="sm" variant="light" color="danger" onPress={() => open(selectedUser, 'delete')}>Delete user</Button></div>}
         </ModalFooter>
       </ModalContent>
     </Modal>
     <Modal isOpen={Boolean(dialog)} onClose={() => { if (!saving) setDialog(null); }} isDismissable={!saving} isKeyboardDismissDisabled={saving} hideCloseButton={saving} scrollBehavior="inside" placement="center" classNames={{ base: 'admin-ui admin-modal-panel bg-content1 text-foreground', wrapper: 'admin-modal-wrapper', backdrop: 'admin-modal-backdrop' }}>
-      <ModalContent><ModalHeader>{dialog ? labels[dialog.action] : ''}</ModalHeader><ModalBody><p className="text-sm text-default-400">{dialog?.user.name} · {dialog?.user.email}</p><p className="text-sm">{dialog?.action === 'logout' ? `End the login on ${currentLogin(dialog.user)?.deviceModel || 'this device'}? The account stays active and the user can sign in again.` : dialog?.action === 'ip_ban'  || dialog?.action === 'ip_unban' ? `IP: ${dialog.user.vpn?.lastIp}. This applies to all customer accounts connecting through this public IP, including unrelated people sharing a network. Administrator access is excluded.` : dialog?.action === 'delete' ? 'Account access is revoked immediately. Deletion enters the existing cleanup workflow; retained purchase records follow its existing policy.' : dialog?.action === 'unban' ? 'Restore account access, reset the VPN strike count and release associated installation/email blocks. The user must sign in again. Manual IP blocks are managed separately.' : 'Access is revoked on all sessions. Connected apps are notified; offline apps are checked when they reconnect.'}</p>{dialog?.action !== 'logout' && <Textarea label="Reason" description={dialog?.action === 'temporary' || dialog?.action === 'permanent' ? 'This reason is shown to the user when access is denied.' : dialog?.action === 'ip_ban' || dialog?.action === 'ip_unban' ? 'Saved with the IP restriction.' : 'Recorded in moderation history.'} value={reason} onValueChange={setReason} maxLength={500} isRequired isDisabled={saving} />}{dialog?.action === 'temporary' && <Input type="datetime-local" label="Ban expiry (your local time)" value={expiry} onValueChange={setExpiry} isRequired isDisabled={saving} />}{dialog?.action === 'delete' && <Input label="Type DELETE to confirm" value={confirmation} onValueChange={setConfirmation} isDisabled={saving} />}{dialogError && <p role="alert" className="text-sm text-danger">{dialogError}</p>}</ModalBody><ModalFooter><Button variant="flat" isDisabled={saving} onPress={() => setDialog(null)}>Cancel</Button><Button color={dialog?.action === 'unban' ? 'success' : 'danger'} isLoading={saving} onPress={() => void submit()}>{dialog ? labels[dialog.action] : 'Confirm'}</Button></ModalFooter></ModalContent>
+      <ModalContent><ModalHeader>{dialog ? labels[dialog.action] : ''}</ModalHeader><ModalBody><p className="text-sm text-default-400">{dialog?.user.name} · {dialog?.user.email}</p><p className="text-sm">{dialog?.action === 'logout' ? `End the login on ${currentLogin(dialog.user)?.deviceModel || 'this device'}? The account stays active and the user can sign in again.` : dialog?.action === 'ip_ban'  || dialog?.action === 'ip_unban' ? `IP: ${dialog.user.vpn?.lastIp}. This applies to all customer accounts connecting through this public IP, including unrelated people sharing a network. Administrator access is excluded.` : dialog?.action === 'delete' ? 'Permanently delete this account, including its library, login history, devices and stored locations. This cannot be undone. Detached billing evidence and active security blocks are retained. Store subscriptions are managed separately.' : dialog?.action === 'unban' ? 'Restore account access, reset the VPN strike count and release associated installation/email blocks. The user must sign in again. Manual IP blocks are managed separately.' : 'Access is revoked on all sessions. Connected apps are notified; offline apps are checked when they reconnect.'}</p>{dialog?.action !== 'logout' && dialog?.action !== 'delete' && <Textarea label="Reason" description={dialog?.action === 'temporary' || dialog?.action === 'permanent' ? 'This reason is shown to the user when access is denied.' : dialog?.action === 'ip_ban' || dialog?.action === 'ip_unban' ? 'Saved with the IP restriction.' : 'Recorded in moderation history.'} value={reason} onValueChange={setReason} maxLength={500} isRequired isDisabled={saving} />}{dialog?.action === 'temporary' && <Input type="datetime-local" label="Ban expiry (your local time)" value={expiry} onValueChange={setExpiry} isRequired isDisabled={saving} />}{dialog?.action === 'delete' && <Input label="Type DELETE to confirm" value={confirmation} onValueChange={setConfirmation} isDisabled={saving} />}{dialogError && <p role="alert" className="text-sm text-danger">{dialogError}</p>}</ModalBody><ModalFooter><Button variant="flat" isDisabled={saving} onPress={() => setDialog(null)}>Cancel</Button><Button color={dialog?.action === 'unban' ? 'success' : 'danger'} isLoading={saving} isDisabled={dialog?.action === 'delete' && confirmation !== 'DELETE'} onPress={() => void submit()}>{dialog ? labels[dialog.action] : 'Confirm'}</Button></ModalFooter></ModalContent>
     </Modal>
   </section>;
 }

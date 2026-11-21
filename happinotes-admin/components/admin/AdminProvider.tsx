@@ -5,6 +5,7 @@ import { useRouter } from 'next/navigation';
 import { createContext, useContext, useEffect, useLayoutEffect, useState, type ReactNode } from 'react';
 import { useReducedMotion } from 'framer-motion';
 import ConfirmationProvider from './ConfirmationProvider';
+import AdminActionTooltips from './AdminActionTooltips';
 import AdminPwaProvider from './AdminPwaProvider';
 
 const preferenceKey = 'happinotes.admin.appearance';
@@ -54,6 +55,7 @@ export default function AdminProvider({ children }: { children: ReactNode }) {
     try { localStorage.setItem(preferenceKey, next); } catch { /* In-memory preference remains usable. */ }
   }
   return <AdminAppearance.Provider value={{ mode, select }}><HeroUIProvider navigate={router.push} disableAnimation={Boolean(reducedMotion)}>
+    <AdminActionTooltips />
     <ToastProvider placement="bottom-right" toastOffset={24} maxVisibleToasts={4} />
     <AdminPwaProvider><ConfirmationProvider><div className={`${mode} admin-ui min-h-screen bg-background text-foreground`}>{children}</div></ConfirmationProvider></AdminPwaProvider>
   </HeroUIProvider></AdminAppearance.Provider>;

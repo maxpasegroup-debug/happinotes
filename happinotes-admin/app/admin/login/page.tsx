@@ -6,26 +6,69 @@ import { AdminInstallButton } from "@/components/admin/AdminPwaProvider";
 
 import { Card, CardBody, Chip, Divider } from "@heroui/react";
 import { FormEvent, useState } from "react";
+import Image from "next/image";
 import { useRouter } from "next/navigation";
-import { apiRequest } from "@/lib/api";
+import { ApiRequestError, apiRequest } from "@/lib/api";
 
 type Payload = { token?: string; user?: { role?: string }; message?: string };
+
+type Challenge = { id: string; image: string };
+
+function cooldown(error: ApiRequestError) {
+  const retryAfter = error.retryAfter?.trim();
+  const delayMs = retryAfter && /^\d+$/.test(retryAfter)
+    ? Number(retryAfter) * 1000
+    : Date.parse(retryAfter || "") - Date.now();
+  const minutes = Math.ceil(delayMs / 60000);
+  return Number.isFinite(minutes) && minutes > 0
+    ? `Sign-in is paused. Try again in ${minutes} ${minutes === 1 ? "minute" : "minutes"}.`
+    : "Sign-in is temporarily paused. Please wait before trying again.";
+}
 
 export default function AdminLoginPage() {
   const router = useRouter();
   const [email, setEmail] = useState("");
   const [password, setPassword] = useState("");
   const [error, setError] = useState("");
+  const [notice, setNotice] = useState("");
   const [loading, setLoading] = useState(false);
+
+  const [challenge, setChallenge] = useState<Challenge | null>(null);
+  const [code, setCode] = useState("");
+
+  async function loadCode() {
+    setChallenge(null);
+    setCode("");
+    try {
+      const fresh = await apiRequest<Challenge>("/auth/admin/captcha", "POST", { email: email.trim().toLowerCase() });
+      if (!fresh?.id || !fresh.image?.startsWith("data:image/svg+xml;base64,")) throw new Error();
+      setChallenge(fresh);
+    } catch (cause) {
+      setNotice(cause instanceof ApiRequestError && cause.status === 429 ? cooldown(cause)
+        : "The verification code could not load. Try signing in again.");
+    }
+  }
+
+  async function refreshCode() {
+    if (loading) return;
+    setLoading(true);
+    setError("");
+    setNotice("");
+    try { await loadCode(); } finally { setLoading(false); }
+  }
 
   async function submit(event: FormEvent) {
     event.preventDefault();
+    if (loading) return;
     setLoading(true);
     setError("");
+    setNotice("");
     try {
       if (!email.trim() || !password) throw new Error("Enter the admin email and password.");
-      const data = await apiRequest<Payload>("/auth/login", "POST", {
+      if (challenge && !/^\d{6}$/.test(code)) throw new Error("Enter the six digits shown in the image.");
+      const data = await apiRequest<Payload>(challenge ? "/auth/admin/captcha-login" : "/auth/login", "POST", {
         email: email.trim().toLowerCase(), password,
+        ...(challenge && { challengeId: challenge.id, code }),
       });
       if (!data?.token || data.user?.role !== "admin") {
         throw new Error(data?.message || "Only the configured administrator can access this website.");
@@ -33,7 +76,16 @@ export default function AdminLoginPage() {
       window.localStorage.setItem("admin_token", data.token);
       router.replace("/admin/dashboard");
     } catch (cause) {
-      setError(cause instanceof Error ? cause.message : "Unable to login.");
+      if (cause instanceof ApiRequestError && cause.status === 429) {
+        if (challenge) {
+          setChallenge(null); setCode(""); setNotice(cooldown(cause));
+        } else {
+          await loadCode();
+        }
+      } else {
+        setError(cause instanceof Error ? cause.message : "Unable to login.");
+        if (challenge && /^\d{6}$/.test(code)) await loadCode();
+      }
     } finally {
       setLoading(false);
     }
@@ -54,11 +106,20 @@ export default function AdminLoginPage() {
           <p className="mt-3 text-sm leading-6 text-default-400">Sign in to manage books, episodes, users, and notifications.</p>
           <form onSubmit={submit} className="mt-8 space-y-5">
             <label className="block text-sm font-medium text-default-500" htmlFor="admin-email">Admin email
-              <AdminInput id="admin-email" value={email} onChange={(event) => setEmail(event.target.value)} type="email" autoComplete="username" placeholder="Enter your admin email" className="mt-2" />
+              <AdminInput id="admin-email" value={email} isDisabled={loading} onChange={(event) => { setEmail(event.target.value); setChallenge(null); setCode(""); }} type="email" autoComplete="username" placeholder="Enter your admin email" className="mt-2" />
             </label>
             <label className="block text-sm font-medium text-default-500" htmlFor="admin-password">Password
               <AdminInput id="admin-password" value={password} onChange={(event) => setPassword(event.target.value)} type="password" autoComplete="current-password" placeholder="Enter admin password" className="mt-2" />
             </label>
+            {challenge && <fieldset className="space-y-3 rounded-xl border border-divider p-4">
+              <legend className="px-1 text-sm font-semibold">Sign-in verification</legend>
+              <Image src={challenge.image} alt="Six-digit verification code" width={204} height={64} unoptimized
+                className="h-auto max-w-full rounded-lg bg-white" />
+              <AdminButton type="button" variant="light" disabled={loading} onPress={() => void refreshCode()}>Get a new code</AdminButton>
+              <AdminInput label="Enter the six digits" aria-label="Enter the six digits" inputMode="numeric" autoComplete="off"
+                maxLength={6} value={code} onValueChange={setCode} isDisabled={loading} />
+            </fieldset>}
+            {notice && <p role="status" className="text-sm text-default-600">{notice}</p>}
             {error ? <p role="alert" className="rounded-xl border border-danger/20 bg-danger/10 p-3 text-sm text-danger-300">{error}</p> : null}
             <AdminButton type="submit" disabled={loading} isLoading={loading} color="primary" variant="solid" className="mt-2 w-full min-h-12">{loading ? "Signing in..." : "Admin login"}</AdminButton>
           </form>

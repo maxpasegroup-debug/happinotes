@@ -59,6 +59,29 @@ body.light .admin-ui tbody tr:hover { background: #eef1f5; }
 body.light .admin-ui summary { color: #545e6e; }
 html:has(body.light .admin-ui) { --admin-scrollbar-track: #eef1f5; }
 
+/* HeroUI mounts tooltips in a body portal outside .admin-ui. */
+body:has(.admin-ui) [role="tooltip"] > [data-slot="content"],
+#admin-action-tooltip {
+  color: hsl(var(--heroui-foreground));
+  background-color: hsl(var(--heroui-content2));
+  border: 1px solid hsl(var(--heroui-content4));
+}
+#admin-action-tooltip {
+  z-index: 1200;
+  max-width: min(22rem, calc(100vw - 1rem));
+  padding: .375rem .625rem;
+  border-radius: .625rem;
+  font-size: .8125rem;
+  line-height: 1.4;
+  overflow-wrap: anywhere;
+}
+@media (prefers-reduced-motion: reduce) {
+  #admin-action-tooltip { transition: none; }
+}
+body:has(.admin-ui) [role="tooltip"][data-arrow="true"]::before {
+  background-color: hsl(var(--heroui-content2));
+}
+
 /* Explicit colors and keyframes keep these placeholders visible in the dark theme. */
 .admin-ui .happy-bites-skeleton {
   background: hsl(var(--heroui-content3));

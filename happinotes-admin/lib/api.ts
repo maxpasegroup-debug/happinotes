@@ -48,6 +48,16 @@ export function readErrorMessage(parsed: unknown, status: number): string {
   return `Request failed with status ${status}`;
 }
 
+export class ApiRequestError extends Error {
+  readonly status: number;
+  readonly retryAfter: string | null;
+  constructor(message: string, status: number, retryAfter: string | null) {
+    super(message);
+    this.status = status;
+    this.retryAfter = retryAfter;
+  }
+}
+
 export async function apiRequest<T = unknown>(
   endpoint: string,
   method: HttpMethod = "GET",
@@ -69,7 +79,7 @@ export async function apiRequest<T = unknown>(
     throw new Error(connectionMessage);
   }
   const parsed = await parseResponse(res);
-  if (!res.ok) throw new Error(readErrorMessage(parsed, res.status));
+  if (!res.ok) throw new ApiRequestError(readErrorMessage(parsed, res.status), res.status, res.headers.get("retry-after"));
   return parsed as T;
 }
 
