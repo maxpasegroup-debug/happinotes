@@ -95,3 +95,64 @@ test('Resend rejected responses log only a fixed provider category', async () =>
   assert.ok(output.join('\n').includes('provider_rejected'));
   assertNoSensitiveValues(output);
 });
+
+test('admin messages use the OTP sender, a plain-text body and the provider retry key', async () => {
+  env.RESEND_API_KEY = SENSITIVE[2];
+  const output = captureLogs();
+  const post = mock.method(Resend.prototype, 'post', async () => ({ data: { id: 'test-id' }, error: null }));
+  await sendOTPEmail(SENSITIVE[0], SENSITIVE[1]);
+  const { sendAdminEmail } = require('../dist/services/emailService');
+  const body = 'First line\nSecond line <example>';
+  await sendAdminEmail(SENSITIVE[0], 'An update', body, 'admin-mail-test');
+  const [, otp] = post.mock.calls[0].arguments;
+  const [, message, options] = post.mock.calls[1].arguments;
+  assert.equal(message.from, otp.from);
+  assert.deepEqual(message.to, [SENSITIVE[0]]);
+  assert.equal(message.subject, 'An update');
+  assert.equal(message.text, body);
+  assert.equal(message.html, undefined);
+  assert.equal(options.idempotencyKey, 'admin-mail-test');
+  assertNoSensitiveValues(output);
+});
+
+test('formatted admin mail retains supported formatting and includes the plain-text alternative', async () => {
+  env.RESEND_API_KEY = SENSITIVE[2];
+  captureLogs();
+  const post = mock.method(Resend.prototype, 'post', async () => ({ data: { id: 'test-id' }, error: null }));
+  const { sendAdminEmail } = require('../dist/services/emailService');
+  const html = '<p class="ignored"><strong>Hello</strong> <em>reader</em></p><ol start="3"><li><p><u>Update</u></p></li></ol><img src="https://example.test/pixel">';
+  await sendAdminEmail(SENSITIVE[0], 'Update', 'Hello reader\nUpdate', 'format-test', html);
+  const [, message, options] = post.mock.calls[0].arguments;
+  assert.equal(message.html, '<p><strong>Hello</strong> <em>reader</em></p><ol start="3"><li><p><u>Update</u></p></li></ol>');
+  assert.equal(message.text, 'Hello reader\nUpdate');
+  assert.equal(options.idempotencyKey, 'format-test');
+});
+
+test('admin email preserves heading alignment, quotations, strikethrough and inline code', async () => {
+  env.RESEND_API_KEY = SENSITIVE[2];
+  captureLogs();
+  const post = mock.method(Resend.prototype, 'post', async () => ({ data: { id: 'test-id' }, error: null }));
+  const { sendAdminEmail } = require('../dist/services/emailService');
+  const html = '<h2 style="text-align: center; color: red">Title</h2><h3>Section</h3><blockquote><p style="text-align: right"><s>Old</s> <code>New</code></p></blockquote><p style="text-align: justify">End</p>';
+  await sendAdminEmail(SENSITIVE[0], 'Update', 'Title\nSection\nOld New\nEnd', 'style-test', html);
+  const [, message] = post.mock.calls[0].arguments;
+  assert.equal(message.html, '<h2 style="text-align:center">Title</h2><h3>Section</h3><blockquote><p style="text-align:right"><s>Old</s> <code>New</code></p></blockquote><p>End</p>');
+});
+
+test('admin mail embeds uploaded image bytes and removes externally supplied image tags', async () => {
+  env.RESEND_API_KEY = SENSITIVE[2];
+  captureLogs();
+  const post = mock.method(Resend.prototype, 'post', async () => ({ data: { id: 'test-id' }, error: null }));
+  const { sendAdminEmail } = require('../dist/services/emailService');
+  const content = Buffer.from('89504e470d0a1a0a', 'hex');
+  await sendAdminEmail(SENSITIVE[0], 'Photo', '', 'image-test', '<img src="https://example.test/pixel">',
+    { content, contentType: 'image/png', filename: 'image.png' });
+  const [, message, options] = post.mock.calls[0].arguments;
+  const [attachment] = message.attachments;
+  assert.equal(attachment.content, content.toString('base64'));
+  assert.equal(attachment.content_type, 'image/png');
+  assert.ok(message.html.includes('src="cid:' + attachment.content_id + '"'));
+  assert.ok(!message.html.includes('example.test'));
+  assert.equal(message.text, 'Image attached.');
+  assert.equal(options.idempotencyKey, 'image-test');
+});

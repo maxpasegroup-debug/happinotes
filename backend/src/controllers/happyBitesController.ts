@@ -1,6 +1,6 @@
 import type { NextFunction, Request, Response } from 'express';
 import { HappyBite } from '../models';
-import { BadRequestError, NotFoundError } from '../utils/errors';
+import { AppError, BadRequestError, NotFoundError } from '../utils/errors';
 import { isValidObjectId } from 'mongoose';
 import { emitHappyBitesChanged } from '../services/realtime';
 
@@ -119,7 +119,15 @@ export async function createHappyBite(req: Request, res: Response, next: NextFun
 export async function updateHappyBite(req: Request, res: Response, next: NextFunction) {
   try {
     const payload = normalizePayload(req.body ?? {}, true);
-    const happyBite = await HappyBite.findByIdAndUpdate(req.params.id, { $set: payload }, { new: true, runValidators: true });
+    const revision = req.body?.expectedUpdatedAt;
+    if (revision !== undefined && (typeof revision !== 'string' || !Number.isFinite(Date.parse(revision)))) {
+      throw new BadRequestError('Invalid Happy Bite revision. Refresh the library and try again.');
+    }
+    const options = { new: true, runValidators: true };
+    const happyBite = revision === undefined
+      ? await HappyBite.findByIdAndUpdate(req.params.id, { $set: payload }, options)
+      : await HappyBite.findOneAndUpdate({ _id: req.params.id, updatedAt: new Date(revision) }, { $set: payload }, options);
+    if (!happyBite && revision !== undefined) throw new AppError('This Happy Bite changed. Refresh the library and reopen the value.', 409);
     if (!happyBite) throw new NotFoundError('Happy Bite not found');
     emitHappyBitesChanged();
     res.json({ success: true, happyBite });

@@ -307,3 +307,27 @@ test('invalid lesson added dates are rejected', async () => {
   ] }));
   assert.equal(error.statusCode, 400);
 });
+
+test('JSON edits compare the saved revision atomically and reject stale changes before catalog events', async () => {
+  commonMocks();
+  const existing = { _id: 'book-edit', id: 'book-edit', contentType: 'lifebook', type: 'free', priceInr: 0, status: 'draft', title: 'Original' };
+  const revision = '2026-10-01T10:30:00.000Z';
+  mock.method(Content, 'findById', async () => existing);
+  let matched = true;
+  const write = mock.method(Content, 'findOneAndUpdate', async (filter, changes, options) => {
+    assert.deepEqual(filter, { _id: existing.id, updatedAt: new Date(revision) });
+    assert.equal(options.runValidators, true);
+    return matched ? { ...existing, ...changes } : null;
+  });
+  const req = { params: { id: existing.id }, body: { title: 'New', expectedUpdatedAt: revision } };
+  const res = response();
+  await controller.updateContent(req, res, error => { throw error; });
+  assert.equal(res.payload.content.title, 'New');
+  matched = false;
+  for (const [handler, values] of [[controller.updateContent, { title: 'Stale' }], [controller.updateContentStatus, { status: 'coming_soon' }]]) {
+    let failure;
+    await handler({ ...req, body: { ...values, expectedUpdatedAt: revision } }, response(), error => { failure = error; });
+    assert.equal(failure.statusCode, 409);
+  }
+  assert.equal(write.mock.calls.length, 3);
+});

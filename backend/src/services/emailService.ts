@@ -1,9 +1,12 @@
-import { Resend } from 'resend';
+import sanitizeHtml from 'sanitize-html';
+import { Resend, type Attachment } from 'resend';
 import { env } from '../config/env';
 
 const FROM_NAME = "Happinotes";
 const FROM_EMAIL = env.RESEND_FROM_EMAIL.trim();
 const OTP_EXPIRY_MINUTES = 5;
+
+export type EmailImage = { content: Buffer; contentType: 'image/png' | 'image/jpeg'; filename: string };
 
 type EmailDeliveryFailureCategory = 'configuration_missing' | 'provider_rejected' | 'provider_exception';
 
@@ -49,15 +52,18 @@ function buildOTPHtml(otp: string): string {
   `.trim();
 }
 
-export async function sendOTPEmail(to: string, otp: string): Promise<void> {
+async function deliverEmail(
+  to: string,
+  message: { subject: string; text: string; html?: string; attachments?: Attachment[] } | { subject: string; html: string },
+  idempotencyKey?: string,
+): Promise<void> {
   try {
     const resend = getClient();
     const { error } = await resend.emails.send({
       from: `${FROM_NAME} <${FROM_EMAIL}>`,
       to: [to],
-      subject: "Your OTP Code - Happinotes",
-      html: buildOTPHtml(otp),
-    });
+      ...message,
+    }, { idempotencyKey });
 
     if (error) throw new EmailDeliveryError('provider_rejected');
     console.info('email_delivery_succeeded', { provider: 'resend' });
@@ -68,4 +74,26 @@ export async function sendOTPEmail(to: string, otp: string): Promise<void> {
     console.error('email_delivery_failed', { provider: 'resend', category });
     throw new EmailDeliveryError(category);
   }
+}
+
+export function sendOTPEmail(to: string, otp: string): Promise<void> {
+  return deliverEmail(to, { subject: "Your OTP Code - Happinotes", html: buildOTPHtml(otp) });
+}
+
+export function sendAdminEmail(to: string, subject: string, text: string, idempotencyKey: string, html?: string, image?: EmailImage): Promise<void> {
+  const formatted = html && sanitizeHtml(html, {
+    allowedTags: ['p', 'br', 'h2', 'h3', 'blockquote', 'strong', 'em', 'u', 's', 'code', 'ul', 'ol', 'li'],
+    allowedAttributes: { p: ['style'], h2: ['style'], h3: ['style'], ol: ['start'] },
+    allowedStyles: { '*': { 'text-align': [/^(left|center|right)$/] } },
+  });
+  if (image) {
+    const contentId = 'message-image';
+    const plainHtml = text.replace(/&/g, '&amp;').replace(/</g, '&lt;').replace(/>/g, '&gt;').replace(/\n/g, '<br>');
+    return deliverEmail(to, {
+      subject, text: text || 'Image attached.',
+      html: `${formatted || plainHtml}<p><img src="cid:${contentId}" alt="Attached image" style="max-width:100%;height:auto"></p>`,
+      attachments: [{ ...image, content: image.content.toString('base64'), contentId }],
+    }, idempotencyKey);
+  }
+  return deliverEmail(to, { subject, text, ...(formatted && { html: formatted }) }, idempotencyKey);
 }

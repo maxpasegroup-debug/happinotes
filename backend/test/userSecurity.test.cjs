@@ -161,3 +161,42 @@ test('a late device report cannot recreate location records for an erased accoun
   assert.equal(error.statusCode, 403);
   assert.deepEqual(remove.mock.calls[0].arguments[0], { _id: 'late-report', userId });
 });
+
+test('admin email resolves the customer mailbox and validates before contacting the sender', async () => {
+  const mail = require('../dist/services/emailService');
+  let account = { email: 'recipient@example.test' };
+  mock.method(User, 'findOne', query => {
+    assert.deepEqual(query, { _id: userId, role: 'user' });
+    return { select: () => ({ lean: async () => account }) };
+  });
+  const send = mock.method(mail, 'sendAdminEmail', async () => {});
+  const requestId = 'ab'.repeat(16);
+  const req = { params: { id: userId }, user: { _id: adminId }, body: {
+    requestId, subject: ' Subject ', message: 'Message', to: 'ignored@example.test',
+  } };
+  const res = response();
+  await controller.emailUser(req, res, e => { throw e; });
+  assert.deepEqual(res.body, { success: true });
+  assert.deepEqual(send.mock.calls[0].arguments, [account.email, 'Subject', 'Message', `user-mail/${adminId}/${userId}/${requestId}`, undefined, undefined]);
+  async function rejected(body, status) {
+    let error;
+    await controller.emailUser({ ...req, body }, response(), e => { error = e; });
+    assert.equal(error?.statusCode, status);
+  }
+  for (const patch of [{ subject: 'a\nb' }, { message: '  ' }, { message: 'x'.repeat(10001) }, { html: {} }, { html: 'x'.repeat(80001) }, { requestId: '' }]) {
+    await rejected({ ...req.body, ...patch }, 400);
+  }
+  account = { email: '' }; await rejected(req.body, 400);
+  account = null; await rejected(req.body, 404);
+  assert.equal(send.mock.callCount(), 1);
+  account = { email: 'recipient@example.test' };
+  const png = { mimetype: 'image/png', buffer: Buffer.from('89504e470d0a1a0a00000000', 'hex') };
+  await controller.emailUser({ ...req, file: png, body: { ...req.body, message: '' } }, response(), e => { throw e; });
+  assert.equal(send.mock.calls[1].arguments[5].contentType, 'image/png');
+  let invalidImage;
+  await controller.emailUser({ ...req, file: { ...png, buffer: Buffer.from('<svg/>') } }, response(), e => { invalidImage = e; });
+  assert.equal(invalidImage?.statusCode, 400);
+  assert.equal(send.mock.callCount(), 2);
+  send.mock.mockImplementation(async () => { throw new mail.EmailDeliveryError('provider_rejected'); });
+  await rejected(req.body, 503);
+});

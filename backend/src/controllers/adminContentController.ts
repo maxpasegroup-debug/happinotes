@@ -39,6 +39,19 @@ function pickContentFields(body: Record<string, unknown>): Record<string, unknow
   return out;
 }
 
+// JSON edits can include the version displayed to the admin. Match it in the
+// write itself so a concurrent save cannot overwrite a newer book or lesson.
+async function persistContentEdit(id: string, changes: Record<string, unknown>, revision: unknown) {
+  const options = { new: true, runValidators: true };
+  if (revision === undefined) return Content.findByIdAndUpdate(id, changes, options);
+  if (typeof revision !== 'string' || !Number.isFinite(Date.parse(revision))) {
+    throw new BadRequestError('Invalid book revision. Refresh the library and try again.');
+  }
+  const content = await Content.findOneAndUpdate({ _id: id, updatedAt: new Date(revision) }, changes, options);
+  if (!content) throw new AppError('This book changed while you were editing. Refresh the library and reopen the value.', 409);
+  return content;
+}
+
 function normalizeSection(v: unknown): ILifebookSection | null {
   if (!v || typeof v !== 'object') return null;
   const o = v as Record<string, unknown>;
@@ -782,10 +795,7 @@ export const updateContent = async (
         String(payload.type ?? existing.type) === 'premium' && Number(payload.priceInr ?? 0) > 0) {
       return next(new BadRequestError('Premium books use the monthly subscription and cannot have an individual purchase price'));
     }
-    const content = await Content.findByIdAndUpdate(req.params.id, payload, {
-      new: true,
-      runValidators: true,
-    });
+    const content = await persistContentEdit(req.params.id, payload, body.expectedUpdatedAt);
     if (!content) throw new NotFoundError('Content not found');
     contentPersisted = true;
     await ensureBookProducts(content);
@@ -857,11 +867,7 @@ export const updateContentStatus = async (
       }
     }
     const wasLive = existing.status === 'live';
-    const content = await Content.findByIdAndUpdate(
-      req.params.id,
-      { status },
-      { new: true, runValidators: true }
-    );
+    const content = await persistContentEdit(req.params.id, { status }, req.body.expectedUpdatedAt);
     if (!content) return next(new NotFoundError('Content not found'));
     emitCatalogChanged('updated', content.id, content.contentType);
     if (content.contentType === 'lifebook' && !wasLive && status === 'live') {

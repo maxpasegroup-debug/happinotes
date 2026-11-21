@@ -1,3 +1,4 @@
+import { EmailDeliveryError, sendAdminEmail, type EmailImage } from '../services/emailService';
 import { SecurityBlock } from '../models/SecurityBlock';
 import { securityKey } from '../services/vpnSecurity';
 import { revokeCustomerSession, sessionHistory } from '../services/accountSessions';
@@ -113,6 +114,44 @@ export async function listUserSecurity(req: Request, res: Response, next: NextFu
     res.setHeader('Cache-Control', 'private, no-store');
     res.json({ capabilities: { deviceLocation: true, singleActiveSession: true, vpnDetection: true }, users: users.map(user => ({ id: user._id, name: user.name, email: user.email, ...moderationStatus(user), history: user.moderationHistory || [], loginHistory: sessionHistory(user), vpn: { count: user.vpnDetectionCount || 0, lastDetectedAt: user.vpnLastDetectedAt, lastIp: user.vpnLastIp, ipBlocked: !!user.vpnLastIp && blockedIps.has(securityKey('ip', user.vpnLastIp)) }, legacyNetwork: byUser.get(String(user._id)) || null, devices: deviceGroups.get(String(user._id)) || [], network: deviceGroups.get(String(user._id))?.[0] || byUser.get(String(user._id)) || null })), page, total, totalPages: Math.ceil(total / 7) });
   } catch (error) { next(error); }
+}
+
+export async function emailUser(req: Request, res: Response, next: NextFunction) {
+  try {
+    const { id } = req.params;
+    if (!isValidObjectId(id)) throw new BadRequestError('Invalid user ID.');
+    const { subject, message, html, requestId } = req.body ?? {};
+    if (typeof subject !== 'string' || !subject.trim() || subject.length > 160 || /[\r\n]/.test(subject)) {
+      throw new BadRequestError('Enter a single-line subject of up to 160 characters.');
+    }
+    let image: EmailImage | undefined;
+    if (req.file) {
+      const { buffer, mimetype } = req.file;
+      if (mimetype === 'image/png' && buffer.length > 8 && buffer.subarray(0, 8).equals(Buffer.from('89504e470d0a1a0a', 'hex'))) {
+        image = { content: buffer, contentType: 'image/png', filename: 'image.png' };
+      } else if (mimetype === 'image/jpeg' && buffer.length > 3 && buffer.readUIntBE(0, 3) === 0xffd8ff) {
+        image = { content: buffer, contentType: 'image/jpeg', filename: 'image.jpg' };
+      } else {
+        throw new BadRequestError('Choose a JPEG or PNG image.');
+      }
+    }
+    if (typeof message !== 'string' || (!message.trim() && !image) || message.length > 10000) {
+      throw new BadRequestError('Enter a message of up to 10,000 characters.');
+    }
+    if (html !== undefined && (typeof html !== 'string' || Buffer.byteLength(html) > 80000)) {
+      throw new BadRequestError('The formatted message is too large or invalid. Simplify the formatting and try again.');
+    }
+    if (typeof requestId !== 'string' || !/^[a-f0-9]{32}$/.test(requestId)) throw new BadRequestError('Reopen the email composer and try again.');
+    const account = await User.findOne({ _id: id, role: 'user' }).select('email').lean();
+    if (!account) throw new NotFoundError('User not found.');
+    if (!account.email || !/^[^\s@,;<>]+@[^\s@,;<>]+\.[^\s@,;<>]+$/.test(account.email)) {
+      throw new BadRequestError('This account has no valid email address.');
+    }
+    await sendAdminEmail(account.email, subject.trim(), message.trim(), `user-mail/${req.user!._id}/${id}/${requestId}`, html, image);
+    res.json({ success: true });
+  } catch (error) {
+    next(error instanceof EmailDeliveryError ? new AppError('Email could not be sent. Please try again.', 503) : error);
+  }
 }
 
 export async function signOutUser(req: Request, res: Response, next: NextFunction) {

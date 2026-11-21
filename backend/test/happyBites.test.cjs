@@ -362,3 +362,29 @@ test('listening preferences accept international/custom names and reject malform
   const doc = new User({ languagePreference: 'japanese' });
   assert.equal(doc.validateSync()?.errors.languagePreference, undefined);
 });
+
+test('Happy Bites JSON saves match the revision and allow only editable data to be written', async () => {
+  const revision = '2026-10-01T10:30:00.000Z';
+  const events = [];
+  realtime.registerRealtimeServer({ emit: (...args) => events.push(args) });
+  let matches = true;
+  const write = mock.method(HappyBite, 'findOneAndUpdate', async (filter, update, options) => {
+    assert.deepEqual(filter, { _id: 'bite1', updatedAt: new Date(revision) });
+    assert.deepEqual(update, { $set: { category: 'Joy' } });
+    assert.equal(options.runValidators, true);
+    return matches ? { _id: 'bite1', category: 'Joy' } : null;
+  });
+  const req = { params: { id: 'bite1' }, body: { category: 'Joy', expectedUpdatedAt: revision, _id: 'other', updatedAt: 'other', __v: 8 } };
+  const res = response();
+  await controller.updateHappyBite(req, res, e => { throw e; });
+  assert.equal(res.payload.happyBite.category, 'Joy');
+  matches = false;
+  let error;
+  await controller.updateHappyBite(req, response(), e => { error = e; });
+  assert.equal(error.statusCode, 409);
+  req.body.expectedUpdatedAt = 'invalid';
+  await controller.updateHappyBite(req, response(), e => { error = e; });
+  assert.equal(error.statusCode, 400);
+  assert.equal(write.mock.calls.length, 2);
+  assert.equal(events.length, 1);
+});
