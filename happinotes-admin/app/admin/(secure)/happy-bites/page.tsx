@@ -1,5 +1,6 @@
 "use client";
 
+import CatalogJsonView from "@/components/admin/CatalogJsonView";
 import AdminModal from "@/components/admin/AdminModal";
 
 import { useAdminConfirmation } from "@/components/admin/ConfirmationProvider";
@@ -65,6 +66,7 @@ export default function HappyBitesAdminPage() {
   const [items, setItems] = useState<HappyBite[]>([]);
   const [draft, setDraft] = useState<HappyBiteDraft | null>(null);
   const [loading, setLoading] = useState(true);
+  const [showJson, setShowJson] = useState(false);
   const [exporting, setExporting] = useState(false);
   const [operation, setOperation] = useState("");
   const [uploads, setUploads] = useState<Partial<Record<UploadKind, BiteUploadState>>>({});
@@ -91,7 +93,7 @@ export default function HappyBitesAdminPage() {
     setError("");
     try {
       const result = await apiRequest<{ happyBites: HappyBite[] }>("/admin/happy-bites", "GET", undefined, token());
-      if (request === loadRequest.current) setItems((result.happyBites || []).map((item) => ({ ...item, accessType: item.accessType ?? 'free' })));
+      if (request === loadRequest.current) setItems(result.happyBites || []);
     } catch (exception) {
       const message = errorMessage(exception);
       if (request === loadRequest.current) setError(message === 'Request failed with status 404'
@@ -128,7 +130,7 @@ export default function HappyBitesAdminPage() {
     if (exporting || !items.length) return;
     setExporting(true);
     try {
-      downloadCsv(`happinotes-happy-bites-${new Date().toISOString().slice(0, 10)}.csv`, ['ID', 'Title', 'Description', 'Thumbnail URL', 'Audio URL', 'Duration seconds', 'Category', 'Language', 'Access', 'Published', 'Display order', 'Created at', 'Updated at'], items.map((item) => [item._id, item.title, item.description, item.thumbnailUrl, item.audioUrl, item.durationSeconds, item.category, item.language, item.accessType, item.published, item.displayOrder, item.createdAt, item.updatedAt]));
+      downloadCsv(`happinotes-happy-bites-${new Date().toISOString().slice(0, 10)}.csv`, ['ID', 'Title', 'Description', 'Thumbnail URL', 'Audio URL', 'Duration seconds', 'Category', 'Language', 'Access', 'Published', 'Display order', 'Created at', 'Updated at'], items.map((item) => [item._id, item.title, item.description, item.thumbnailUrl, item.audioUrl, item.durationSeconds, item.category, item.language, item.accessType ?? 'free', item.published, item.displayOrder, item.createdAt, item.updatedAt]));
       setNotice(`Exported ${items.length} Happy Bite${items.length === 1 ? '' : 's'} to CSV.`);
     } finally {
       setExporting(false);
@@ -227,6 +229,15 @@ export default function HappyBitesAdminPage() {
     finally { locked.current = false; setOperation(''); }
   };
 
+  async function saveJsonValue(id: string, field: string, value: unknown, revision: unknown) {
+    const { happyBite } = await apiRequest<{ happyBite: HappyBite }>(
+      `/admin/happy-bites/${encodeURIComponent(id)}`, "PUT", { [field]: value, expectedUpdatedAt: revision }, token(),
+    );
+    setItems(current => current.map(item => item._id === id ? happyBite : item).sort((a, b) =>
+      a.displayOrder - b.displayOrder || (b.createdAt ?? "").localeCompare(a.createdAt ?? "") || b._id.localeCompare(a._id)));
+    addToast({ title: "Happy Bite updated", description: happyBite.title, severity: "success" });
+  }
+
   const remove = async () => {
     if (!deleteItem || locked.current) return;
     locked.current = true; setOperation('delete'); setError('');
@@ -243,7 +254,12 @@ export default function HappyBitesAdminPage() {
       <div><p className="text-xs font-semibold uppercase tracking-[0.18em] text-orange-700 dark:text-orange-300">Content management</p>
         <h1 className="mt-2 text-3xl font-bold tracking-tight">Happy Bites</h1>
         <p className="mt-2 text-sm text-default-500">Small thoughts. Meaningful changes. Free and Pro listening.</p></div>
-      {!draft ? <AdminButton disabled={busy} onClick={() => openEditor()} className={primaryClass}>＋ New Happy Bite</AdminButton> : null}
+      {!draft && <div className="flex flex-wrap gap-2">
+        <AdminButton disabled={loading || busy || exporting || !items.length} onClick={exportHappyBites} className={buttonClass}>{exporting ? 'Exporting…' : 'Export CSV'}</AdminButton>
+        <AdminButton variant={showJson ? "flat" : "bordered"} color={showJson ? "primary" : "default"} aria-pressed={showJson} disabled={loading || busy} onPress={() => setShowJson(current => !current)}>{showJson ? "Back to library" : "JSON view"}</AdminButton>
+        <AdminButton disabled={loading || busy} onClick={() => void load()} className={buttonClass}>Refresh</AdminButton>
+        {!showJson && <AdminButton disabled={busy} onClick={() => openEditor()} className={primaryClass}>＋ New Happy Bite</AdminButton>}
+      </div>}
     </header>
 
     {error && !deleteItem ? <div role="alert" className="rounded-2xl border border-red-400/25 bg-red-950/30 p-4 text-sm text-red-700 dark:text-red-200">{error}</div> : null}
@@ -282,7 +298,12 @@ export default function HappyBitesAdminPage() {
         </div>
         <div className="flex flex-wrap gap-3"><AdminButton type="submit" className={primaryClass}>{operation === 'save' ? 'Saving…' : draft.published ? 'Save & publish' : 'Save draft'}</AdminButton><AdminButton type="button" onClick={async () => { if (!await confirm({ title: 'Discard unsaved changes?', description: 'Leave the Happy Bite editor without saving these changes?', confirmLabel: 'Discard changes', tone: 'danger' })) return; setDraft(null); setError(''); setNotice(''); }} className={buttonClass}>Cancel</AdminButton></div>
       </AdminFieldset>
-    </form> : <>
+    </form> : showJson ? (
+      loading && !items.length ? <HappyBitesSkeleton /> : error && !items.length ? null :
+        <CatalogJsonView label="Happy Bite" items={items} pageSize={BITES_PER_PAGE}
+          busyId={busy ? deleteItem?._id ?? operation : null} onEdit={openEditor}
+          onDelete={item => { setError(""); setDeleteItem(item); }} onSaveValue={saveJsonValue} />
+    ) : <>
       <div className="grid grid-cols-3 gap-3" aria-busy={loading}>{[['Total bites', items.length], ['Published', items.filter((item) => item.published).length], ['Drafts', items.filter((item) => !item.published).length]].map(([label, value]) => <Card as="div" shadow="none" key={label} className="rounded-2xl border border-divider bg-content1 p-4"><p className="text-xs text-default-500">{label}</p>{loading ? <Skeleton aria-hidden="true" className="happy-bites-skeleton mt-2 h-8 w-12 rounded-lg motion-reduce:before:animate-none" /> : <p className="mt-2 text-2xl font-semibold">{value}</p>}</Card>)}</div>
       <div className="flex flex-wrap items-end gap-3">
         <label className="min-w-[160px] flex-1 text-xs text-default-500">Search<AdminInput className={inputClass} type="search" placeholder="Search Happy Bites…" value={search} onChange={(e) => setSearch(e.target.value)} /></label>
@@ -290,7 +311,7 @@ export default function HappyBitesAdminPage() {
           <AdminSelect label="Status" className={inputClass} value={filter} onChange={(e) => setFilter(e.target.value)}><option value="all">All statuses</option><option value="published">Published</option><option value="draft">Drafts</option></AdminSelect></div>
         <div className="text-xs text-default-500">
           <AdminSelect label="Category" className={inputClass} value={categoryFilter} onChange={(e) => setCategoryFilter(e.target.value)}><option value="">All categories</option>{[...new Set(items.map((item) => item.category))].sort().map((category) => <option key={category}>{category}</option>)}</AdminSelect></div>
-        <div className="flex flex-wrap gap-2"><AdminButton disabled={loading || busy || exporting || !items.length} onClick={exportHappyBites} className={buttonClass}>{exporting ? 'Exporting…' : 'Export CSV'}</AdminButton><AdminButton disabled={loading || busy} onClick={() => void load()} className={buttonClass}>Refresh</AdminButton></div>
+
       </div>
       <Card as="div" shadow="none" aria-busy={loading} className="w-full overflow-hidden rounded-2xl border border-divider bg-content1 p-0 shadow-sm">
         {loading ? <HappyBitesSkeleton /> : visibleItems.length === 0 ? <div className="px-5 py-12 text-center"><p className="text-lg font-semibold">{items.length ? 'No matching Happy Bites' : error ? 'Library unavailable' : 'Make someone’s day a little brighter'}</p><p className="mt-2 text-sm text-default-500">{items.length ? 'Try a different search or filter.' : error ? 'Check the message above, then refresh to try again.' : 'Upload your first short audio and share it for free.'}</p></div> : <>

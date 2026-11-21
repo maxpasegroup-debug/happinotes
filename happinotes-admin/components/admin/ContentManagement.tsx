@@ -1,6 +1,7 @@
 "use client";
 
 import Image from "next/image";
+import CatalogJsonView from "@/components/admin/CatalogJsonView";
 import LanguagePicker from "@/components/admin/LanguagePicker";
 import { motion, useReducedMotion } from "framer-motion";
 
@@ -16,7 +17,7 @@ import { AdminButton, AdminCheckbox, AdminInput, AdminTextarea, AdminSelect } fr
 
 import { useEffect, useMemo, useState } from "react";
 import { useRouter } from "next/navigation";
-import { apiRequest, downloadCsv, uploadMultipart } from "@/lib/api";
+import { apiRequest, downloadCsv, mediaUrl, uploadMultipart } from "@/lib/api";
 
 type Status = "draft" | "coming_soon" | "live";
 type Kind = "lifebook" | "note" | "silence";
@@ -172,19 +173,6 @@ type ContentForm = {
 
 type Step = 1 | 2 | 3 | 4;
 
-const MEDIA_API_BASE = process.env.NEXT_PUBLIC_API_BASE_URL || "https://happinotes-production-6b44.up.railway.app";
-
-function mediaUrl(value?: string): string | undefined {
-  if (!value?.trim()) return undefined;
-  const url = value.trim();
-  if (url.startsWith("/")) return `${MEDIA_API_BASE}${url}`;
-  if (url.startsWith("uploads/")) return `${MEDIA_API_BASE}/${url}`;
-  if (url.startsWith("//")) return `https:${url}`;
-  if (/^http:\/\//i.test(url) && /railway\.app\//i.test(url)) return url.replace(/^http:/i, "https:");
-  if (!/^https?:\/\//i.test(url) && /railway\.app\//i.test(url)) return `https://${url}`;
-  return url;
-}
-
 function emptyForm(): ContentForm {
   return {
     title: "",
@@ -213,7 +201,17 @@ function emptyForm(): ContentForm {
 export default function ContentManagement({ activeModule }: { activeModule: ModuleKey }) {
   const confirm = useAdminConfirmation();
   const router = useRouter();
-  const [contents, setContents] = useState<Content[]>([]);
+  const [records, setRecords] = useState<Content[]>([]);
+  const [showJson, setShowJson] = useState(false);
+  const [catalogError, setCatalogError] = useState(false);
+  const contents = useMemo(() => records.map((item) => ({
+    ...item,
+    // Older book records use coverImageUrl; keep one canonical field for
+    // both the cards and the edit dialog.
+    thumbnailUrl: mediaUrl(item.thumbnailUrl || item.coverImageUrl),
+    coverImageUrl: mediaUrl(item.coverImageUrl),
+  })), [records]);
+  const jsonBooks = useMemo(() => records.filter(book => book.contentType === "lifebook"), [records]);
   const reducedMotion = useReducedMotion();
   const [bookSearch, setBookSearch] = useState("");
   const [bookStatus, setBookStatus] = useState<"all" | Status>("all");
@@ -271,18 +269,14 @@ export default function ContentManagement({ activeModule }: { activeModule: Modu
         apiRequest<{ contents: Content[] }>("/admin/contents", "GET", undefined, token),
         apiRequest<{ users: User[] }>("/admin/users", "GET", undefined, token),
       ]);
-      setContents((c.contents || []).map((item) => ({
-        ...item,
-        // Older book records use coverImageUrl; keep one canonical field for
-        // both the cards and the edit dialog.
-        thumbnailUrl: mediaUrl(item.thumbnailUrl || item.coverImageUrl),
-        coverImageUrl: mediaUrl(item.coverImageUrl),
-      })));
+      setRecords(c.contents || []);
+      setCatalogError(false);
       setUsers(u.users || []);
       setUsersPage((page) => Math.min(page, Math.max(1, Math.ceil((u.users || []).length / USERS_PER_PAGE))));
       setLoading(false);
     } catch (error) {
       setLoading(false);
+      setCatalogError(true);
       setMessage("Could not load this section. Please refresh and try again.");
       throw error;
     }
@@ -400,14 +394,30 @@ export default function ContentManagement({ activeModule }: { activeModule: Modu
     setEditOpen(true);
   }
 
+  async function saveJsonValue(id: string, field: string, value: unknown, revision: unknown) {
+    const token = window.localStorage.getItem("admin_token") || "";
+    const statusChange = field === "status";
+    const result = await apiRequest<{ content: Content }>(
+      `/admin/contents/${encodeURIComponent(id)}${statusChange ? "/status" : ""}`,
+      statusChange ? "PATCH" : "PUT", { [field]: value, expectedUpdatedAt: revision }, token,
+    );
+    setRecords(items => items.map(item => item._id === id ? result.content : item));
+    addToast({ title: "Life Book updated", description: result.content.title, severity: "success" });
+  }
+
   async function removeContent(id: string) {
     const ok = await confirm({ title: "Delete content?", description: `Permanently delete “${contents.find((item) => item._id === id)?.title || "this content"}”? This cannot be undone.`, confirmLabel: "Delete content", tone: "danger" });
     if (!ok) return;
     const token = window.localStorage.getItem("admin_token") || "";
     setBusyId(id);
     try {
-      await apiRequest(`/admin/contents/${id}`, "DELETE", undefined, token);
-      await load();
+      try {
+        await apiRequest(`/admin/contents/${id}`, "DELETE", undefined, token);
+      } catch {
+        addToast({ title: "Could not delete content", description: "Please try again.", severity: "danger" });
+        return;
+      }
+      await load().catch(() => undefined); // load already reports refresh errors.
     } finally {
       setBusyId(null);
     }
@@ -692,9 +702,12 @@ export default function ContentManagement({ activeModule }: { activeModule: Modu
 
   return (
     <div className="w-full min-w-0 space-y-7">
-      <header className={`flex flex-wrap items-start justify-between gap-4 ${activeModule === "users" ? "px-5 sm:px-8 lg:px-10" : ""}`}><div><p className="text-xs font-bold uppercase tracking-widest text-primary">{activeModule === 'users' ? 'Account management' : 'Content management'}</p><h1 className="mt-2 text-3xl font-bold">{activeModule === 'users' ? 'Users' : 'Life Books'}</h1><p className="mt-2 text-sm text-default-400">{activeModule === 'users' ? 'Manage the people in your HappiNotes community.' : 'Create, publish and organize your Life Book library.'}</p></div>{activeModule === "lifebooks" ? <div className="flex flex-wrap gap-2"><AdminButton variant="bordered" disabled={loading || exportingBooks || !lifebooks.length} onPress={exportBooks}>{exportingBooks ? 'Exporting…' : 'Export CSV'}</AdminButton><AdminButton color="primary" disabled={loading} startContent={<LibraryIcon name="plus" className="h-4 w-4" />} onPress={() => void openCreate("lifebook")}>Add New Life Book</AdminButton></div> : null}</header>
+      <header className={`flex flex-wrap items-start justify-between gap-4 ${activeModule === "users" ? "px-5 sm:px-8 lg:px-10" : ""}`}><div><p className="text-xs font-bold uppercase tracking-widest text-primary">{activeModule === 'users' ? 'Account management' : 'Content management'}</p><h1 className="mt-2 text-3xl font-bold">{activeModule === 'users' ? 'Users' : 'Life Books'}</h1><p className="mt-2 text-sm text-default-400">{activeModule === 'users' ? 'Manage the people in your HappiNotes community.' : 'Create, publish and organize your Life Book library.'}</p></div>{activeModule === "lifebooks" ? <div className="flex flex-wrap gap-2"><AdminButton variant="bordered" disabled={loading || exportingBooks || !lifebooks.length} onPress={exportBooks}>{exportingBooks ? 'Exporting…' : 'Export CSV'}</AdminButton><AdminButton variant={showJson ? "flat" : "bordered"} color={showJson ? "primary" : "default"} aria-pressed={showJson} disabled={loading} onPress={() => setShowJson(value => !value)}>{showJson ? "Back to library" : "JSON view"}</AdminButton>{!showJson && <AdminButton color="primary" disabled={loading} startContent={<LibraryIcon name="plus" className="h-4 w-4" />} onPress={() => void openCreate("lifebook")}>Add New Life Book</AdminButton>}</div> : null}</header>
 
-      {activeModule === "lifebooks" && (loading ? <StoryBooksSkeleton /> : <motion.div initial={reducedMotion ? false : { opacity: 0, y: 8 }} animate={{ opacity: 1, y: 0 }} transition={{ duration: 0.25 }} className="space-y-6">
+      {activeModule === "lifebooks" && (loading ? <StoryBooksSkeleton /> : showJson ? (
+        catalogError ? <div role="alert" className="space-y-3 text-sm"><p>Could not load the Life Book data.</p><AdminButton onPress={() => void load().catch(() => undefined)}>Retry</AdminButton></div>
+          : <CatalogJsonView label="Life Book" items={jsonBooks} pageSize={BOOKS_PER_PAGE} busyId={busyId} onEdit={openEdit} onDelete={item => void removeContent(item._id)} onSaveValue={saveJsonValue} />
+      ) : <motion.div initial={reducedMotion ? false : { opacity: 0, y: 8 }} animate={{ opacity: 1, y: 0 }} transition={{ duration: 0.25 }} className="space-y-6">
         <div className="grid grid-cols-2 gap-3 lg:grid-cols-4" role="group" aria-label="Filter books by publication status">
           {bookStatuses.map((status, statusIndex) => { const tone: "orange" | "green" | "slate" | "amber" = status.key === "live" ? "green" : status.key === "coming_soon" ? "amber" : status.key === "draft" ? "slate" : "orange"; const chartValues = bookStatuses.map(entry => entry.count); return <button key={status.key} type="button" aria-pressed={bookStatus === status.key} onClick={() => setBookStatus(status.key)} className={`group relative min-w-0 overflow-hidden rounded-2xl border p-4 text-left transition-colors focus-visible:outline-2 focus-visible:outline-offset-4 focus-visible:outline-orange-400 sm:p-5 ${bookStatus === status.key ? "border-orange-400/30 bg-orange-400/[.08]" : "border-divider bg-content1 hover:border-divider"}`}><div className="flex items-center justify-between gap-2"><span className="text-xs font-medium text-default-500 sm:text-sm">{status.label}</span><span className={`h-1.5 w-1.5 rounded-full ${status.key === "live" ? "bg-emerald-400" : status.key === "coming_soon" ? "bg-amber-400" : status.key === "draft" ? "bg-slate-500" : "bg-orange-400"}`} /></div><p className={`mt-3 text-2xl font-semibold tabular-nums sm:text-3xl ${bookStatus === status.key ? "text-orange-700 dark:text-orange-300" : "text-foreground"}`}>{status.count}</p><p className="mt-1 text-[10px] font-medium uppercase tracking-[.14em] text-default-500">{lifebooks.length ? `${Math.round((status.count / lifebooks.length) * 100)}% of library` : "No titles yet"}</p><MiniStatusChart count={status.count} total={lifebooks.length} values={chartValues} activeIndex={statusIndex} tone={tone} /></button>; })}
         </div>

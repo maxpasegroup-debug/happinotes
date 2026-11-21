@@ -1,6 +1,17 @@
 const BASE_URL =
   (process.env.NEXT_PUBLIC_API_BASE_URL || "https://happinotes-production-6b44.up.railway.app").replace(/\/+$/, "");
 
+export function mediaUrl(value?: string): string | undefined {
+  if (!value?.trim()) return undefined;
+  const url = value.trim();
+  if (url.startsWith("//")) return `https:${url}`;
+  if (url.startsWith("/")) return `${BASE_URL}${url}`;
+  if (url.startsWith("uploads/")) return `${BASE_URL}/${url}`;
+  if (/^http:\/\//i.test(url) && /railway\.app\//i.test(url)) return url.replace(/^http:/i, "https:");
+  if (!/^https?:\/\//i.test(url) && /railway\.app\//i.test(url)) return `https://${url}`;
+  return url;
+}
+
 export type HttpMethod = "GET" | "POST" | "PUT" | "PATCH" | "DELETE";
 
 function getUrl(endpoint: string): string {
