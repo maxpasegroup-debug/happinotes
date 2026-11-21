@@ -135,3 +135,29 @@ test('single-account lookup reads only its selected device independent of the cu
   await controller.listUserSecurity({ query: { lookupUserId: userId, deviceId, page: '999', query: 'unrelated' } }, res, error => { throw error; });
   assert.deepEqual(res.body.users, [{ id: userId, network: device, legacyNetwork: null, devices: [device] }]);
 });
+
+test('permanent erase requires explicit confirmation and rejects self-deletion', async () => {
+  const worker = require('../dist/services/accountDeletionWorker');
+  const erase = mock.method(worker, 'eraseCustomerData', async () => {});
+  for (const [id, confirmation, expected] of [[userId, '', 400], [adminId, 'DELETE', 403], ['invalid', 'DELETE', 400]]) {
+    let error;
+    await controller.eraseUserAccount({ params: { id }, user: { _id: adminId }, body: { confirmation } }, response(), value => { error = value; });
+    assert.equal(error.statusCode, expected);
+  }
+  assert.equal(erase.mock.calls.length, 0);
+  const res = response();
+  await controller.eraseUserAccount({ params: { id: userId }, user: { _id: adminId }, body: { confirmation: 'DELETE' } }, res, error => { throw error; });
+  assert.deepEqual(erase.mock.calls[0].arguments, [userId]);
+  assert.deepEqual(res.body, { success: true, status: 'deleted' });
+});
+
+test('a late device report cannot recreate location records for an erased account', async () => {
+  mock.method(UserNetwork, 'findOne', () => ({ lean: async () => null }));
+  mock.method(UserNetwork, 'updateOne', async () => ({ upsertedId: 'late-report' }));
+  mock.method(deletion, 'confirmRelatedRecordOwner', async () => false);
+  const remove = mock.method(UserNetwork, 'deleteOne', async () => ({}));
+  let error;
+  await controller.recordNetwork({ ip: '8.8.8.8', user: { _id: userId }, body: { networkType: 'wifi' } }, response(), value => { error = value; });
+  assert.equal(error.statusCode, 403);
+  assert.deepEqual(remove.mock.calls[0].arguments[0], { _id: 'late-report', userId });
+});

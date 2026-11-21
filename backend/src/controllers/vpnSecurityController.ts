@@ -1,6 +1,7 @@
 import type { Request, Response, NextFunction } from 'express';
 import { isValidObjectId } from 'mongoose';
-import { parseDeviceSecurity, recordVpnDetection, securityKey } from '../services/vpnSecurity';
+import { confirmRelatedRecordOwner } from '../services/accountDeletion';
+import { detachSecurityBlocks, parseDeviceSecurity, recordVpnDetection, securityKey } from '../services/vpnSecurity';
 import { BadRequestError, ForbiddenError } from '../utils/errors';
 import { User } from '../models/User';
 import { UserDevice } from '../models/UserDevice';
@@ -27,6 +28,7 @@ export async function moderateIp(req: Request, res: Response, next: NextFunction
     const known = user.vpnLastIp === ip || await UserDevice.exists({ userId: user._id, publicIp: ip }) || await UserNetwork.exists({ userId: user._id, publicIp: ip });
     if (!known) throw new BadRequestError('This IP is not present in the saved user reports.');
     await SecurityBlock.updateOne({ kind: 'ip', key: securityKey('ip', ip) }, { $set: { active: action === 'ban', userId: user._id, reason, actor: String(req.user!._id) } }, { upsert: true });
+    if (!(await confirmRelatedRecordOwner(user._id))) await detachSecurityBlocks(user._id);
     emitUserSecurityChanged(String(user._id));
     res.json({ success: true });
   } catch (error) { next(error); }

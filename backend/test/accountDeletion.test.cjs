@@ -113,6 +113,7 @@ test('reauthentication returns an opaque proof and stores only its hash', async 
   let reauthRecord;
   mock.method(User, 'findById', () => ({ select: async () => ({ _id: 'user', password: passwordHash, blocked: false, deletionState: 'active' }) }));
   mock.method(AccountDeletionRequest, 'exists', async () => false);
+  mock.method(deletion, 'confirmRelatedRecordOwner', async () => true);
   mock.method(AccountDeletionReauth, 'create', async (value) => { reauthRecord = value; return value; });
   let response;
   let error;

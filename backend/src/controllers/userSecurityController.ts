@@ -12,8 +12,9 @@ import { UserNetwork } from '../models/UserNetwork';
 import { AppError, BadRequestError, ForbiddenError, NotFoundError } from '../utils/errors';
 import { moderationStatus, parseBan } from '../services/accountModeration';
 import { clean, publicAddress, parseNetwork, parseDeviceLocation, lookupNetwork } from '../services/userNetwork';
-import { requestAccountDeletion } from '../services/accountDeletion';
-import { emitUserSecurityChanged, emitUserDevicesChanged } from '../services/realtime';
+import { eraseCustomerData } from '../services/accountDeletionWorker';
+import { confirmRelatedRecordOwner, requestAccountDeletion } from '../services/accountDeletion';
+import { emitUserSecurityChanged, emitUserDevicesChanged, emitAccountDeletionsChanged } from '../services/realtime';
 
 export function createDeviceIdentity(_req: Request, res: Response) {
   res.setHeader('Cache-Control', 'private, no-store');
@@ -40,13 +41,19 @@ export async function recordNetwork(req: Request, res: Response, next: NextFunct
     const refresh = configuredNow || previous?.publicIp !== publicIp || !previous?.geo?.checkedAt || Date.now() - new Date(previous.geo.checkedAt).getTime() > lookupTtl;
     const lastSeen = new Date();
     const update = { $set: { ...input, publicIp: publicIp || '', lastSeen, ...(installationId && locationState ? { locationStatus: { state: locationState, checkedAt: lastSeen } } : {}), ...(deviceLocation ? { deviceLocation } : {}) }, ...(installationId && deviceLocation === null ? { $unset: { deviceLocation: 1 } } : {}), ...(installationId ? { $setOnInsert: { firstSeen: lastSeen } } : {}) };
+    let insertedReport;
     if (installationId) {
-      try { await UserDevice.updateOne(filter, update, { upsert: true, runValidators: true }); }
+      try { insertedReport = (await UserDevice.updateOne(filter, update, { upsert: true, runValidators: true }))?.upsertedId; }
       catch (error) {
         if ((error as { code?: number }).code !== 11000) throw error;
         await UserDevice.updateOne(filter, update, { runValidators: true });
       }
-    } else await UserNetwork.updateOne(filter, update, { upsert: true });
+    } else insertedReport = (await UserNetwork.updateOne(filter, update, { upsert: true }))?.upsertedId;
+    if (insertedReport && !(await confirmRelatedRecordOwner(req.user!._id))) {
+      if (installationId) await UserDevice.deleteOne({ _id: insertedReport, userId: req.user!._id });
+      else await UserNetwork.deleteOne({ _id: insertedReport, userId: req.user!._id });
+      throw new ForbiddenError('Account is no longer available.');
+    }
     if (req.authSessionId && installationId) {
       const device = await UserDevice.findOne(filter).select('_id').lean();
       await User.updateOne({ _id: req.user!._id, 'loginHistory.sessionId': req.authSessionId }, { $set: {
@@ -134,6 +141,19 @@ export async function moderateUser(req: Request, res: Response, next: NextFuncti
     if (action === 'unban') await SecurityBlock.updateMany({ userId: updated._id, kind: { $in: ['installation', 'email'] }, active: true }, { $set: { active: false, actor: String(req.user!._id), reason: 'Released by account unban: ' + reason } });
     emitUserSecurityChanged(String(updated._id));
     res.json({ success: true, ...moderationStatus(updated) });
+  } catch (error) { next(error); }
+}
+
+export async function eraseUserAccount(req: Request, res: Response, next: NextFunction) {
+  try {
+    const userId = req.params.id;
+    if (!isValidObjectId(userId)) throw new BadRequestError('Invalid user ID.');
+    if (userId.toLowerCase() === String(req.user!._id)) throw new ForbiddenError('Administrators cannot delete themselves here.');
+    if (req.body?.confirmation !== 'DELETE') throw new BadRequestError('Type DELETE to confirm permanent deletion.');
+    await eraseCustomerData(userId);
+    emitUserSecurityChanged(userId);
+    emitAccountDeletionsChanged();
+    res.json({ success: true, status: 'deleted' });
   } catch (error) { next(error); }
 }
 

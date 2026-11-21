@@ -1,9 +1,11 @@
-import { preserveVpnBlocks } from './vpnSecurity';
+import mongoose, { type ClientSession, type Types } from 'mongoose';
+import { ForbiddenError, AppError } from '../utils/errors';
+import { detachSecurityBlocks, preserveVpnBlocks } from './vpnSecurity';
 import { UserDevice } from '../models/UserDevice';
 import { UserNetwork } from '../models/UserNetwork';
 import { emitAccountDeletionsChanged } from './realtime';
 import { randomUUID } from 'crypto';
-import { AccountDeletionReauth, Otp, User } from '../models';
+import { AccountDeletionReauth, AccountDeletionRequest, Otp, User } from '../models';
 import { IAccountDeletionRequest } from '../models/AccountDeletionRequest';
 import { PasswordResetToken } from '../models/passwordResetToken';
 import { StorePurchase } from '../models/StorePurchase';
@@ -150,15 +152,46 @@ async function revokeHappiNotesEntitlements(request: IAccountDeletionRequest): P
 
 /** Remove direct account and content/offer links while retaining only
  * provisional transaction evidence. Legal/finance disposition remains gated. */
-async function detachPurchaseLedgers(request: IAccountDeletionRequest): Promise<void> {
+async function detachPurchaseLedgers(userId: Types.ObjectId, session?: ClientSession): Promise<void> {
   await StorePurchase.updateMany(
-    { userId: request.userId },
+    { userId },
     { $unset: { userId: 1, bookId: 1, __v: 1 } },
+    { session },
   );
   await SubscriptionPurchase.updateMany(
-    { userId: request.userId },
+    { userId },
     { $unset: { userId: 1, planKey: 1, priceVersion: 1, __v: 1 } },
+    { session },
   );
+}
+
+/** The admin confirms permanent erasure separately from the self-service review workflow. */
+export async function eraseCustomerData(userId: string): Promise<void> {
+  await mongoose.connection.transaction(async session => {
+    const user = await User.findById(userId)
+      .select('role email phoneNumber blocked vpnDetectionCount +vpnInstallationKeys').session(session);
+    if (!user) return; // Retrying after a committed delete is safe.
+    if (user.role !== 'user') throw new ForbiddenError('Only customer accounts can be deleted here.');
+
+    // An already claimed worker may still be preserving blocks outside this transaction.
+    if (await AccountDeletionRequest.exists({ userId, status: 'processing', leaseUntil: { $gt: new Date() } }).session(session)) {
+      throw new AppError('Account cleanup is running. Retry when it finishes.', 409);
+    }
+
+    await User.deleteOne({ _id: user._id, role: 'user' }, { session });
+    const owner = { userId: user._id };
+    await UserDevice.deleteMany(owner, { session });
+    await UserNetwork.deleteMany(owner, { session });
+    await PasswordResetToken.deleteMany(owner, { session });
+    await AccountDeletionReauth.deleteMany(owner, { session });
+    await AccountDeletionRequest.deleteMany(owner, { session });
+    const identifiers = [user.email, user.phoneNumber].filter(Boolean);
+    if (identifiers.length) await Otp.deleteMany({ identifier: { $in: identifiers } }, { session });
+
+    await detachPurchaseLedgers(user._id, session);
+    await preserveVpnBlocks(user, session);
+    await detachSecurityBlocks(user._id, session);
+  });
 }
 
 /** Execute one claimed request. Each step is idempotent and recorded only
@@ -241,7 +274,7 @@ export async function processClaimedDeletionRequest(
 
     if (request.checkpoints?.purchaseLedgerDetachment !== 'complete') {
       await assertLeaseOwned();
-      await detachPurchaseLedgers(request);
+      await detachPurchaseLedgers(request.userId);
       await assertLeaseOwned();
       if (!(await completeDeletionCheckpoint(request._id, leaseOwner, 'purchaseLedgerDetachment'))) {
         throw Object.assign(new Error('Deletion worker lease expired'), { code: 'LEASE_EXPIRED' });

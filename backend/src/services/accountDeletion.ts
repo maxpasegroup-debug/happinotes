@@ -62,6 +62,14 @@ export async function isAccountWritable(
   return !(await hasActiveDeletionRequest(userId, session));
 }
 
+/** A child insert may race an admin erase after its request has authenticated.
+ * The owner write serializes with the deletion transaction: if deletion won,
+ * the caller must discard the newly created record. */
+export async function confirmRelatedRecordOwner(userId: Types.ObjectId | string): Promise<boolean> {
+  const write = await User.updateOne({ _id: userId }, { $currentDate: { updatedAt: true } }, { timestamps: false });
+  return write.matchedCount === 1;
+}
+
 export async function assertAccountWritable(userId: Types.ObjectId | string): Promise<void> {
   if (!(await isAccountWritable(userId))) throw new ForbiddenError(DELETION_BLOCKED_MESSAGE);
 }

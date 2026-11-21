@@ -14,7 +14,7 @@ import { PasswordResetToken } from '../models/passwordResetToken';
 import { env } from '../config/env';
 import { sendOTPEmail } from '../services/emailService';
 import { AppError, BadRequestError, RateLimitError, UnauthorizedError } from '../utils/errors';
-import { assertAccountWritable, isAccountWritable } from '../services/accountDeletion';
+import { assertAccountWritable, confirmRelatedRecordOwner, isAccountWritable } from '../services/accountDeletion';
 
 const OTP_EXPIRY_MINUTES = 5;
 const EMAIL_OTP_RESEND_COOLDOWN_SECONDS = 60;
@@ -274,11 +274,12 @@ export const signup = async (
   }
 };
 
-export const login = async (
+async function passwordLogin(
   req: Request,
   res: Response,
-  next: NextFunction
-): Promise<void> => {
+  next: NextFunction,
+  adminOnly: boolean,
+): Promise<void> {
   try {
     const errors = validationResult(req);
     if (!errors.isEmpty()) {
@@ -286,7 +287,7 @@ export const login = async (
     }
 
     const { email, password, phoneNumber, pin } = req.body;
-    if (phoneNumber) {
+    if (phoneNumber && !adminOnly) {
       const phoneUser = await User.findOne({ phoneNumber }).select('+password');
       if (!phoneUser || !phoneUser.password || !(await bcrypt.compare(pin, phoneUser.password))) {
         return next(new UnauthorizedError('Invalid WhatsApp number or PIN'));
@@ -298,7 +299,7 @@ export const login = async (
       return;
     }
     const normalizedEmail = email.trim().toLowerCase();
-    const user = await User.findOne({ email: normalizedEmail }).select('+password');
+    const user = await User.findOne({ email: normalizedEmail, ...(adminOnly && { role: 'admin' }) }).select('+password');
     if (!user) {
       return next(new UnauthorizedError('Invalid email or password'));
     }
@@ -322,7 +323,10 @@ export const login = async (
   } catch (err) {
     next(err);
   }
-};
+}
+
+export const login = (req: Request, res: Response, next: NextFunction) => passwordLogin(req, res, next, false);
+export const adminPasswordLogin = (req: Request, res: Response, next: NextFunction) => passwordLogin(req, res, next, true);
 
 /** A Google identity becomes the same application account and session as email sign-in. */
 export const googleLogin = async (req: Request, res: Response, next: NextFunction): Promise<void> => {
@@ -577,6 +581,12 @@ export const forgotPassword = async (
       otpHash,
       expiresAt,
     });
+
+    if (!(await confirmRelatedRecordOwner(user._id))) {
+      await PasswordResetToken.deleteOne({ _id: resetToken._id });
+      res.status(200).json({ message: 'If an account exists, an OTP has been sent.' });
+      return;
+    }
 
     try {
       await sendOTPEmail(email, otp);

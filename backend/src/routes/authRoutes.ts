@@ -1,3 +1,4 @@
+import { captchaOwner, consumeAdminCaptcha, issueAdminCaptcha } from '../services/adminLoginCaptcha';
 import { reportVpn } from '../controllers/vpnSecurityController';
 import { recordNetwork, createDeviceIdentity } from '../controllers/userSecurityController';
 import { Router } from 'express';
@@ -6,6 +7,7 @@ import { body } from 'express-validator';
 import {
   signup,
   googleLogin,
+  adminPasswordLogin,
   login,
   logout,
   getMe,
@@ -125,6 +127,33 @@ router.post('/google', authRateLimiter, [body().custom(value => {
   return true;
 }), body('password').optional().isString().isLength({ max: 256 })], googleLogin);
 router.post('/login', authRateLimiter, loginValidation, login);
+// A solved challenge permits one extra password check for the admin panel.
+// Issuing images and verifying credentials have independent, bounded budgets.
+const captchaLimit = (max: number) => rateLimit({
+  windowMs: 15 * 60_000, max, standardHeaders: true, legacyHeaders: false,
+  message: { message: 'Admin sign-in is temporarily paused.' },
+});
+router.post('/admin/captcha', captchaLimit(30), async (req, res, next) => {
+  try {
+    res.setHeader('Cache-Control', 'no-store');
+    res.json(await issueAdminCaptcha(captchaOwner(req.body?.email, req.ip)));
+  } catch (error) { next(error); }
+});
+router.post('/admin/captcha-login', captchaLimit(10), async (req, res, next) => {
+  try {
+    res.setHeader('Cache-Control', 'no-store');
+    const owner = captchaOwner(req.body?.email, req.ip);
+    if (!(await consumeAdminCaptcha(owner, req.body.challengeId, req.body.code))) {
+      res.status(422).json({ message: 'The code was incorrect or expired. Enter the new code.' });
+      return;
+    }
+    if (typeof req.body.password !== 'string' || !req.body.password) {
+      res.status(400).json({ message: 'Enter your admin password.' });
+      return;
+    }
+    next();
+  } catch (error) { next(error); }
+}, adminPasswordLogin);
 router.post('/request-email-otp', authRateLimiter, emailOtpValidation, requestEmailOtp);
 router.post('/verify-email-otp', authRateLimiter, emailVerifyOtpValidation, verifyEmailOtp);
 router.post('/request-signup-otp', authRateLimiter, [phoneValidation], requestSignupOtp);

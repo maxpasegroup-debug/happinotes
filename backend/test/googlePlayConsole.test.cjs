@@ -3,7 +3,7 @@ const assert = require('node:assert/strict');
 const play = require('../dist/services/googlePlayConsole');
 
 test('custom track review data survives an independently denied production call', async t => {
-  const pkg = 'com.example.monitor';
+  const pkg = 'com.happinotes.app';
   for (const [key,value] of Object.entries({ GOOGLE_PLAY_PACKAGE_NAMES: pkg, GOOGLE_PLAY_SERVICE_ACCOUNT_JSON: JSON.stringify({client_email:'monitor@example.com',private_key:'test'}) })) {
     const old = process.env[key]; process.env[key] = value;
     t.after(() => { if (old === undefined) delete process.env[key]; else process.env[key] = old; });
@@ -23,6 +23,7 @@ test('custom track review data survives an independently denied production call'
     return Response.json({releases:[{releaseName:'build',releaseLifecycleState:'RELEASE_LIFECYCLE_STATE_IN_REVIEW',activeArtifacts:[{versionCode:19}]}]});
   });
   const partial = await play.getOverview();
+  assert.equal(Object.hasOwn(partial.apps[0], 'submissionActivity'), false);
   assert.equal(partial.totals.inReview, null);
   assert.deepEqual(partial.apps[0].lifecycle[1].releases[0].codes,['19']);
   denied = false; play.clearGooglePlayCache();

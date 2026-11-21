@@ -359,6 +359,7 @@ test('password reset shares the existing authentication rate limiter', () => {
 
 test('failed reset email delivery returns the same generic response as an unknown address', async () => {
   const state = await setup();
+  mock.method(deletion, 'confirmRelatedRecordOwner', async () => true);
   mock.method(PasswordResetToken, 'create', async () => ({ _id: 'undelivered-token' }));
   mock.method(emailService, 'sendOTPEmail', async () => { throw new Error('provider failure'); });
   const result = await invoke(authController.forgotPassword, { email: 'person@example.test' });

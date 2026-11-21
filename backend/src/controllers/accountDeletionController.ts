@@ -7,7 +7,7 @@ import { Request, Response, NextFunction } from 'express';
 import { validationResult } from 'express-validator';
 import { AccountDeletionReauth } from '../models/AccountDeletionReauth';
 import { Otp, User } from '../models';
-import { deletionStatusTokenFor, findActiveDeletionRequest, hashDeletionSecret, isAccountWritable, requestAccountDeletion } from '../services/accountDeletion';
+import { confirmRelatedRecordOwner, deletionStatusTokenFor, findActiveDeletionRequest, hashDeletionSecret, isAccountWritable, requestAccountDeletion } from '../services/accountDeletion';
 import { AccountDeletionRequest, IAccountDeletionRequest } from '../models/AccountDeletionRequest';
 import { BadRequestError, NotFoundError, UnauthorizedError } from '../utils/errors';
 import { sendOTPEmail } from '../services/emailService';
@@ -228,11 +228,15 @@ export async function requestDeletionReauth(
 
     const proof = crypto.randomBytes(32).toString('base64url');
     const expiresAt = new Date(Date.now() + REAUTH_WINDOW_MS);
-    await AccountDeletionReauth.create({
+    const proofRecord = await AccountDeletionReauth.create({
       userId: req.user._id,
       proofHash: hashDeletionSecret(proof),
       expiresAt,
     });
+    if (!(await confirmRelatedRecordOwner(req.user._id))) {
+      await AccountDeletionReauth.deleteOne({ _id: proofRecord._id });
+      throw new UnauthorizedError('Account deletion is not available');
+    }
     res.json({ success: true, proof, expiresAt });
   } catch (error) {
     next(error);

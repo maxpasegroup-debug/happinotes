@@ -1,5 +1,4 @@
 import fs from 'node:fs';
-import submissionSnapshots from '../data/playSubmissionActivity.json';
 import path from 'node:path';
 import { GoogleAuth } from 'google-auth-library';
 import { BadRequestError, AppError } from '../utils/errors';
@@ -30,7 +29,6 @@ export type GooglePlayTrack = {
 };
 
 export type GooglePlayApp = {
-  submissionActivity?: (typeof submissionSnapshots)[number];
   lifecycle: TrackLifecycle[];
   store: {
     subscriptions: 'enabled' | 'disabled' | 'unknown';
@@ -388,7 +386,6 @@ export async function getApp(packageName: string): Promise<GooglePlayApp> {
   }
   return putCached<GooglePlayApp>(key, {
     packageName: pkg, appName: pkg, nameSource: 'package_name', store: await store, tracks, lifecycle, reason,
-    submissionActivity: submissionSnapshots.find(snapshot => snapshot.packageName === pkg),
     available: !reason, latestRelease: latestRelease(tracks), status: reason ? 'unavailable_through_api' : 'available',
     statusSource: reason ? 'unavailable_through_api' : 'google_play_api',
   });

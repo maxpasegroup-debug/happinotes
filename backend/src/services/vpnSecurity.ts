@@ -1,3 +1,4 @@
+import type { ClientSession } from 'mongoose';
 import { createHash } from 'crypto';
 import { User, type IUser } from '../models/User';
 import { SecurityBlock } from '../models/SecurityBlock';
@@ -67,11 +68,14 @@ export async function recordVpnDetection(userId: string, report: DeviceSecurity,
 
 /** Called by deletion cleanup before identifiers are removed. Failure retries
  * the existing deletion checkpoint rather than dropping a permanent block. */
-export async function preserveVpnBlocks(user: IUser) {
+export async function preserveVpnBlocks(user: IUser, session?: ClientSession) {
   if (!user.blocked || (user.vpnDetectionCount || 0) < VPN_BAN_THRESHOLD) return;
   const keys = (user.vpnInstallationKeys || []).map(key => ['installation', key]);
   if (user.email) keys.push(['email', securityKey('email', user.email)]);
-  for (const [kind, key] of keys) await SecurityBlock.updateOne({ kind, key }, { $set: { active: true, userId: user._id, reason: 'VPN policy: five separate detections.', actor: 'system:vpn' } }, { upsert: true });
+  for (const [kind, key] of keys) {
+    if (session && await SecurityBlock.exists({ kind, key, active: true }).session(session)) continue;
+    await SecurityBlock.updateOne({ kind, key }, { $set: { active: true, userId: user._id, reason: 'VPN policy: five separate detections.', actor: 'system:vpn' } }, { upsert: true, session });
+  }
 }
 export async function checkVpnLogin(user: IUser, input: unknown, ip?: string): Promise<string | undefined> {
   if (user.role === 'admin') return undefined;
@@ -83,4 +87,12 @@ export async function checkVpnLogin(user: IUser, input: unknown, ip?: string): P
     throw new ForbiddenError(result.banned ? 'Account and app installation banned after five VPN detections. Contact support to appeal.' : `VPN detected. Turn off the VPN before signing in. Detection ${result.count} of ${VPN_BAN_THRESHOLD}.`);
   }
   return key;
+}
+
+export async function detachSecurityBlocks(userId: IUser['_id'], session?: ClientSession) {
+  await SecurityBlock.deleteMany({ userId, active: false }, { session });
+  await SecurityBlock.updateMany({ userId, active: true }, {
+    $unset: { userId: 1, actor: 1 },
+    $set: { reason: 'Security restriction retained after account deletion.' },
+  }, { session });
 }

@@ -104,6 +104,7 @@ test('Google deletion reauthentication requires a fresh token for the same subje
   mock.method(deletion, 'isAccountWritable', async () => true);
   let subject = 'other', proofs = 0;
   mock.method(identity, 'verifyGoogleIdentity', async (_, recent) => { assert.equal(recent, true); return { ...google, subject }; });
+  mock.method(deletion, 'confirmRelatedRecordOwner', async () => true);
   mock.method(AccountDeletionReauth, 'create', async () => { proofs++; });
   const req = { user: { _id: 'account' }, body: { googleIdToken: idToken } };
   let error; await requestDeletionReauth(req, response(), e => { error = e; });
@@ -126,6 +127,7 @@ test('Firebase deletion reauthentication requires recent Google sign-in for the 
   mock.method(deletion, 'isAccountWritable', async () => true);
   let subject = 'other', proofs = 0;
   mock.method(firebaseIdentity, 'verifyFirebaseGoogleIdentity', async (_, recent) => { assert.equal(recent, true); return { ...google, subject }; });
+  mock.method(deletion, 'confirmRelatedRecordOwner', async () => true);
   mock.method(AccountDeletionReauth, 'create', async () => { proofs++; });
   const req = { user: { _id: 'account' }, body: { firebaseIdToken: idToken } }; let error;
   await requestDeletionReauth(req, response(), e => { error = e; }); assert.equal(error.statusCode, 401); assert.equal(proofs, 0);
